@@ -2,7 +2,7 @@
 
 // Note: This file is licenced differently from the rest of the project
 // SPDX-License-Identifier: GPL-2.0
-// Copyright (C) Aqua Security inc.
+// Copyright (C) KhulnaSoft inc.
 
 #include <vmlinux.h>
 #include <vmlinux_flavors.h>

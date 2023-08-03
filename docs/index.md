@@ -38,6 +38,6 @@ To learn how to install Tracker in a production environment, [check out the Kube
 
 ---
 
-Tracker is an [Aqua Security](https://aquasec.com) open source project.  
+Tracker is an [KhulnaSoft](https://aquasec.com) open source project.  
 Learn about our open source work and portfolio [Here](https://www.aquasec.com/products/open-source-projects/).  
 Join the community, and talk to us about any matter in [GitHub Discussion](https://github.com/khulnasoft-labs/tracker/discussions) or [Slack](https://slack.aquasec.com).  
