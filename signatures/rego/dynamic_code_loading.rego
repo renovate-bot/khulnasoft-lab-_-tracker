@@ -1,0 +1,31 @@
+package tracker.TRC_4
+
+import data.tracker.helpers
+
+__rego_metadoc__ := {
+	"id": "TRC-4",
+	"version": "0.1.0",
+	"name": "Dynamic Code Loading",
+	"eventName": "dynamic_code_loading",
+	"description": "Writing to executable allocated memory region",
+	"tags": ["linux", "container"],
+	"properties": {
+		"Severity": 2,
+		"MITRE ATT&CK": "Defense Evasion: Obfuscated Files or Information",
+	},
+}
+
+eventSelectors := [{
+	"source": "tracker",
+	"name": "mem_prot_alert",
+}]
+
+tracker_selected_events[eventSelector] {
+	eventSelector := eventSelectors[_]
+}
+
+tracker_match {
+	input.eventName == "mem_prot_alert"
+	message := helpers.get_tracker_argument("alert")
+	message == "Protection changed from W to E!"
+}

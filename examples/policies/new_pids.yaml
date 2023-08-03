@@ -1,0 +1,12 @@
+apiVersion: khulnasoft-labs.github.io/v1beta1
+kind: TrackerPolicy
+metadata:
+  name: new-pids
+  annotations:
+    description: traces openat and security_file_open for new pids
+spec:
+  scope: 
+    - pid=new
+  rules:
+    - event: openat
+    - event: security_file_open

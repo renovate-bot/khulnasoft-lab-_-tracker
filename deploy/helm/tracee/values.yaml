@@ -1,0 +1,108 @@
+# Default values for tracker.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+image:
+  repository: docker.io/aquasec/tracker
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: ""
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+podAnnotations: {}
+
+podSecurityContext: {}
+  # fsGroup: 2000
+
+# hostPID configures Tracker pods to use the host's pid namespace.
+hostPID: true
+
+securityContext:
+  privileged: true
+
+resources: {}
+  # We usually recommend not to specify default resources and to leave this as a conscious
+  # choice for the user. This also increases chances charts run on environments with little
+  # resources, such as Minikube. If you do want to specify resources, uncomment the following
+  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+  # limits:
+  #   cpu: "1"
+  #   memory: "1Gi"
+  # requests:
+  #   cpu: "1"
+  #   memory: "1Gi"
+
+nodeSelector: {}
+
+tolerations:
+  - effect: NoSchedule
+    operator: Exists
+  - effect: NoExecute
+    operator: Exists
+
+affinity: {}
+
+webhook: ""
+
+trackerConfig: {}
+
+config:
+  blobPerfBufferSize: ""
+  perfBufferSize: 1024
+  containers: true
+  healthz: true
+  metrics: true
+  pprof: false
+  pyroscope: false
+  listenAddr: :3366
+  installPath: ""
+  signaturesDir: ""
+  capabilities: []
+  crs: []
+  rego: []
+  cache:
+    - cache-type=mem
+    - mem-cache-size=512
+  log:
+    - info
+  output:
+    - json
+    - option:parse-arguments
+
+signatures:
+  # config defines Common Expression Language (CEL) signatures that are loaded
+  # by Tracker-Rules from the --rules-dir directory. If the config object is not
+  # empty, the configuration file is automatically mounted at
+  # /tracker/signatures/signatures.yaml.
+  config: {}
+#  config:
+#    kind: SignaturesConfig
+#    apiVersion: tracker.khulnasoft-labs.github.io/v1alpha1
+#    signatures:
+#      - metadata:
+#          id: "CEL-2"
+#          version: "0.1.0"
+#          name: "Anti-Debugging"
+#          tags:
+#            - "linux"
+#            - "containers"
+#          properties:
+#            Severity: 3
+#            "MITRE ATT&CK": "Defense Evasion: Execution Guardrails"
+#        eventSelectors:
+#          - source: tracker
+#            name: ptrace
+#        expression: |-
+#          input.eventName == 'ptrace' && input.stringArg('request') == 'PTRACE_TRACEME'

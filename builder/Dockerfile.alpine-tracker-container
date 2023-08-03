@@ -1,0 +1,112 @@
+#
+# Creates the official tracker containers.
+#
+
+ARG BTFHUB=0
+ARG FLAVOR=tracker-ebpf-core
+
+#
+# tracker-base
+#
+
+FROM alpine:3.17 as tracker-base
+LABEL AS=tracker-base
+USER root
+
+# install base environment
+
+RUN apk --no-cache update && \
+    apk --no-cache add coreutils && \
+    apk --no-cache add sudo curl && \
+    apk --no-cache add libelf zlib && \
+    apk --no-cache add libc6-compat
+
+# install OPA
+
+RUN altarch=$(uname -m | sed 's:x86_64:amd64:g' | sed 's:aarch64:arm64:g') && \
+    curl -L -o /usr/bin/opa https://github.com/open-policy-agent/opa/releases/download/v0.48.0/opa_linux_${altarch}_static && \
+    chmod 755 /usr/bin/opa
+
+#
+# tracker-make-base
+#
+
+FROM tracker-base as tracker-make-base
+LABEL AS=tracker-make-base
+USER root
+
+# install needed environment
+
+RUN apk --no-cache update && \
+    apk --no-cache add bash git rsync && \
+    apk --no-cache add coreutils findutils && \
+    apk --no-cache add llvm14 clang14 && \
+    apk --no-cache add go make gcc && \
+    apk --no-cache add musl-dev && \
+    apk --no-cache add linux-headers && \
+    apk --no-cache add elfutils-dev && \
+    apk --no-cache add libelf-static && \
+    apk --no-cache add zlib-static && \
+    ln -s /usr/bin/llc14 /usr/bin/llc && \
+    ln -s /usr/bin/llvm14-strip /usr/bin/llvm-strip
+
+# install bpftool from btfhub
+
+RUN cd /tmp && \
+    git clone https://github.com/khulnasoft-labs/btfhub.git && \
+    cd ./btfhub && \
+    git submodule update --init --recursive 3rdparty/bpftool && \
+    cd ./3rdparty/bpftool && \
+    make -C src clean && \
+    CC=clang make -C src all && \
+    cp ./src/bpftool /usr/sbin/bpftool && \
+    make -C src clean
+
+#
+# tracker-make
+#
+
+FROM tracker-make-base as tracker-make
+LABEL AS=tracker-make
+ARG BTFHUB
+USER root
+ENV HOME /tracker
+WORKDIR /tracker
+
+COPY . /tracker
+
+RUN make clean && \
+    BTFHUB=$BTFHUB make tracker && \
+    BTFHUB=$BTFHUB make tracker-ebpf && \
+    make tracker-rules && \
+    make signatures && \
+    rm -rf ./3rdparty/btfhub/ && \
+    rm -rf ./3rdparty/btfhub-archive/
+
+#
+# tracker-core (tracker-base as base)
+#
+
+FROM tracker-base as tracker-core
+LABEL AS=tracker-core
+USER root
+ENV HOME /tracker
+WORKDIR /tracker
+
+COPY --from=tracker-make /tracker/dist/tracker /tracker
+COPY --from=tracker-make /tracker/dist/tracker-ebpf /tracker
+COPY --from=tracker-make /tracker/dist/tracker-rules /tracker
+COPY --from=tracker-make /tracker/dist/signatures/ /tracker/signatures/
+COPY --from=tracker-make /tracker/builder/entrypoint.sh /tracker/entrypoint.sh
+COPY --from=tracker-make /tracker/cmd/tracker-rules/templates/ /tracker/templates/
+
+ENTRYPOINT ["/tracker/entrypoint.sh"]
+
+#
+# tracker
+#
+
+FROM $FLAVOR
+USER root
+ENV HOME /tracker
+WORKDIR /tracker

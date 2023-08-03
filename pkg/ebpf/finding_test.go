@@ -1,0 +1,162 @@
+package ebpf
+
+import (
+	"sort"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+
+	"github.com/khulnasoft-labs/tracker/pkg/events"
+	"github.com/khulnasoft-labs/tracker/types/detect"
+	"github.com/khulnasoft-labs/tracker/types/protocol"
+	"github.com/khulnasoft-labs/tracker/types/trace"
+)
+
+func TestFindingToEvent(t *testing.T) {
+	expected := &trace.Event{
+		EventID:             int(events.StartSignatureID),
+		EventName:           "fake_signature_event",
+		ProcessorID:         1,
+		ProcessID:           2,
+		CgroupID:            3,
+		ThreadID:            4,
+		ParentProcessID:     5,
+		HostProcessID:       6,
+		HostThreadID:        7,
+		HostParentProcessID: 8,
+		UserID:              9,
+		MountNS:             10,
+		PIDNS:               11,
+		ProcessName:         "process",
+		HostName:            "host",
+		Container: trace.Container{
+			ID:        "containerID",
+			ImageName: "image",
+			Name:      "container",
+		},
+		Kubernetes: trace.Kubernetes{
+			PodName:      "pod",
+			PodNamespace: "namespace",
+			PodUID:       "uid",
+		},
+		ReturnValue:           0,
+		MatchedPoliciesKernel: 1,
+		MatchedPoliciesUser:   1,
+		ArgsNum:               2,
+		Args: []trace.Argument{
+			{
+				ArgMeta: trace.ArgMeta{
+					Name: "arg1",
+					Type: "const char *",
+				},
+				Value: "value1",
+			},
+			{
+				ArgMeta: trace.ArgMeta{
+					Name: "arg2",
+					Type: "int",
+				},
+				Value: 1,
+			},
+		},
+		Metadata: &trace.Metadata{
+			Version:     "1",
+			Description: "description",
+			Tags:        []string{"tag1", "tag2"},
+			Properties: map[string]interface{}{
+				"prop1":         "value1",
+				"prop2":         1,
+				"signatureID":   "fake_signature_id",
+				"signatureName": "fake_signature_event",
+			},
+		},
+	}
+
+	finding := createFakeEventAndFinding()
+	got, err := FindingToEvent(finding)
+
+	assert.NoError(t, err)
+
+	// sort arguments to avoid flaky tests
+	sort.Slice(got.Args, func(i, j int) bool { return got.Args[i].Name < got.Args[j].Name })
+	sort.Slice(expected.Args, func(i, j int) bool { return expected.Args[i].Name < expected.Args[j].Name })
+
+	assert.Equal(t, got, expected)
+}
+
+func createFakeEventAndFinding() detect.Finding {
+	eventName := "fake_signature_event"
+
+	eventDefinition := events.NewDefinition(
+		0,                      // id
+		events.Sys32Undefined,  // id32
+		eventName,              // eventName
+		"",                     // docPath
+		false,                  // internal
+		false,                  // syscall
+		[]string{"signatures"}, // sets
+		events.NewDependencies(
+			[]events.ID{events.Ptrace},
+			[]events.KSymbol{},
+			[]events.Probe{},
+			[]events.TailCall{},
+			events.Capabilities{},
+		),
+		[]trace.ArgMeta{},
+	)
+
+	events.Core.Add(events.StartSignatureID, eventDefinition)
+
+	return detect.Finding{
+		SigMetadata: detect.SignatureMetadata{
+			ID:          "fake_signature_id",
+			Name:        eventName,
+			EventName:   eventName,
+			Version:     "1",
+			Description: "description",
+			Tags:        []string{"tag1", "tag2"},
+			Properties: map[string]interface{}{
+				"prop1": "value1",
+				"prop2": 1,
+			},
+		},
+		Data: map[string]interface{}{
+			"arg1": "value1",
+			"arg2": 1,
+		},
+		Event: protocol.Event{
+			Headers: protocol.EventHeaders{},
+			Payload: trace.Event{
+				EventID:             int(events.Ptrace),
+				EventName:           "ptrace",
+				ProcessorID:         1,
+				ProcessID:           2,
+				CgroupID:            3,
+				ThreadID:            4,
+				ParentProcessID:     5,
+				HostProcessID:       6,
+				HostThreadID:        7,
+				HostParentProcessID: 8,
+				UserID:              9,
+				MountNS:             10,
+				PIDNS:               11,
+				ProcessName:         "process",
+				HostName:            "host",
+				Container: trace.Container{
+					ID:        "containerID",
+					Name:      "container",
+					ImageName: "image",
+				},
+				Kubernetes: trace.Kubernetes{
+					PodName:      "pod",
+					PodNamespace: "namespace",
+					PodUID:       "uid",
+				},
+				ReturnValue:           0,
+				MatchedPoliciesKernel: 1,
+				MatchedPoliciesUser:   1,
+				ArgsNum:               0,
+			},
+		},
+	}
+}

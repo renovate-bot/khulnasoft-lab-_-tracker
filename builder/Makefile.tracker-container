@@ -1,0 +1,149 @@
+#
+# Creates the official tracker containers images.
+#
+
+.PHONY: all
+all: help
+
+#
+# make
+#
+
+.ONESHELL:
+SHELL = /bin/sh
+
+MAKEFLAGS += --no-print-directory
+
+#
+# environment
+#
+
+UNAME_M := $(shell uname -m)
+UNAME_R := $(shell uname -r)
+
+ifeq ($(UNAME_M),x86_64)
+	ARCH = x86_64
+	ALTARCH = amd64
+endif
+
+ifeq ($(UNAME_M),aarch64)
+	ARCH = aarch64
+	ALTARCH = arm64
+endif
+
+ifeq ($(ALTARCH),)
+	@echo "can't find architecture"
+	exit 1
+endif
+
+#
+# tools
+#
+
+CMD_DOCKER ?= docker
+
+.check_%:
+#
+	@command -v $* >/dev/null
+	if [ $$? -ne 0 ]; then
+		echo "missing required tool $*"
+		exit 1
+	else
+		touch $@ # avoid target rebuilds due to inexistent file
+	fi
+
+#
+# usage
+#
+
+.PHONY: help
+help:
+	@echo ""
+	@echo "CREATES THE OFFICIAL TRACKER CONTAINER IMAGE"
+	@echo ""
+	@echo "To GENERATE tracker container:"
+	@echo ""
+	@echo "    $$ make -f builder/Makefile.tracker-container build-tracker"
+	@echo ""
+	@echo "To EXECUTE tracker container:"
+	@echo ""
+	@echo "    $$ make -f builder/Makefile.tracker-container run-tracker"
+	@echo ""
+	@echo "NOTES:"
+	@echo ""
+	@echo "  1. You may provide \"run\" arguments using the ARG variable. Example:"
+	@echo ""
+	@echo "    $$ make -f builder/Makefile.tracker-container build-tracker"
+	@echo ""
+	@echo "    $$ make -f builder/Makefile.tracker-container run-tracker ARG=\"--help\""
+	@echo ""
+	@echo "    > This will run tracker using provided arguments."
+	@echo ""
+
+#
+# requirements
+#
+
+.PHONY: .check_tree
+.check_tree:
+#
+	@if [ ! -d ./builder ]; then
+		echo "you must be in the root directory"
+		exit 1
+	fi
+
+#
+# create tracker
+#
+
+# BTFHUB is not set by default, but image should be built with BTFHUB=1.
+ifeq ($(BTFHUB),)
+BTFHUB=0
+endif
+
+TRACKER_CONT_NAME = tracker:latest
+TRACKER_CONT_DOCKERFILE = builder/Dockerfile.alpine-tracker-container
+
+.PHONY: build-tracker
+build-tracker: \
+	| .check_$(CMD_DOCKER) \
+	.check_tree
+#
+	$(CMD_DOCKER) build \
+		--network host \
+		-f $(TRACKER_CONT_DOCKERFILE) \
+		-t $(TRACKER_CONT_NAME) \
+		--build-arg=BTFHUB=$(BTFHUB) \
+		--build-arg=FLAVOR=tracker-core \
+		--target tracker-core \
+		.
+
+#
+# run tracker
+#
+
+DOCKER_RUN_ARGS = run --rm \
+	--pid=host --cgroupns=host --network host --privileged \
+	-v /etc/os-release:/etc/os-release-host:ro \
+	-v /boot/config-$(UNAME_R):/boot/config-$(UNAME_R):ro \
+	-v /sys/kernel/security:/sys/kernel/security:ro \
+	-e LIBBPFGO_OSRELEASE_FILE=/etc/os-release-host \
+	-v /tmp/tracker:/tmp/tracker:rw
+
+.PHONY: run-tracker
+run-tracker: \
+	| .check_$(CMD_DOCKER) \
+	.check_tree
+#
+	$(CMD_DOCKER) \
+		$(DOCKER_RUN_ARGS) \
+		--rm -it $(TRACKER_CONT_NAME) \
+		$(ARG)
+
+#
+# clean
+#
+
+.PHONY: clean
+clean:
+	$(MAKE) clean

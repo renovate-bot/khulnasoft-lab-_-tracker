@@ -1,0 +1,7 @@
+Files: tracker/pkg/ebpf/c/*
+Copyright: 2022, Aqua Security
+License: GPL-2+
+
+Files: *
+Copyright: 2022, Aqua Security
+License: Apache-2.0

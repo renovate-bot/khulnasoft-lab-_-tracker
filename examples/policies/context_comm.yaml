@@ -1,0 +1,13 @@
+apiVersion: khulnasoft-labs.github.io/v1beta1
+kind: TrackerPolicy
+metadata:
+  name: context-comm
+  annotations:
+    description: traces openat done by ls
+spec:
+  scope: 
+    - global
+  rules:
+    - event: openat
+      filters:
+        - comm=ls

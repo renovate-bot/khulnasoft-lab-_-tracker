@@ -1,0 +1,11 @@
+apiVersion: khulnasoft-labs.github.io/v1beta1
+kind: TrackerPolicy
+metadata:
+  name: not-containers
+  annotations:
+    description: traces anti_debugging in the host
+spec:
+  scope: 
+    - "!container"
+  rules:
+    - event: anti_debugging

@@ -1,0 +1,16 @@
+apiVersion: khulnasoft-labs.github.io/v1beta1
+kind: TrackerPolicy
+metadata:
+  name: pid-equal
+  annotations:
+    description: traces read and write syscalls for pids 1000, and 2000
+spec:
+  scope: 
+    - global
+  rules:
+    - event: read
+      filters: 
+        - pid=1000
+    - event: write
+      filters:
+        - pid=2000

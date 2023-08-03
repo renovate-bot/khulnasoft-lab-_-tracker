@@ -1,0 +1,12 @@
+apiVersion: khulnasoft-labs.github.io/v1beta1
+kind: TrackerPolicy
+metadata:
+  name: dig
+  annotations:
+    description: traces dns events from the dig binary
+spec:
+  scope: 
+    - binary=/usr/bin/dig
+  rules:
+    - event: net_packet_dns_request        
+    - event: net_packet_dns_response

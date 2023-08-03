@@ -1,0 +1,99 @@
+package main
+
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/khulnasoft-labs/tracker/signatures/signaturestest"
+	"github.com/khulnasoft-labs/tracker/types/detect"
+	"github.com/khulnasoft-labs/tracker/types/trace"
+)
+
+func TestAntiDebuggingPtraceme(t *testing.T) {
+	testCases := []struct {
+		Name     string
+		Events   []trace.Event
+		Findings map[string]detect.Finding
+	}{
+		{
+			Name: "should trigger detection",
+			Events: []trace.Event{
+				{
+					EventName: "ptrace",
+					Args: []trace.Argument{
+						{
+							ArgMeta: trace.ArgMeta{
+								Name: "request",
+							},
+							Value: interface{}("PTRACE_TRACEME"),
+						},
+					},
+				},
+			},
+			Findings: map[string]detect.Finding{
+				"TRC-102": {
+					Data: nil,
+					Event: trace.Event{
+						EventName: "ptrace",
+						Args: []trace.Argument{
+							{
+								ArgMeta: trace.ArgMeta{
+									Name: "request",
+								},
+								Value: interface{}("PTRACE_TRACEME"),
+							},
+						},
+					}.ToProtocol(),
+					SigMetadata: detect.SignatureMetadata{
+						ID:          "TRC-102",
+						Version:     "1",
+						Name:        "Anti-Debugging detected",
+						EventName:   "anti_debugging",
+						Description: "A process used anti-debugging techniques to block a debugger. Malware use anti-debugging to stay invisible and inhibit analysis of their behavior.",
+						Properties: map[string]interface{}{
+							"Severity":             1,
+							"Category":             "defense-evasion",
+							"Technique":            "Debugger Evasion",
+							"Kubernetes_Technique": "",
+							"id":                   "attack-pattern--e4dc8c01-417f-458d-9ee0-bb0617c1b391",
+							"external_id":          "T1622",
+						},
+					},
+				},
+			},
+		},
+		{
+			Name: "should not trigger detection - wrong request",
+			Events: []trace.Event{
+				{
+					EventName: "ptrace",
+					Args: []trace.Argument{
+						{
+							ArgMeta: trace.ArgMeta{
+								Name: "request",
+							},
+							Value: interface{}("PTRACE_PEEKTEXT"),
+						},
+					},
+				},
+			},
+			Findings: map[string]detect.Finding{},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.Name, func(t *testing.T) {
+			holder := signaturestest.FindingsHolder{}
+			sig := AntiDebuggingPtraceme{}
+			sig.Init(detect.SignatureContext{Callback: holder.OnFinding})
+
+			for _, e := range tc.Events {
+				err := sig.OnEvent(e.ToProtocol())
+				require.NoError(t, err)
+			}
+			assert.Equal(t, tc.Findings, holder.GroupBySigID())
+		})
+	}
+}

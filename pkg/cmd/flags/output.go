@@ -1,0 +1,264 @@
+package flags
+
+import (
+	"errors"
+	"fmt"
+	"net/url"
+	"os"
+	"path/filepath"
+	"strings"
+
+	"github.com/khulnasoft-labs/tracker/pkg/config"
+	"github.com/khulnasoft-labs/tracker/pkg/errfmt"
+)
+
+type PrepareOutputResult struct {
+	TrackerConfig  *config.OutputConfig
+	PrinterConfigs []config.PrinterConfig
+}
+
+func PrepareOutput(outputSlice []string, newBinary bool) (PrepareOutputResult, error) {
+	outConfig := PrepareOutputResult{}
+	trackerConfig := &config.OutputConfig{}
+
+	// outpath:format
+	printerMap := make(map[string]string)
+
+	for _, o := range outputSlice {
+		outputParts := strings.SplitN(o, ":", 2)
+
+		if strings.HasPrefix(outputParts[0], "gotemplate=") {
+			err := parseFormat(outputParts, printerMap, newBinary)
+			if err != nil {
+				return outConfig, err
+			}
+			continue
+		}
+
+		switch outputParts[0] {
+		case "none":
+			if len(outputParts) > 1 {
+				if newBinary {
+					// TODO: build man page
+					// return outConfig, errors.New("none output does not support path. See 'tracker-output' man page for more info")
+					return outConfig, errors.New("none output does not support path. Use '--help' for more info")
+				}
+
+				return outConfig, errors.New("none output does not support path. Use '--output help' for more info")
+			}
+			printerMap["stdout"] = "ignore"
+		case "table", "table-verbose", "json", "gob":
+			err := parseFormat(outputParts, printerMap, newBinary)
+			if err != nil {
+				return outConfig, err
+			}
+		case "forward":
+			err := validateURL(outputParts, "forward", newBinary)
+			if err != nil {
+				return outConfig, err
+			}
+
+			printerMap[outputParts[1]] = "forward"
+		case "webhook":
+			err := validateURL(outputParts, "webhook", newBinary)
+			if err != nil {
+				return outConfig, err
+			}
+
+			printerMap[outputParts[1]] = "webhook"
+		case "option":
+			err := parseOption(outputParts, trackerConfig, newBinary)
+			if err != nil {
+				return outConfig, err
+			}
+		default:
+			if newBinary {
+				// TODO: build man page
+				// return outConfig, fmt.Errorf("invalid output flag: %s, see 'tracker-output' man page for more info", outputParts[0])
+				return outConfig, fmt.Errorf("invalid output flag: %s, use '--help' for more info", outputParts[0])
+			}
+
+			return outConfig, fmt.Errorf("invalid output flag: %s, use '--output help' for more info", outputParts[0])
+		}
+	}
+
+	// default
+	if len(printerMap) == 0 {
+		printerMap["stdout"] = "table"
+	}
+
+	printerConfigs, err := getPrinterConfigs(printerMap, trackerConfig, newBinary)
+	if err != nil {
+		return outConfig, err
+	}
+
+	outConfig.TrackerConfig = trackerConfig
+	outConfig.PrinterConfigs = printerConfigs
+
+	return outConfig, nil
+}
+
+// setOption sets the given option in the given config
+func setOption(cfg *config.OutputConfig, option string, newBinary bool) error {
+	switch option {
+	case "stack-addresses":
+		cfg.StackAddresses = true
+	case "exec-env":
+		cfg.ExecEnv = true
+	case "relative-time":
+		cfg.RelativeTime = true
+	case "exec-hash":
+		cfg.ExecHash = true
+	case "parse-arguments":
+		cfg.ParseArguments = true
+	case "parse-arguments-fds":
+		cfg.ParseArgumentsFDs = true
+		cfg.ParseArguments = true // no point in parsing file descriptor args only
+	case "sort-events":
+		cfg.EventsSorting = true
+	default:
+		if newBinary {
+			// TODO: build man page
+			// return errfmt.Errorf("invalid output option: %s, see 'tracker-output' man page for more info", option)
+			return errfmt.Errorf("invalid output option: %s, use '--help' for more info", option)
+		}
+
+		return errfmt.Errorf("invalid output option: %s, use '--output help' for more info", option)
+	}
+
+	return nil
+}
+
+// getPrinterConfigs returns a slice of printer.Configs based on the given printerMap
+func getPrinterConfigs(printerMap map[string]string, trackerConfig *config.OutputConfig, newBinary bool) ([]config.PrinterConfig, error) {
+	printerConfigs := make([]config.PrinterConfig, 0, len(printerMap))
+
+	for outPath, printerKind := range printerMap {
+		if printerKind == "table" {
+			if err := setOption(trackerConfig, "parse-arguments", newBinary); err != nil {
+				return nil, err
+			}
+		}
+
+		outFile := os.Stdout
+		var err error
+
+		if outPath != "stdout" && printerKind != "forward" && printerKind != "webhook" {
+			outFile, err = createFile(outPath)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		printerConfigs = append(printerConfigs, config.PrinterConfig{
+			Kind:       printerKind,
+			OutPath:    outPath,
+			OutFile:    outFile,
+			RelativeTS: trackerConfig.RelativeTime,
+		})
+	}
+
+	return printerConfigs, nil
+}
+
+// parseFormat parses the given format and sets it in the given printerMap
+func parseFormat(outputParts []string, printerMap map[string]string, newBinary bool) error {
+	// if not file was passed, we use stdout
+	if len(outputParts) == 1 {
+		outputParts = append(outputParts, "stdout")
+	}
+
+	for _, outPath := range strings.Split(outputParts[1], ",") {
+		if outPath == "" {
+			if newBinary {
+				// TODO: build man page
+				// return errfmt.Errorf("format flag can't be empty, see 'tracker-output' man page for more info")
+				return errfmt.Errorf("format flag can't be empty, use '--help' for more info")
+			}
+
+			return errfmt.Errorf("format flag can't be empty, use '--output help' for more info")
+		}
+
+		if _, ok := printerMap[outPath]; ok {
+			if newBinary {
+				// TODO: build man page
+				// return errfmt.Errorf("cannot use the same path for multiple outputs: %s, see 'tracker-output' man page for more info", outPath)
+				return errfmt.Errorf("cannot use the same path for multiple outputs: %s, use '--help' for more info", outPath)
+			}
+
+			return errfmt.Errorf("cannot use the same path for multiple outputs: %s, use '--output help' for more info", outPath)
+		}
+		printerMap[outPath] = outputParts[0]
+	}
+
+	return nil
+}
+
+// parseOption parses the given option and sets it in the given config
+func parseOption(outputParts []string, trackerConfig *config.OutputConfig, newBinary bool) error {
+	if len(outputParts) == 1 || outputParts[1] == "" {
+		if newBinary {
+			// TODO: build man page
+			// return errfmt.Errorf("option flag can't be empty, see 'tracker-output' man page for more info")
+			return errfmt.Errorf("option flag can't be empty, use '--help' for more info")
+		}
+
+		return errfmt.Errorf("option flag can't be empty, use '--output help' for more info")
+	}
+
+	for _, option := range strings.Split(outputParts[1], ",") {
+		err := setOption(trackerConfig, option, newBinary)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// creates *os.File for the given path
+func createFile(path string) (*os.File, error) {
+	fileInfo, err := os.Stat(path)
+	if err == nil && fileInfo.IsDir() {
+		return nil, errfmt.Errorf("cannot use a path of existing directory %s", path)
+	}
+
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return nil, errfmt.Errorf("failed to create directory: %v", err)
+	}
+	file, err := os.Create(path)
+	if err != nil {
+		return nil, errfmt.Errorf("failed to create output path: %v", err)
+	}
+
+	return file, nil
+}
+
+// validateURL validates the given URL
+// --output [webhook|forward]:[protocol://user:pass@]host:port[?k=v#f]
+func validateURL(outputParts []string, flag string, newBinary bool) error {
+	if len(outputParts) == 1 || outputParts[1] == "" {
+		if newBinary {
+			// TODO: build man page
+			// return errfmt.Errorf("%s flag can't be empty, see 'tracker-output' man page for more info", flag)
+			return errfmt.Errorf("%s flag can't be empty, use '--help' for more info", flag)
+		}
+
+		return errfmt.Errorf("%s flag can't be empty, use '--output help' for more info", flag)
+	}
+	// Now parse our URL using the standard library and report any errors from basic parsing.
+	_, err := url.ParseRequestURI(outputParts[1])
+
+	if err != nil {
+		if newBinary {
+			// TODO: build man page
+			// return errfmt.Errorf("invalid uri for %s output %q. Use 'tracker-output' man page for more info", flag, outputParts[1])
+			return errfmt.Errorf("invalid uri for %s output %q. Use '--help' for more info", flag, outputParts[1])
+		}
+
+		return errfmt.Errorf("invalid uri for %s output %q. Use '--output help' for more info", flag, outputParts[1])
+	}
+
+	return nil
+}

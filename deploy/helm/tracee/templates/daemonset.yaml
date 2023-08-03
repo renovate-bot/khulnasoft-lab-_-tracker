@@ -1,0 +1,143 @@
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ include "tracker.fullname" . }}
+  labels:
+    {{- include "tracker.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "tracker.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "tracker.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "tracker.serviceAccountName" . }}
+      hostPID: {{ .Values.hostPID }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: tracker
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command:
+            - /tracker/tracker
+          args:
+            - --policy
+            - /tracker/policies
+            - --config
+            - /tracker/config.yaml
+          {{- if .Values.webhook }}
+            - --output webhook:{{ .Values.webhook }}
+          {{- end }}
+          env:
+            - name: LIBBPFGO_OSRELEASE_FILE
+              value: /etc/os-release-host
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          {{- if .Values.config.healthz }}
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: {{ trimPrefix ":" .Values.config.listenAddr }}
+          {{- end }}
+          volumeMounts:
+            - name: tmp-tracker
+              mountPath: /tmp/tracker
+            - name: etc-os-release
+              mountPath: /etc/os-release-host
+              readOnly: true
+            - mountPath: /var/run/containerd/containerd.sock
+              name: containerd-sock
+              readOnly: true
+            - mountPath: /var/run/crio/crio.sock
+              name: crio-sock
+              readOnly: true
+            - mountPath: /var/run/docker.sock
+              name: docker-sock
+              readOnly: true
+            - mountPath: /var/run/podman/podman.sock
+              name: podman-sock
+              readOnly: true
+            - name: tracker-config
+              readOnly: true
+              mountPath: /tracker/config.yaml
+              subPath: config.yaml
+            - name: tracker-policies
+              readOnly: true
+              mountPath: /tracker/policies
+            {{- if .Values.signatures.config }}
+            - name: tracker-signatures
+              mountPath: /tracker/signatures/signatures.yaml
+              subPath: signatures.yaml
+              readOnly: true
+            {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      volumes:
+        - name: tmp-tracker
+          hostPath:
+            path: /tmp/tracker
+        - name: etc-os-release
+          hostPath:
+            path: /etc/os-release
+        - name: containerd-sock
+          hostPath:
+            path: /var/run/containerd/containerd.sock
+        - name: crio-sock
+          hostPath:
+            path: /var/run/crio/crio.sock
+        - name: podman-sock
+          hostPath:
+            path: /var/run/podman/podman.sock
+        - name: docker-sock
+          hostPath:
+            path: /var/run/docker.sock
+        - name: tracker-config
+          configMap:
+            name: tracker-config
+        - name: tracker-policies
+          configMap:
+            name: tracker-policies
+        {{- if .Values.signatures.config }}
+        - name: tracker-signatures
+          configMap:
+            name: tracker-signatures
+            items:
+              - key: signatures.yaml
+                path: signatures.yaml
+        {{- end }}
+{{- if .Values.signatures.config }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tracker-signatures
+  labels:
+    {{- include "tracker.labels" . | nindent 4 }}
+data:
+  signatures.yaml: |-
+    {{- toYaml .Values.signatures.config | nindent 4 }}
+{{- end }}
