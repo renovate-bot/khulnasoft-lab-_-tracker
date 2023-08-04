@@ -33,7 +33,7 @@ docker run \
     --cgroupns=host --privileged \
     -v /tmp/tracker:/tmp/tracker  \
     -v /etc/os-release:/etc/os-release-host:ro \
-    -it -p 3366:3366 aquasec/tracker:{{ git.tag }}
+    -it -p 3366:3366 khulnasoft/tracker:{{ git.tag }}
 ```
 
 Of course, the forwarded metrics ports can be changed, but you should note that

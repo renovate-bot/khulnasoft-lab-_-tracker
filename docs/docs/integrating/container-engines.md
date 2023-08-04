@@ -30,7 +30,7 @@ those events by communicating with the relevant container's runtime and SDK.
         -v /etc/os-release:/etc/os-release-host:ro \
         -v /var/run/containerd:/var/run/containerd \
         -e CONTAINERS_ENRICHMENT=1 \
-        aquasec/tracker:{{ git.tag }}
+        khulnasoft/tracker:{{ git.tag }}
     ```
 
     Most container runtimes have their sockets installed by default in
@@ -68,7 +68,7 @@ As a user, when container enrichment is enabled the event output will include en
         --pid=host --cgroupns=host --privileged \
         -v /etc/os-release:/etc/os-release-host:ro \
         -v /var/run/docker.sock:/var/run/docker.sock \
-        aquasec/tracker:{{ git.tag }} \
+        khulnasoft/tracker:{{ git.tag }} \
         --output json --containers
     ```
 
@@ -80,6 +80,6 @@ As a user, when container enrichment is enabled the event output will include en
         --pid=host --cgroupns=host --privileged \
         -v /etc/os-release:/etc/os-release-host:ro \
         -v /var/run/containerd:/var/run/containerd \
-        aquasec/tracker:{{ git.tag }} \
+        khulnasoft/tracker:{{ git.tag }} \
         --scope container --containers
     ```

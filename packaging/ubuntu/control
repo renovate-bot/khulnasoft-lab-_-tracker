@@ -16,7 +16,7 @@ Build-Depends: debhelper,
                golang
 Standards-Version: 4.5.0
 Vcs-Git: https://github.com/khulnasoft-labs/tracker.git
-Homepage: https://www.aquasec.com/products/tracker/
+Homepage: https://www.khulnasoft.com/products/tracker/
 Rules-Requires-Root: no
 
 Package: tracker

@@ -39,13 +39,13 @@ You can customize specific options with the helm installation:
 
 ```
 # setting blob-perf-event-size
-helm install tracker aqua/tracker \
+helm install tracker khulnasoft/tracker \
         --namespace tracker-system --create-namespace \
         --set config.blobPerfEventSize=1024
 
 
 # setting a different output
-helm install tracker aqua/tracker \
+helm install tracker khulnasoft/tracker \
         --namespace tracker-system --create-namespace \
 				--set config.output[0]=table
 				--set config.output[1]=option:parse-arguments
@@ -54,7 +54,7 @@ helm install tracker aqua/tracker \
 Or you can pass a config file directly:
 
 ```
- helm install tracker aqua/tracker \
+ helm install tracker khulnasoft/tracker \
         --namespace tracker-system --create-namespace \
 				--set-file trackerConfig=<path/to/config/file>
 ```

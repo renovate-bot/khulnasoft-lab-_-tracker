@@ -5,7 +5,7 @@
    by accident).
 
    ```console
-   gh clone aquasec/tracker
+   gh clone khulnasoft/tracker
    ```
 
 1. Prepare release by creating the PR with the following changes
@@ -37,7 +37,7 @@
    1. Tracker binaries (tracker, tracker-ebpf, tracker-static, tracker-ebpf-static,
       tracker-rules, signatures) in the form of a tar archive `tracker.<VERSION>.tar.gz`
    1. Source code zip and tar files
-   1. Docker images pushed to the aquasec/tracker repository.
+   1. Docker images pushed to the khulnasoft/tracker repository.
 1. Publish the Helm chart by triggering workflow [`.github/workflows/publish-helm.yaml`].
 
 [`.github/workflows/release.yaml`]: ./.github/workflows/release.yaml

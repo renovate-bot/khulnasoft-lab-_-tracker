@@ -30,9 +30,9 @@ kube-system   storage-provisioner                1/1     Running   0          15
 The provided Helm chart will install Tracker as a DaemonSet so that it's tracing all the nodes in the cluster.
 
 ```console
-helm repo add aqua https://khulnasoft-labs.github.io/helm-charts/
+helm repo add khulnasoft https://khulnasoft-labs.github.io/helm-charts/
 helm repo update
-helm install tracker aqua/tracker --namespace tracker-system --create-namespace
+helm install tracker khulnasoft/tracker --namespace tracker-system --create-namespace
 ```
 
 <details>
@@ -59,10 +59,10 @@ In production scenario you would want to collect and ship the events to a persis
 
 ## Exercising a security event
 
-To see Tracker in action, let's simulate a security event. We'll do a "file-less" execution, which is a common evasion technique used by some malware, and is flagged by Tracker as suspicious activity. To simulate this, we'll use the [tracker-tester](https://registry.hub.docker.com/r/aquasec/tracker-tester) example image it will simulate the suspicious activity without harming your environment.
+To see Tracker in action, let's simulate a security event. We'll do a "file-less" execution, which is a common evasion technique used by some malware, and is flagged by Tracker as suspicious activity. To simulate this, we'll use the [tracker-tester](https://registry.hub.docker.com/r/khulnasoft/tracker-tester) example image it will simulate the suspicious activity without harming your environment.
 
 ```console
-kubectl run tracker-tester --image=aquasec/tracker-tester -- TRC-105
+kubectl run tracker-tester --image=khulnasoft/tracker-tester -- TRC-105
 ```
 
 You can see the event in the logs:
@@ -91,7 +91,7 @@ kubectl -n tracker-system logs -f ds/tracker | grep fileless_execution
   "processName": "3",
   "hostName": "tracker-tester",
   "containerId": "c7e3c75bf167348bf79262bf6e688088f9b4d54ebcc79464f40b52b80c73ff55",
-  "containerImage": "docker.io/aquasec/tracker:latest",
+  "containerImage": "docker.io/khulnasoft/tracker:latest",
   "containerName": "tracker",
   "podName": "tracker-wk8wh",
   "podNamespace": "tracker-system",

@@ -10,10 +10,10 @@ in a Kubernetes environment either with **Helm** or with a static yaml.
 
 1. Install **Tracker** using **Helm**
 
-	1. Add Aqua chart repository:
+	1. Add KhulnaSoft chart repository:
 
 		```console
-		helm repo add aqua https://khulnasoft-labs.github.io/helm-charts/
+		helm repo add khulnasoft https://khulnasoft-labs.github.io/helm-charts/
 		helm repo update
 		```
 
@@ -25,10 +25,10 @@ in a Kubernetes environment either with **Helm** or with a static yaml.
 		```
 
 
-	2. Install the chart from the Aqua chart repository:
+	2. Install the chart from the KhulnaSoft chart repository:
 
 		```console
-		helm install tracker aqua/tracker \
+		helm install tracker khulnasoft/tracker \
 				--namespace tracker-system --create-namespace
 		```
   

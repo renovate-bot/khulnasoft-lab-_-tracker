@@ -2,7 +2,7 @@
 
 > These instructions are meant to describe how to build the official tracker
 > container image, instead of just downloading it from the
-> [Docker Hub](https://hub.docker.com/r/aquasec/tracker).
+> [Docker Hub](https://hub.docker.com/r/khulnasoft/tracker).
 >
 > If you would like to have a local building and execution environment,
 > [read this](./environment.md) instead.
@@ -20,24 +20,24 @@ release):
      latest daily built container images (based on the version currently being
      developed).
 
-     - **aquasec/tracker:dev** (arch: amd64)
+     - **khulnasoft/tracker:dev** (arch: amd64)
 
      Multiple architecture tags:
 
-     - **aquasec/tracker:x86_64-dev**
-     - **aquasec/tracker:aarch64-dev**
+     - **khulnasoft/tracker:x86_64-dev**
+     - **khulnasoft/tracker:aarch64-dev**
 
 2. **RELEASE (official versions) container images:**
 
      Preferable aliases for latest released images (per arch)):
 
-     - **aquasec/tracker:x86_64**
-     - **aquasec/tracker:aarch64**
+     - **khulnasoft/tracker:x86_64**
+     - **khulnasoft/tracker:aarch64**
 
      And the container images for each released version of Tracker (per arch):
 
-     - **aquasec/tracker:x86_64-VERSION**
-     - **aquasec/tracker:aarch64-VERSION**
+     - **khulnasoft/tracker:x86_64-VERSION**
+     - **khulnasoft/tracker:aarch64-VERSION**
 
 ## Generating Tracker Container Images
 

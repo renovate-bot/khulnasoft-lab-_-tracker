@@ -12,5 +12,5 @@ Before you begin, ensure that you have the following:
 Tracker images are signed with cosign keyless. To verify the signature we can run the command:
 
 ```console
-cosign verify aquasec/tracker:{{ git.tag }}  --certificate-oidc-issuer https://token.actions.githubusercontent.com --certificate-identity-regexp https://github.com/khulnasoft-labs/tracker | jq
+cosign verify khulnasoft/tracker:{{ git.tag }}  --certificate-oidc-issuer https://token.actions.githubusercontent.com --certificate-identity-regexp https://github.com/khulnasoft-labs/tracker | jq
 ```

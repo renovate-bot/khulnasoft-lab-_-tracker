@@ -3,6 +3,6 @@ kind: Kustomization
 resources:
   - tracker.yaml
 images:
-  - name: docker.io/aquasec/tracker
+  - name: docker.io/khulnasoft/tracker
     newName: tracker
     newTag: latest
