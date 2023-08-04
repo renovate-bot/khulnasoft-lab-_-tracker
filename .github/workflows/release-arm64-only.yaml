@@ -37,7 +37,7 @@ jobs:
         run: |
           TAG=$(git describe --tags --abbrev=0 | sed -e "s/v//gI")
           ARCH=$(uname -m)
-          docker image tag tracker:latest aquasec/tracker:${ARCH}
-          docker image tag tracker:latest aquasec/tracker:${ARCH}-${TAG}
-          docker image push aquasec/tracker:${ARCH}
-          docker image push aquasec/tracker:${ARCH}-${TAG}
+          docker image tag tracker:latest khulnasoft/tracker:${ARCH}
+          docker image tag tracker:latest khulnasoft/tracker:${ARCH}-${TAG}
+          docker image push khulnasoft/tracker:${ARCH}
+          docker image push khulnasoft/tracker:${ARCH}-${TAG}
