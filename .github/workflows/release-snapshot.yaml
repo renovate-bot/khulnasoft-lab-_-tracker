@@ -3,8 +3,8 @@
 #
 # This workflow ensures that the main branch is ready for release and that all
 # build configuration files are valid. Also scans tracker container images for
-# vulnerabilities, and publishes to DockerHub as aquasec/tracker:dev and
-# aquasec/tracker:dev-full.
+# vulnerabilities, and publishes to DockerHub as khulnasoft/tracker:dev and
+# khulnasoft/tracker:dev-full.
 #
 name: Release Snapshot
 on:
@@ -45,17 +45,17 @@ jobs:
         run: |
           make -f builder/Makefile.release SNAPSHOT=1
       - name: Scan Docker Image for Vulnerabilities
-        uses: khulnasoft-labs/trivy-action@master
+        uses: khulnasoft-labs/vul-action@master
         with:
           image-ref: "tracker:latest"
           severity: "CRITICAL"
           exit-code: "1"
       - name: Publish to docker.io registry
         run: |
-          docker image tag tracker:latest aquasec/tracker:dev
-          docker image tag tracker:latest aquasec/tracker:x86_64-dev
-          docker image push aquasec/tracker:dev
-          docker image push aquasec/tracker:x86_64-dev
+          docker image tag tracker:latest khulnasoft/tracker:dev
+          docker image tag tracker:latest khulnasoft/tracker:x86_64-dev
+          docker image push khulnasoft/tracker:dev
+          docker image push khulnasoft/tracker:x86_64-dev
   release-snapshot-arm64:
     name: Release Snapshot ARM64
     runs-on:
@@ -88,12 +88,12 @@ jobs:
         run: |
           make -f builder/Makefile.release SNAPSHOT=1
       - name: Scan Docker Image for Vulnerabilities
-        uses: khulnasoft-labs/trivy-action@master
+        uses: khulnasoft-labs/vul-action@master
         with:
           image-ref: "tracker:latest"
           severity: "CRITICAL"
           exit-code: "1"
       - name: Publish to docker.io registry
         run: |
-          docker image tag tracker:latest aquasec/tracker:aarch64-dev
-          docker image push aquasec/tracker:aarch64-dev
+          docker image tag tracker:latest khulnasoft/tracker:aarch64-dev
+          docker image push khulnasoft/tracker:aarch64-dev
