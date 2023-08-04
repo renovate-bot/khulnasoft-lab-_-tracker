@@ -50,22 +50,22 @@ jobs:
         run: |
           TAG=$(echo ${{ github.event.inputs.ref }} | sed -e "s/v//gI")
           ARCH=$(uname -m)
-          docker image tag tracker:latest aquasec/tracker:latest
-          docker image tag tracker:latest aquasec/tracker:${ARCH}
-          docker image tag tracker:latest aquasec/tracker:${TAG}
-          docker image tag tracker:latest aquasec/tracker:${ARCH}-${TAG}
-          docker image push aquasec/tracker:latest
-          docker image push aquasec/tracker:${ARCH}
-          docker image push aquasec/tracker:${TAG}
-          docker image push aquasec/tracker:${ARCH}-${TAG}
+          docker image tag tracker:latest khulnasoft/tracker:latest
+          docker image tag tracker:latest khulnasoft/tracker:${ARCH}
+          docker image tag tracker:latest khulnasoft/tracker:${TAG}
+          docker image tag tracker:latest khulnasoft/tracker:${ARCH}-${TAG}
+          docker image push khulnasoft/tracker:latest
+          docker image push khulnasoft/tracker:${ARCH}
+          docker image push khulnasoft/tracker:${TAG}
+          docker image push khulnasoft/tracker:${ARCH}-${TAG}
       - name: Sign Docker image
         run: |
           TAG=$(echo ${{ github.event.inputs.ref }} | sed -e "s/v//gI")
           ARCH=$(uname -m)
-          cosign sign -y $(docker inspect --format='{{index .RepoDigests 0}}' aquasec/tracker:latest)
-          cosign sign -y $(docker inspect --format='{{index .RepoDigests 0}}' aquasec/tracker:${ARCH})
-          cosign sign -y $(docker inspect --format='{{index .RepoDigests 0}}' aquasec/tracker:${TAG})
-          cosign sign -y $(docker inspect --format='{{index .RepoDigests 0}}' aquasec/tracker:${ARCH}-${TAG})
+          cosign sign -y $(docker inspect --format='{{index .RepoDigests 0}}' khulnasoft/tracker:latest)
+          cosign sign -y $(docker inspect --format='{{index .RepoDigests 0}}' khulnasoft/tracker:${ARCH})
+          cosign sign -y $(docker inspect --format='{{index .RepoDigests 0}}' khulnasoft/tracker:${TAG})
+          cosign sign -y $(docker inspect --format='{{index .RepoDigests 0}}' khulnasoft/tracker:${ARCH}-${TAG})
   release-arm64:
     name: Release ARM64
     env:
@@ -110,13 +110,13 @@ jobs:
         run: |
           TAG=$(echo ${{ github.event.inputs.ref }} | sed -e "s/v//gI")
           ARCH=$(uname -m)
-          docker image tag tracker:latest aquasec/tracker:${ARCH}
-          docker image tag tracker:latest aquasec/tracker:${ARCH}-${TAG}
-          docker image push aquasec/tracker:${ARCH}
-          docker image push aquasec/tracker:${ARCH}-${TAG}
+          docker image tag tracker:latest khulnasoft/tracker:${ARCH}
+          docker image tag tracker:latest khulnasoft/tracker:${ARCH}-${TAG}
+          docker image push khulnasoft/tracker:${ARCH}
+          docker image push khulnasoft/tracker:${ARCH}-${TAG}
       - name: Sign Docker image
         run: |
           TAG=$(echo ${{ github.event.inputs.ref }} | sed -e "s/v//gI")
           ARCH=$(uname -m)
-          cosign sign -y $(docker inspect --format='{{index .RepoDigests 0}}' aquasec/tracker:${ARCH})
-          cosign sign -y $(docker inspect --format='{{index .RepoDigests 0}}' aquasec/tracker:${ARCH}-${TAG})
+          cosign sign -y $(docker inspect --format='{{index .RepoDigests 0}}' khulnasoft/tracker:${ARCH})
+          cosign sign -y $(docker inspect --format='{{index .RepoDigests 0}}' khulnasoft/tracker:${ARCH}-${TAG})
