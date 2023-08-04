@@ -29,7 +29,7 @@ jobs:
           pip install mike
           pip install mkdocs-macros-plugin
         env:
-          GH_TOKEN: ${{ secrets.MKDOCS_AQUA_BOT }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
       - name: Setup Git
         run: |
           git config user.name "github-actions"
