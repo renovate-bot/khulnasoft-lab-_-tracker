@@ -39,7 +39,7 @@ jobs:
           helm repo add khulnasoft https://khulnasoft-lab.github.io/helm-charts
       - name: Setup Chart Linting
         id: lint
-        uses: helm/chart-testing-action@e8788873172cb653a90ca2e819d79d65a66d4e76
+        uses: helm/chart-testing-action@90e5bd42d6fa7a91ca2945994517359c92b53de2
       - name: Setup Kubernetes cluster (KIND)
         uses: helm/kind-action@94729529f85113b88f4f819c17ce61382e6d8478 # v1.2.0
         with:
