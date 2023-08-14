@@ -9,7 +9,7 @@ ARG FLAVOR=tracker-ebpf-core
 # tracker-base
 #
 
-FROM alpine:3.17 as tracker-base
+FROM alpine:3.18 as tracker-base
 LABEL AS=tracker-base
 USER root
 
