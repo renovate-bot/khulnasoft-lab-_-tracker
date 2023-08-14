@@ -13,8 +13,8 @@ require (
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/hashicorp/golang-lru/v2 v2.0.2
 	github.com/khulnasoft-lab/libbpfgo v0.4.9-libbpf-1.2.1
-	github.com/khulnasoft-lab/libbpfgo/helpers v0.0.0-20230814021824-f752bb553b20
-	github.com/khulnasoft-lab/tracker/types v0.0.0-20230814025100-a4e711dc819e
+	github.com/khulnasoft-lab/libbpfgo/helpers v0.0.0-20230814041140-5db26e5cd089
+	github.com/khulnasoft-lab/tracker/types v0.0.0-20230814042419-f6010fec190a
 	github.com/kubernetes/cri-api v0.27.1
 	github.com/open-policy-agent/opa v0.52.0
 	github.com/prometheus/client_golang v1.15.1
@@ -26,7 +26,7 @@ require (
 	github.com/urfave/cli/v2 v2.3.0
 	go.uber.org/goleak v1.1.12
 	go.uber.org/zap v1.24.0
-	golang.org/x/sys v0.8.0
+	golang.org/x/sys v0.11.0
 	google.golang.org/genproto v0.0.0-20230410155749-daa745c078e1
 	google.golang.org/grpc v1.55.0
 	google.golang.org/protobuf v1.30.0

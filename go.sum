@@ -279,10 +279,10 @@ github.com/jstemmer/go-junit-report v0.0.0-20190106144839-af01ea7f8024/go.mod h1
 github.com/jstemmer/go-junit-report v0.9.1/go.mod h1:Brl9GWCQeLvo8nXZwPNNblvFj/XSXhF0NWZEnDohbsk=
 github.com/khulnasoft-lab/libbpfgo v0.4.9-libbpf-1.2.1 h1:RHWibY7AfFcnlQBMfooDi6Os0OCGsUKdJ43P1oyzEu0=
 github.com/khulnasoft-lab/libbpfgo v0.4.9-libbpf-1.2.1/go.mod h1:fuLBO2/PqDPKPbKihvqYZE0BegTEq4MtC3W7qAWtZSQ=
-github.com/khulnasoft-lab/libbpfgo/helpers v0.0.0-20230814021824-f752bb553b20 h1:H/1EN3ss/qPkJLQfqHSGwh10AI8DNQXc8t49NGRM2I4=
-github.com/khulnasoft-lab/libbpfgo/helpers v0.0.0-20230814021824-f752bb553b20/go.mod h1:SzTPL8JQ30o5I2cvZnxUIIaQHMwX1Psm8S5QLmaLcpE=
-github.com/khulnasoft-lab/tracker/types v0.0.0-20230814025100-a4e711dc819e h1:Gvw+rzyXLpJIPBklPoqAYuwCy8Moi3FAK1HmvJHr/wA=
-github.com/khulnasoft-lab/tracker/types v0.0.0-20230814025100-a4e711dc819e/go.mod h1:ow++U2qU1VUBLwdtNwEqkQFkx797nsQ+h+k7CGbjODI=
+github.com/khulnasoft-lab/libbpfgo/helpers v0.0.0-20230814041140-5db26e5cd089 h1:YWwMHJ7/UFz6eiqdxNX2KaQrfrv48umpUGZe2Keu+CQ=
+github.com/khulnasoft-lab/libbpfgo/helpers v0.0.0-20230814041140-5db26e5cd089/go.mod h1:j9jeBhGxuHcbSNc1MYt6YRrQlmoYT+Qa7cwDvKrcGAo=
+github.com/khulnasoft-lab/tracker/types v0.0.0-20230814042419-f6010fec190a h1:9QzxfjOBo9tRe9Kh7opYtZSjX8e3gAvDROqoD40YXrM=
+github.com/khulnasoft-lab/tracker/types v0.0.0-20230814042419-f6010fec190a/go.mod h1:ow++U2qU1VUBLwdtNwEqkQFkx797nsQ+h+k7CGbjODI=
 github.com/kisielk/errcheck v1.5.0/go.mod h1:pFxgyoBC7bSaBwPgfKdkLd5X25qrDl4LWUI2bnpBCr8=
 github.com/kisielk/gotool v1.0.0/go.mod h1:XhKaO+MFFWcvkIS/tQcRk01m1F5IRFswLeQ+oQHNcck=
 github.com/klauspost/compress v1.16.5 h1:IFV2oUNUzZaz+XyusxpLzpzS8Pt5rh0Z16For/djlyI=
@@ -648,8 +648,8 @@ golang.org/x/sys v0.0.0-20220908164124-27713097b956/go.mod h1:oPkhp1MJrh7nUepCBc
 golang.org/x/sys v0.1.0/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
 golang.org/x/sys v0.2.0/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
 golang.org/x/sys v0.3.0/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
-golang.org/x/sys v0.8.0 h1:EBmGv8NaZBZTWvrbjNoL6HVt+IVy3QDQpJs7VRIw3tU=
-golang.org/x/sys v0.8.0/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
+golang.org/x/sys v0.11.0 h1:eG7RXZHdqOJ1i+0lgLgCpSXAp6M3LYlAo6osgSi0xOM=
+golang.org/x/sys v0.11.0/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
 golang.org/x/term v0.0.0-20201126162022-7de9c90e9dd1/go.mod h1:bj7SfCRtBDWHUb9snDiAeCFNEtKQo2Wmx5Cou7ajbmo=
 golang.org/x/term v0.0.0-20210927222741-03fcf44c2211/go.mod h1:jbD1KX2456YbFQfuXm/mYQcufACuNUgVhRMnK/tPxf8=
 golang.org/x/term v0.2.0/go.mod h1:TVmDHMZPmdnySmBfhjOoOdhjzdE1h4u1VwSiw2l1Nuc=
