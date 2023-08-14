@@ -3,10 +3,10 @@ package derive
 import (
 	"github.com/google/gopacket/layers"
 
-	"github.com/khulnasoft-labs/tracker/pkg/errfmt"
-	"github.com/khulnasoft-labs/tracker/pkg/events"
-	"github.com/khulnasoft-labs/tracker/pkg/logger"
-	"github.com/khulnasoft-labs/tracker/types/trace"
+	"github.com/khulnasoft-lab/tracker/pkg/errfmt"
+	"github.com/khulnasoft-lab/tracker/pkg/events"
+	"github.com/khulnasoft-lab/tracker/pkg/logger"
+	"github.com/khulnasoft-lab/tracker/types/trace"
 )
 
 //

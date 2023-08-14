@@ -6,9 +6,9 @@ import (
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 
-	"github.com/khulnasoft-labs/tracker/pkg/signatures/celsig/wrapper"
-	"github.com/khulnasoft-labs/tracker/types/detect"
-	"github.com/khulnasoft-labs/tracker/types/protocol"
+	"github.com/khulnasoft-lab/tracker/pkg/signatures/celsig/wrapper"
+	"github.com/khulnasoft-lab/tracker/types/detect"
+	"github.com/khulnasoft-lab/tracker/types/protocol"
 )
 
 type signature struct {

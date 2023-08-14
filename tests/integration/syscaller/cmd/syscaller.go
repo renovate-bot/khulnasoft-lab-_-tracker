@@ -6,8 +6,8 @@ import (
 	"runtime"
 	"strconv"
 
-	"github.com/khulnasoft-labs/tracker/pkg/events"
-	"github.com/khulnasoft-labs/tracker/tests/testutils"
+	"github.com/khulnasoft-lab/tracker/pkg/events"
+	"github.com/khulnasoft-lab/tracker/tests/testutils"
 )
 
 func main() {

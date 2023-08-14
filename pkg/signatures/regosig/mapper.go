@@ -8,7 +8,7 @@ import (
 
 	"github.com/open-policy-agent/opa/rego"
 
-	"github.com/khulnasoft-labs/tracker/types/detect"
+	"github.com/khulnasoft-lab/tracker/types/detect"
 )
 
 type Mapper struct {

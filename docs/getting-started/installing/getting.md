@@ -3,7 +3,7 @@
 You're able to use tracker by any of these means:
 
 1. [docker hub container image](https://hub.docker.com/r/khulnasoft/tracker)
-2. [distributed binaries](https://github.com/khulnasoft-labs/tracker/releases) (`tracker.tar.gz`).
+2. [distributed binaries](https://github.com/khulnasoft-lab/tracker/releases) (`tracker.tar.gz`).
 3. [building from the source](../../contributing/building/building.md)
 4. [building environment](../../contributing/building/environment.md)
 5. [building container images](../../contributing/building/containers.md)

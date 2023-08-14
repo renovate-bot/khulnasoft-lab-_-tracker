@@ -6,7 +6,7 @@ import (
 
 	docker "github.com/docker/docker/client"
 
-	"github.com/khulnasoft-labs/tracker/pkg/errfmt"
+	"github.com/khulnasoft-lab/tracker/pkg/errfmt"
 )
 
 type dockerEnricher struct {

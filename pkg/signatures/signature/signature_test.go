@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/khulnasoft-labs/tracker/types/detect"
+	"github.com/khulnasoft-lab/tracker/types/detect"
 )
 
 const (

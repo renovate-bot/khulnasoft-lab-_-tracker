@@ -2,7 +2,7 @@
 // between code eBPF running in the Kernel and the Tracker-eBPF user-space application.
 package bufferdecoder
 
-import "github.com/khulnasoft-labs/tracker/pkg/events"
+import "github.com/khulnasoft-lab/tracker/pkg/events"
 
 // BinType is an enum that specifies the type of binary data sent in the file perf map
 // binary types should match defined values in ebpf code

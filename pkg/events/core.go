@@ -3,10 +3,10 @@ package events
 import (
 	"kernel.org/pub/linux/libs/security/libcap/cap"
 
-	"github.com/khulnasoft-labs/tracker/pkg/ebpf/probes"
-	"github.com/khulnasoft-labs/tracker/pkg/events/trigger"
-	"github.com/khulnasoft-labs/tracker/pkg/logger"
-	"github.com/khulnasoft-labs/tracker/types/trace"
+	"github.com/khulnasoft-lab/tracker/pkg/ebpf/probes"
+	"github.com/khulnasoft-lab/tracker/pkg/events/trigger"
+	"github.com/khulnasoft-lab/tracker/pkg/logger"
+	"github.com/khulnasoft-lab/tracker/types/trace"
 )
 
 const (

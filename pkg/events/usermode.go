@@ -23,10 +23,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/khulnasoft-labs/tracker/pkg/containers"
-	"github.com/khulnasoft-labs/tracker/pkg/containers/runtime"
-	"github.com/khulnasoft-labs/tracker/pkg/logger"
-	"github.com/khulnasoft-labs/tracker/types/trace"
+	"github.com/khulnasoft-lab/tracker/pkg/containers"
+	"github.com/khulnasoft-lab/tracker/pkg/containers/runtime"
+	"github.com/khulnasoft-lab/tracker/pkg/logger"
+	"github.com/khulnasoft-lab/tracker/types/trace"
 )
 
 const InitProcNsDir = "/proc/1/ns"

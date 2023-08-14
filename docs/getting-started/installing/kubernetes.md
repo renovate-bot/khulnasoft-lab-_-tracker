@@ -1,6 +1,6 @@
 # Install **Tracker** on Kubernetes
 
-In the [deploy/](https://github.com/khulnasoft-labs/tracker/tree/{{ git.tag}}/deploy) directory you will find Yaml files to deploy Tracker
+In the [deploy/](https://github.com/khulnasoft-lab/tracker/tree/{{ git.tag}}/deploy) directory you will find Yaml files to deploy Tracker
 in a Kubernetes environment either with **Helm** or with a static yaml.
 
 !!! Tip
@@ -13,14 +13,14 @@ in a Kubernetes environment either with **Helm** or with a static yaml.
 	1. Add KhulnaSoft chart repository:
 
 		```console
-		helm repo add khulnasoft https://khulnasoft-labs.github.io/helm-charts/
+		helm repo add khulnasoft https://khulnasoft-lab.github.io/helm-charts/
 		helm repo update
 		```
 
 		or clone the Helm chart:
 
 		```console
-		git clone --depth 1 --branch {{ git.tag }} https://github.com/khulnasoft-labs/tracker.git
+		git clone --depth 1 --branch {{ git.tag }} https://github.com/khulnasoft-lab/tracker.git
 		cd tracker
 		```
 
@@ -46,10 +46,10 @@ in a Kubernetes environment either with **Helm** or with a static yaml.
     ```console
     kubectl create namespace tracker-system
     kubectl create -n tracker-system \
-        -f https://raw.githubusercontent.com/khulnasoft-labs/tracker/main/deploy/kubernetes/tracker/tracker.yaml
+        -f https://raw.githubusercontent.com/khulnasoft-lab/tracker/main/deploy/kubernetes/tracker/tracker.yaml
     ```
 
-[HERE]: https://github.com/khulnasoft-labs/postee/blob/main/cfg.yaml
+[HERE]: https://github.com/khulnasoft-lab/postee/blob/main/cfg.yaml
 
 ## Platform Support
 
@@ -59,4 +59,4 @@ headers available under conventional location. See Tracker's
 Kubernetes platforms this should work out-of-the-box, including GKE, EKS, AKS,
 minikube.
 
-[deploy/kubernetes]:https://github.com/khulnasoft-labs/tracker/blob/{{ git.tag }}/deploy/kubernetes
+[deploy/kubernetes]:https://github.com/khulnasoft-lab/tracker/blob/{{ git.tag }}/deploy/kubernetes

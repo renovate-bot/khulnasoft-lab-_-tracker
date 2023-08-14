@@ -8,7 +8,7 @@ import (
 	"github.com/google/cel-go/interpreter/functions"
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 
-	"github.com/khulnasoft-labs/tracker/pkg/signatures/celsig/wrapper"
+	"github.com/khulnasoft-lab/tracker/pkg/signatures/celsig/wrapper"
 )
 
 var (

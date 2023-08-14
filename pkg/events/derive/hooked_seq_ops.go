@@ -1,13 +1,13 @@
 package derive
 
 import (
-	"github.com/khulnasoft-labs/libbpfgo/helpers"
+	"github.com/khulnasoft-lab/libbpfgo/helpers"
 
-	"github.com/khulnasoft-labs/tracker/pkg/errfmt"
-	"github.com/khulnasoft-labs/tracker/pkg/events"
-	"github.com/khulnasoft-labs/tracker/pkg/events/parse"
-	"github.com/khulnasoft-labs/tracker/pkg/utils"
-	"github.com/khulnasoft-labs/tracker/types/trace"
+	"github.com/khulnasoft-lab/tracker/pkg/errfmt"
+	"github.com/khulnasoft-lab/tracker/pkg/events"
+	"github.com/khulnasoft-lab/tracker/pkg/events/parse"
+	"github.com/khulnasoft-lab/tracker/pkg/utils"
+	"github.com/khulnasoft-lab/tracker/types/trace"
 )
 
 // Struct names for the interfaces HookedSeqOpsEventID checks for hooks

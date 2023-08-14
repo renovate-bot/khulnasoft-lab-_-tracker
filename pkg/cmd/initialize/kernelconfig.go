@@ -1,10 +1,10 @@
 package initialize
 
 import (
-	"github.com/khulnasoft-labs/libbpfgo/helpers"
+	"github.com/khulnasoft-lab/libbpfgo/helpers"
 
-	"github.com/khulnasoft-labs/tracker/pkg/errfmt"
-	"github.com/khulnasoft-labs/tracker/pkg/logger"
+	"github.com/khulnasoft-lab/tracker/pkg/errfmt"
+	"github.com/khulnasoft-lab/tracker/pkg/logger"
 )
 
 func KernelConfig() (*helpers.KernelConfig, error) {

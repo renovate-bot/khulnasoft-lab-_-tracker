@@ -1,8 +1,8 @@
 package derive
 
 import (
-	"github.com/khulnasoft-labs/tracker/pkg/events"
-	"github.com/khulnasoft-labs/tracker/types/trace"
+	"github.com/khulnasoft-lab/tracker/pkg/events"
+	"github.com/khulnasoft-lab/tracker/types/trace"
 )
 
 // DeriveFunction is a function prototype for a function that receives an event as

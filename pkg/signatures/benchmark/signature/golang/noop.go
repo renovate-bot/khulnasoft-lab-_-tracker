@@ -1,8 +1,8 @@
 package golang
 
 import (
-	"github.com/khulnasoft-labs/tracker/types/detect"
-	"github.com/khulnasoft-labs/tracker/types/protocol"
+	"github.com/khulnasoft-lab/tracker/types/detect"
+	"github.com/khulnasoft-lab/tracker/types/protocol"
 )
 
 type noop struct {

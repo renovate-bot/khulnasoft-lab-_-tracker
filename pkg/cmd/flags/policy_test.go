@@ -8,8 +8,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/khulnasoft-labs/tracker/pkg/filters"
-	"github.com/khulnasoft-labs/tracker/pkg/policy/v1beta1"
+	"github.com/khulnasoft-lab/tracker/pkg/filters"
+	"github.com/khulnasoft-lab/tracker/pkg/policy/v1beta1"
 )
 
 var writeEvtFlag = eventFlag{

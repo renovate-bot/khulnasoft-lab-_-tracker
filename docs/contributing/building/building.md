@@ -23,16 +23,16 @@
     > You might take a look at the following files to understand how to have a
     > building environment:
     >
-    > 1. [.github/actions/build-dependencies/action.yaml](https://github.com/khulnasoft-labs/tracker/blob/main/.github/actions/build-dependencies/action.yaml)
-    > 1. [packaging/Dockerfile.ubuntu-packaging](https://github.com/khulnasoft-labs/tracker/blob/main/packaging/Dockerfile.ubuntu-packaging)
-    > 1. [packaging/Dockerfile.fedora-packaging](https://github.com/khulnasoft-labs/tracker/blob/main/packaging/Dockerfile.fedora-packaging)
+    > 1. [.github/actions/build-dependencies/action.yaml](https://github.com/khulnasoft-lab/tracker/blob/main/.github/actions/build-dependencies/action.yaml)
+    > 1. [packaging/Dockerfile.ubuntu-packaging](https://github.com/khulnasoft-lab/tracker/blob/main/packaging/Dockerfile.ubuntu-packaging)
+    > 1. [packaging/Dockerfile.fedora-packaging](https://github.com/khulnasoft-lab/tracker/blob/main/packaging/Dockerfile.fedora-packaging)
     >
     > Those are very good examples for you to replicate a working environment.
 
-3. **Clone** [tracker repository](https://github.com/khulnasoft-labs/tracker/)
+3. **Clone** [tracker repository](https://github.com/khulnasoft-lab/tracker/)
 
     ```console
-    git clone git@github.com:khulnasoft-labs/tracker
+    git clone git@github.com:khulnasoft-lab/tracker
     ```
 
     ```text
@@ -128,7 +128,7 @@
     ...
     ```
 
-7. Build a **static binary** with [BTFHUB Support](https://github.com/khulnasoft-labs/btfhub)
+7. Build a **static binary** with [BTFHUB Support](https://github.com/khulnasoft-lab/btfhub)
 
     ```console
     BTFHUB=1 STATIC=1 make all

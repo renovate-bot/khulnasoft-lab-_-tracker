@@ -1,8 +1,8 @@
 package parse
 
 import (
-	"github.com/khulnasoft-labs/tracker/pkg/errfmt"
-	"github.com/khulnasoft-labs/tracker/types/trace"
+	"github.com/khulnasoft-lab/tracker/pkg/errfmt"
+	"github.com/khulnasoft-lab/tracker/types/trace"
 )
 
 func ArgVal[T any](args []trace.Argument, argName string) (T, error) {

@@ -188,7 +188,7 @@ Thus, we will install Tracker inside our cluster through the Tracker Helm Chart.
 Add the Tracker Helm Chart:
 
 ```console
-helm repo add khulnasoft https://khulnasoft-labs.github.io/helm-charts/
+helm repo add khulnasoft https://khulnasoft-lab.github.io/helm-charts/
 ```
 
 Update the repository list on Helm:

@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/khulnasoft-labs/tracker/pkg/errfmt"
-	"github.com/khulnasoft-labs/tracker/pkg/events"
-	"github.com/khulnasoft-labs/tracker/pkg/filters"
-	"github.com/khulnasoft-labs/tracker/pkg/logger"
-	"github.com/khulnasoft-labs/tracker/pkg/policy"
-	"github.com/khulnasoft-labs/tracker/pkg/policy/v1beta1"
+	"github.com/khulnasoft-lab/tracker/pkg/errfmt"
+	"github.com/khulnasoft-lab/tracker/pkg/events"
+	"github.com/khulnasoft-lab/tracker/pkg/filters"
+	"github.com/khulnasoft-lab/tracker/pkg/logger"
+	"github.com/khulnasoft-lab/tracker/pkg/policy"
+	"github.com/khulnasoft-lab/tracker/pkg/policy/v1beta1"
 )
 
 // PrepareFilterMapsForPolicies prepares the scope and events PolicyFilterMap for the policies

@@ -79,8 +79,8 @@ help:
 
 C_FILES_TO_BE_CHECKED = $(shell find ./pkg/ebpf/c/ -regextype posix-extended -regex '.*\.(h|c)' | xargs)
 
-CMD_GOIMPORTS_COMPANY_PREFIXES ?= "github.com/khulnasoft-labs"
-CMD_GOIMPORTS_PROJECT ?= "github.com/khulnasoft-labs/tracker"
+CMD_GOIMPORTS_COMPANY_PREFIXES ?= "github.com/khulnasoft-lab"
+CMD_GOIMPORTS_PROJECT ?= "github.com/khulnasoft-lab/tracker"
 
 .PHONY: fmt-check
 fmt-check: | \

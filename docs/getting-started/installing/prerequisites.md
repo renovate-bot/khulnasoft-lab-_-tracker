@@ -33,4 +33,4 @@ capabilities:
 > Alternatively, you may [bypass the capabilities dropping feature](../../docs/deep-dive/dropping-capabilities.md) if facing any issue.
 
 [libbpf CO-RE documentation]: https://github.com/libbpf/libbpf#bpf-co-re-compile-once--run-everywhere
-[BTFHUB]: https://github.com/khulnasoft-labs/btfhub-archive
+[BTFHUB]: https://github.com/khulnasoft-lab/btfhub-archive

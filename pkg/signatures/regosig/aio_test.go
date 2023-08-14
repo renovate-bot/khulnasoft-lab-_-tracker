@@ -10,10 +10,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/khulnasoft-labs/tracker/pkg/signatures/regosig"
-	"github.com/khulnasoft-labs/tracker/signatures/signaturestest"
-	"github.com/khulnasoft-labs/tracker/types/detect"
-	"github.com/khulnasoft-labs/tracker/types/trace"
+	"github.com/khulnasoft-lab/tracker/pkg/signatures/regosig"
+	"github.com/khulnasoft-lab/tracker/signatures/signaturestest"
+	"github.com/khulnasoft-lab/tracker/types/detect"
+	"github.com/khulnasoft-lab/tracker/types/trace"
 )
 
 func TestAio_GetMetadata(t *testing.T) {

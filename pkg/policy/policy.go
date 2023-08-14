@@ -1,8 +1,8 @@
 package policy
 
 import (
-	"github.com/khulnasoft-labs/tracker/pkg/events"
-	"github.com/khulnasoft-labs/tracker/pkg/filters"
+	"github.com/khulnasoft-lab/tracker/pkg/events"
+	"github.com/khulnasoft-lab/tracker/pkg/filters"
 )
 
 const (

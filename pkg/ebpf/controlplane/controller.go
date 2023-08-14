@@ -4,16 +4,16 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/khulnasoft-labs/libbpfgo"
+	"github.com/khulnasoft-lab/libbpfgo"
 
-	"github.com/khulnasoft-labs/tracker/pkg/capabilities"
-	"github.com/khulnasoft-labs/tracker/pkg/containers"
-	"github.com/khulnasoft-labs/tracker/pkg/ebpf/probes"
-	"github.com/khulnasoft-labs/tracker/pkg/errfmt"
-	"github.com/khulnasoft-labs/tracker/pkg/events"
-	"github.com/khulnasoft-labs/tracker/pkg/events/parse"
-	"github.com/khulnasoft-labs/tracker/pkg/logger"
-	"github.com/khulnasoft-labs/tracker/types/trace"
+	"github.com/khulnasoft-lab/tracker/pkg/capabilities"
+	"github.com/khulnasoft-lab/tracker/pkg/containers"
+	"github.com/khulnasoft-lab/tracker/pkg/ebpf/probes"
+	"github.com/khulnasoft-lab/tracker/pkg/errfmt"
+	"github.com/khulnasoft-lab/tracker/pkg/events"
+	"github.com/khulnasoft-lab/tracker/pkg/events/parse"
+	"github.com/khulnasoft-lab/tracker/pkg/logger"
+	"github.com/khulnasoft-lab/tracker/types/trace"
 )
 
 const pollTimeout int = 300 // from tracker.go (move to a consts package?)

@@ -14,10 +14,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/khulnasoft-labs/tracker/pkg/signatures/signature"
-	"github.com/khulnasoft-labs/tracker/types/detect"
-	"github.com/khulnasoft-labs/tracker/types/protocol"
-	"github.com/khulnasoft-labs/tracker/types/trace"
+	"github.com/khulnasoft-lab/tracker/pkg/signatures/signature"
+	"github.com/khulnasoft-lab/tracker/types/detect"
+	"github.com/khulnasoft-lab/tracker/types/protocol"
+	"github.com/khulnasoft-lab/tracker/types/trace"
 )
 
 func Test_setupOutput(t *testing.T) {

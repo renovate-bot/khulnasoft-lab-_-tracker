@@ -9,8 +9,8 @@ import (
 
 	"gopkg.in/yaml.v2"
 
-	"github.com/khulnasoft-labs/tracker/pkg/logger"
-	"github.com/khulnasoft-labs/tracker/types/detect"
+	"github.com/khulnasoft-lab/tracker/pkg/logger"
+	"github.com/khulnasoft-lab/tracker/types/detect"
 )
 
 var (
@@ -20,7 +20,7 @@ var (
 
 const (
 	KindSignaturesConfig = "SignaturesConfig"
-	APIVersionV1Alpha1   = "tracker.khulnasoft-labs.github.io/v1alpha1"
+	APIVersionV1Alpha1   = "tracker.khulnasoft-lab.github.io/v1alpha1"
 )
 
 // SignaturesConfig represents multiple CEL signature definitions that are

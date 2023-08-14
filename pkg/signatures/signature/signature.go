@@ -10,11 +10,11 @@ import (
 	"plugin"
 	"strings"
 
-	embedded "github.com/khulnasoft-labs/tracker"
-	"github.com/khulnasoft-labs/tracker/pkg/logger"
-	"github.com/khulnasoft-labs/tracker/pkg/signatures/celsig"
-	"github.com/khulnasoft-labs/tracker/pkg/signatures/regosig"
-	"github.com/khulnasoft-labs/tracker/types/detect"
+	embedded "github.com/khulnasoft-lab/tracker"
+	"github.com/khulnasoft-lab/tracker/pkg/logger"
+	"github.com/khulnasoft-lab/tracker/pkg/signatures/celsig"
+	"github.com/khulnasoft-lab/tracker/pkg/signatures/regosig"
+	"github.com/khulnasoft-lab/tracker/types/detect"
 )
 
 func Find(target string, partialEval bool, signaturesDir []string, signatures []string, aioEnabled bool) ([]detect.Signature, error) {

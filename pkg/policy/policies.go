@@ -3,8 +3,8 @@ package policy
 import (
 	"sync/atomic"
 
-	"github.com/khulnasoft-labs/tracker/pkg/filters"
-	"github.com/khulnasoft-labs/tracker/pkg/utils"
+	"github.com/khulnasoft-lab/tracker/pkg/filters"
+	"github.com/khulnasoft-lab/tracker/pkg/utils"
 )
 
 // TODO: add locking mechanism as policies will change at runtime

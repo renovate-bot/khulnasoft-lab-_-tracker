@@ -3,11 +3,11 @@ package ebpf
 import (
 	"unsafe"
 
-	"github.com/khulnasoft-labs/libbpfgo"
-	"github.com/khulnasoft-labs/libbpfgo/helpers"
+	"github.com/khulnasoft-lab/libbpfgo"
+	"github.com/khulnasoft-lab/libbpfgo/helpers"
 
-	"github.com/khulnasoft-labs/tracker/pkg/errfmt"
-	"github.com/khulnasoft-labs/tracker/pkg/events"
+	"github.com/khulnasoft-lab/tracker/pkg/errfmt"
+	"github.com/khulnasoft-lab/tracker/pkg/events"
 )
 
 var maxKsymNameLen = 64 // Most match the constant in the bpf code

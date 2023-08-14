@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/khulnasoft-labs/tracker/cmd/tracker/cmd"
+	"github.com/khulnasoft-lab/tracker/cmd/tracker/cmd"
 )
 
 func main() {

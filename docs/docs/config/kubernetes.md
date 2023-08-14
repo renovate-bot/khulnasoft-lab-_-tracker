@@ -2,7 +2,7 @@
 
 ## Configmap
 
-Tracker ConfigMap exposed [tracker configuration](https://github.com/khulnasoft-labs/tracker/blob/main/examples/config/global_config.yaml) to the deployment.
+Tracker ConfigMap exposed [tracker configuration](https://github.com/khulnasoft-lab/tracker/blob/main/examples/config/global_config.yaml) to the deployment.
 
 ```
 ---

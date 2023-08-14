@@ -19,7 +19,7 @@ be on their way.
 Clone and change directory to Tracker Git repository:
 
 ```console
-git clone --branch {{ git.tag }} https://github.com/khulnasoft-labs/tracker.git
+git clone --branch {{ git.tag }} https://github.com/khulnasoft-lab/tracker.git
 cd tracker
 ```
 
@@ -215,8 +215,8 @@ namespace:
 
 ```console
 kubectl apply -n tracker-system \
-  -f https://raw.githubusercontent.com/khulnasoft-labs/postee/v2.2.0/deploy/kubernetes/hostPath/postee-pv.yaml \
-  -f https://raw.githubusercontent.com/khulnasoft-labs/postee/v2.2.0/deploy/kubernetes/postee.yaml
+  -f https://raw.githubusercontent.com/khulnasoft-lab/postee/v2.2.0/deploy/kubernetes/hostPath/postee-pv.yaml \
+  -f https://raw.githubusercontent.com/khulnasoft-lab/postee/v2.2.0/deploy/kubernetes/postee.yaml
 ```
 
 Create Tracker DaemonSet in the `tracker-system`, configuring it to send 
@@ -224,7 +224,7 @@ detections to the standard output and send them over to Postee webhook on
 http://postee-svc:8082:
 
 ```console
-helm repo add khulnasoft https://khulnasoft-labs.github.io/helm-charts
+helm repo add khulnasoft https://khulnasoft-lab.github.io/helm-charts
 helm install tracker ./deploy/helm/tracker \
   --namespace tracker-system \
   --set hostPID=true \
@@ -314,13 +314,13 @@ documentation pages.
 
 [Vagrant]: https://www.vagrantup.com/docs/installation
 [HashiCorp Vagrant]: https://www.vagrantup.com
-[Vagrantfile]: https://github.com/khulnasoft-labs/tracker/blob/{{ git.tag }}/Vagrantfile
+[Vagrantfile]: https://github.com/khulnasoft-lab/tracker/blob/{{ git.tag }}/Vagrantfile
 [Hypervisor]: https://www.vagrantup.com/docs/providers
 [VirtualBox]: https://www.virtualbox.org
 [MicroK8s]: https://microk8s.io
 [MicroK8s add-ons]: https://microk8s.io/docs/addons
 [kubectl]: https://kubernetes.io/docs/tasks/tools/#kubectl
 [Kubernetes Dashboard]: https://github.com/kubernetes/dashboard
-[Postee]: https://github.com/khulnasoft-labs/postee
+[Postee]: https://github.com/khulnasoft-lab/postee
 [Persistent Volumes]: https://kubernetes.io/docs/concepts/storage/persistent-volumes/
 [MkDocs]: https://www.mkdocs.org

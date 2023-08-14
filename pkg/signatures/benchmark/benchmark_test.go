@@ -8,12 +8,12 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/khulnasoft-labs/tracker/pkg/signatures/benchmark/signature/golang"
-	"github.com/khulnasoft-labs/tracker/pkg/signatures/benchmark/signature/rego"
-	"github.com/khulnasoft-labs/tracker/pkg/signatures/benchmark/signature/wasm"
-	"github.com/khulnasoft-labs/tracker/pkg/signatures/engine"
-	"github.com/khulnasoft-labs/tracker/types/detect"
-	"github.com/khulnasoft-labs/tracker/types/protocol"
+	"github.com/khulnasoft-lab/tracker/pkg/signatures/benchmark/signature/golang"
+	"github.com/khulnasoft-lab/tracker/pkg/signatures/benchmark/signature/rego"
+	"github.com/khulnasoft-lab/tracker/pkg/signatures/benchmark/signature/wasm"
+	"github.com/khulnasoft-lab/tracker/pkg/signatures/engine"
+	"github.com/khulnasoft-lab/tracker/types/detect"
+	"github.com/khulnasoft-lab/tracker/types/protocol"
 )
 
 const (

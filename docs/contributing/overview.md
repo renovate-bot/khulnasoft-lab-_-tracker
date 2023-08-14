@@ -6,17 +6,17 @@ Thank you for taking interest in contributing to Tracker! This document covers o
 
 We encourage open discussion and collaboration using both GitHub Issues and Discussions.  
 
-- [Discussions](https://github.com/khulnasoft-labs/tracker/discussions) are free-style conversational tool, we use them for conversations.
-- [Issues](https://github.com/khulnasoft-labs/tracker/issues) are project management tool, we use them to keep track on who's working on what and plan ahead.
+- [Discussions](https://github.com/khulnasoft-lab/tracker/discussions) are free-style conversational tool, we use them for conversations.
+- [Issues](https://github.com/khulnasoft-lab/tracker/issues) are project management tool, we use them to keep track on who's working on what and plan ahead.
 
 If you have a suggestion, question, or a general comment - please use Discussions. If there's a clear work item (including bugs) - you can open an Issue.
 
 ### Discussions:
 
 - We have the following discussion topics: 
-    1. [Announcements](https://github.com/khulnasoft-labs/tracker/discussions/categories/announcements): One way communication from the team to the community. Consider this like our mini blog
-    1. [Questions and Help](https://github.com/khulnasoft-labs/tracker/discussions/categories/questions-and-help): For help and support. Consider this similar to StackOverflow.
-    1. [Development](https://github.com/khulnasoft-labs/tracker/discussions/categories/development): For discussing potential features, and collaborating on their design.
+    1. [Announcements](https://github.com/khulnasoft-lab/tracker/discussions/categories/announcements): One way communication from the team to the community. Consider this like our mini blog
+    1. [Questions and Help](https://github.com/khulnasoft-lab/tracker/discussions/categories/questions-and-help): For help and support. Consider this similar to StackOverflow.
+    1. [Development](https://github.com/khulnasoft-lab/tracker/discussions/categories/development): For discussing potential features, and collaborating on their design.
 
 ### Issues:
 

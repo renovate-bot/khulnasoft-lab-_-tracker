@@ -89,7 +89,7 @@ signatures:
   config: {}
 #  config:
 #    kind: SignaturesConfig
-#    apiVersion: tracker.khulnasoft-labs.github.io/v1alpha1
+#    apiVersion: tracker.khulnasoft-lab.github.io/v1alpha1
 #    signatures:
 #      - metadata:
 #          id: "CEL-2"

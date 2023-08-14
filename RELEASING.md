@@ -14,7 +14,7 @@
    1. Update types module to latest.
    1. Update the container image tag, with the one to be released, at: `deploy/kubernetes/tracker/tracker.yaml`
    1. Update `home`, `version` and `appVersion` properties in [`deploy/helm/tracker/Chart.yaml`] -
-      [example](https://github.com/khulnasoft-labs/tracker/pull/2195)
+      [example](https://github.com/khulnasoft-lab/tracker/pull/2195)
    1. Create a PR with the tags bump
 
 1. Run tests and checks

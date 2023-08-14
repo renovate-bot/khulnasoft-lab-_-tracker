@@ -6,13 +6,13 @@ import (
 	"strconv"
 	"syscall"
 
-	"github.com/khulnasoft-labs/tracker/pkg/cmd/printer"
-	"github.com/khulnasoft-labs/tracker/pkg/config"
-	tracker "github.com/khulnasoft-labs/tracker/pkg/ebpf"
-	"github.com/khulnasoft-labs/tracker/pkg/errfmt"
-	"github.com/khulnasoft-labs/tracker/pkg/logger"
-	"github.com/khulnasoft-labs/tracker/pkg/server"
-	"github.com/khulnasoft-labs/tracker/pkg/utils"
+	"github.com/khulnasoft-lab/tracker/pkg/cmd/printer"
+	"github.com/khulnasoft-lab/tracker/pkg/config"
+	tracker "github.com/khulnasoft-lab/tracker/pkg/ebpf"
+	"github.com/khulnasoft-lab/tracker/pkg/errfmt"
+	"github.com/khulnasoft-lab/tracker/pkg/logger"
+	"github.com/khulnasoft-lab/tracker/pkg/server"
+	"github.com/khulnasoft-lab/tracker/pkg/utils"
 )
 
 type Runner struct {

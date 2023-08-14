@@ -5,11 +5,11 @@ import (
 	"strings"
 	"unsafe"
 
-	bpf "github.com/khulnasoft-labs/libbpfgo"
+	bpf "github.com/khulnasoft-lab/libbpfgo"
 
-	"github.com/khulnasoft-labs/tracker/pkg/errfmt"
-	"github.com/khulnasoft-labs/tracker/pkg/filters/sets"
-	"github.com/khulnasoft-labs/tracker/pkg/utils"
+	"github.com/khulnasoft-lab/tracker/pkg/errfmt"
+	"github.com/khulnasoft-lab/tracker/pkg/filters/sets"
+	"github.com/khulnasoft-lab/tracker/pkg/utils"
 )
 
 type StringFilter struct {

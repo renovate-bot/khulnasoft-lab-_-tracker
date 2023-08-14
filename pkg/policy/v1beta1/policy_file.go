@@ -9,8 +9,8 @@ import (
 	"gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/util/validation"
 
-	"github.com/khulnasoft-labs/tracker/pkg/errfmt"
-	"github.com/khulnasoft-labs/tracker/pkg/events"
+	"github.com/khulnasoft-lab/tracker/pkg/errfmt"
+	"github.com/khulnasoft-lab/tracker/pkg/events"
 )
 
 // PolicyFile is the structure of the policy file
@@ -72,7 +72,7 @@ func (p PolicyFile) Validate() error {
 		return errfmt.Errorf("policy name %s is invalid: %s", p.Name(), err)
 	}
 
-	if p.APIVersion != "khulnasoft-labs.github.io/v1beta1" {
+	if p.APIVersion != "khulnasoft-lab.github.io/v1beta1" {
 		return errfmt.Errorf("policy %s, apiVersion not supported", p.Name())
 	}
 

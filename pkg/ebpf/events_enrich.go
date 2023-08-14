@@ -4,10 +4,10 @@ import (
 	gocontext "context"
 	"sync"
 
-	"github.com/khulnasoft-labs/tracker/pkg/containers/runtime"
-	"github.com/khulnasoft-labs/tracker/pkg/events"
-	"github.com/khulnasoft-labs/tracker/pkg/events/parse"
-	"github.com/khulnasoft-labs/tracker/types/trace"
+	"github.com/khulnasoft-lab/tracker/pkg/containers/runtime"
+	"github.com/khulnasoft-lab/tracker/pkg/events"
+	"github.com/khulnasoft-lab/tracker/pkg/events/parse"
+	"github.com/khulnasoft-lab/tracker/types/trace"
 )
 
 //

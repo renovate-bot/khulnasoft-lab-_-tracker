@@ -3,15 +3,15 @@ package config
 import (
 	"io"
 
-	"github.com/khulnasoft-labs/libbpfgo/helpers"
+	"github.com/khulnasoft-lab/libbpfgo/helpers"
 
-	"github.com/khulnasoft-labs/tracker/pkg/containers/runtime"
-	"github.com/khulnasoft-labs/tracker/pkg/errfmt"
-	"github.com/khulnasoft-labs/tracker/pkg/events"
-	"github.com/khulnasoft-labs/tracker/pkg/events/queue"
-	"github.com/khulnasoft-labs/tracker/pkg/policy"
-	"github.com/khulnasoft-labs/tracker/pkg/signatures/engine"
-	"github.com/khulnasoft-labs/tracker/types/trace"
+	"github.com/khulnasoft-lab/tracker/pkg/containers/runtime"
+	"github.com/khulnasoft-lab/tracker/pkg/errfmt"
+	"github.com/khulnasoft-lab/tracker/pkg/events"
+	"github.com/khulnasoft-lab/tracker/pkg/events/queue"
+	"github.com/khulnasoft-lab/tracker/pkg/policy"
+	"github.com/khulnasoft-lab/tracker/pkg/signatures/engine"
+	"github.com/khulnasoft-lab/tracker/types/trace"
 )
 
 // Config is a struct containing user defined configuration of tracker

@@ -438,7 +438,7 @@ $(OUTPUT_DIR)/tracker: \
 		-tags $(GO_TAGS_EBPF) \
 		-ldflags="$(GO_DEBUG_FLAG) \
 			-extldflags \"$(CGO_EXT_LDFLAGS_EBPF)\" \
-			-X github.com/khulnasoft-labs/tracker/cmd/tracker/cmd.version=\"$(VERSION)\" \
+			-X github.com/khulnasoft-lab/tracker/cmd/tracker/cmd.version=\"$(VERSION)\" \
 			" \
 		-v -o $@ \
 		./cmd/tracker

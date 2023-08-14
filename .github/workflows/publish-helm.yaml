@@ -2,7 +2,7 @@
 #
 # This is a manually triggered workflow to package and upload the Helm chart
 # from the specified Git revision (e.g., main branch or v0.7.0 tag) to Helm
-# repository on https://github.com/khulnasoft-labs/helm-charts.
+# repository on https://github.com/khulnasoft-lab/helm-charts.
 #
 name: Publish Helm
 on:
@@ -13,7 +13,7 @@ on:
         required: true
 env:
   HELM_REP: helm-charts
-  GH_OWNER: khulnasoft-labs
+  GH_OWNER: khulnasoft-lab
   CHART_DIR: deploy/helm/tracker
   KIND_VERSION: "v0.14.0"
   KIND_IMAGE: "kindest/node:v1.23.6@sha256:b1fa224cc6c7ff32455e0b1fd9cbfd3d3bc87ecaa8fcb06961ed1afb3db0f9ae"
@@ -36,7 +36,7 @@ jobs:
           python-version: 3.7
       - name: Set up khulnasoft charts
         run: |
-          helm repo add khulnasoft https://khulnasoft-labs.github.io/helm-charts
+          helm repo add khulnasoft https://khulnasoft-lab.github.io/helm-charts
       - name: Setup Chart Linting
         id: lint
         uses: helm/chart-testing-action@e8788873172cb653a90ca2e819d79d65a66d4e76

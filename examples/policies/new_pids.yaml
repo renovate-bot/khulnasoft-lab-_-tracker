@@ -1,4 +1,4 @@
-apiVersion: khulnasoft-labs.github.io/v1beta1
+apiVersion: khulnasoft-lab.github.io/v1beta1
 kind: TrackerPolicy
 metadata:
   name: new-pids

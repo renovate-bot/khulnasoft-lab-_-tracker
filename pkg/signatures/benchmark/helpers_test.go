@@ -8,9 +8,9 @@ import (
 	"math/rand"
 	"os"
 
-	"github.com/khulnasoft-labs/tracker/pkg/signatures/engine"
-	"github.com/khulnasoft-labs/tracker/types/protocol"
-	"github.com/khulnasoft-labs/tracker/types/trace"
+	"github.com/khulnasoft-lab/tracker/pkg/signatures/engine"
+	"github.com/khulnasoft-lab/tracker/types/protocol"
+	"github.com/khulnasoft-lab/tracker/types/trace"
 )
 
 var (

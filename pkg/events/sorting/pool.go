@@ -3,8 +3,8 @@ package sorting
 import (
 	"sync"
 
-	"github.com/khulnasoft-labs/tracker/pkg/errfmt"
-	"github.com/khulnasoft-labs/tracker/types/trace"
+	"github.com/khulnasoft-lab/tracker/pkg/errfmt"
+	"github.com/khulnasoft-lab/tracker/types/trace"
 )
 
 const poolFreeingPart = 2

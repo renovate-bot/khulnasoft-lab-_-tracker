@@ -15,12 +15,12 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/khulnasoft-labs/libbpfgo"
+	"github.com/khulnasoft-lab/libbpfgo"
 
-	"github.com/khulnasoft-labs/tracker/pkg/cgroup"
-	cruntime "github.com/khulnasoft-labs/tracker/pkg/containers/runtime"
-	"github.com/khulnasoft-labs/tracker/pkg/errfmt"
-	"github.com/khulnasoft-labs/tracker/pkg/logger"
+	"github.com/khulnasoft-lab/tracker/pkg/cgroup"
+	cruntime "github.com/khulnasoft-lab/tracker/pkg/containers/runtime"
+	"github.com/khulnasoft-lab/tracker/pkg/errfmt"
+	"github.com/khulnasoft-lab/tracker/pkg/logger"
 )
 
 // Containers contains information about running containers in the host.

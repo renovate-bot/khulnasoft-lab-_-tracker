@@ -10,7 +10,7 @@ You can load multiple (up to 64) policies into Tracker using the --policy flag p
 Following is a sample policy:
 
 ```yaml
-apiVersion: khulnasoft-labs.github.io/v1beta1
+apiVersion: khulnasoft-lab.github.io/v1beta1
 kind: TrackerPolicy
 metadata:
 	name: overview-policy

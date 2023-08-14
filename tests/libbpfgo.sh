@@ -20,7 +20,7 @@ error_exit() {
 
 git_setup() {
     git add go.mod go.sum
-    if ! go get github.com/khulnasoft-labs/libbpfgo@main;
+    if ! go get github.com/khulnasoft-lab/libbpfgo@main;
     then
         git restore --staged go.mod go.sum
         error_exit "could not go get libbpfgo@main"

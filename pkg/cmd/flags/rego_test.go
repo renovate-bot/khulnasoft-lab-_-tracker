@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/khulnasoft-labs/tracker/pkg/signatures/rego"
+	"github.com/khulnasoft-lab/tracker/pkg/signatures/rego"
 )
 
 func TestPrepareRego(t *testing.T) {

@@ -8,12 +8,12 @@ import (
 
 	cli "github.com/urfave/cli/v2"
 
-	"github.com/khulnasoft-labs/tracker/pkg/cmd"
-	"github.com/khulnasoft-labs/tracker/pkg/cmd/flags"
-	"github.com/khulnasoft-labs/tracker/pkg/cmd/flags/server"
-	"github.com/khulnasoft-labs/tracker/pkg/cmd/initialize"
-	"github.com/khulnasoft-labs/tracker/pkg/cmd/urfave"
-	"github.com/khulnasoft-labs/tracker/pkg/logger"
+	"github.com/khulnasoft-lab/tracker/pkg/cmd"
+	"github.com/khulnasoft-lab/tracker/pkg/cmd/flags"
+	"github.com/khulnasoft-lab/tracker/pkg/cmd/flags/server"
+	"github.com/khulnasoft-lab/tracker/pkg/cmd/initialize"
+	"github.com/khulnasoft-lab/tracker/pkg/cmd/urfave"
+	"github.com/khulnasoft-lab/tracker/pkg/logger"
 )
 
 var version string

@@ -3,8 +3,8 @@ package metrics
 import (
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/khulnasoft-labs/tracker/pkg/counter"
-	"github.com/khulnasoft-labs/tracker/pkg/errfmt"
+	"github.com/khulnasoft-lab/tracker/pkg/counter"
+	"github.com/khulnasoft-lab/tracker/pkg/errfmt"
 )
 
 // When updating this struct, please make sure to update the relevant exporting functions

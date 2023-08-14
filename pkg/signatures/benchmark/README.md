@@ -110,7 +110,7 @@ go test -bench=EngineWithNSignatures/noop -benchtime=100x -benchmem
 ```text
 goos: darwin
 goarch: amd64
-pkg: github.com/khulnasoft-labs/tracker/pkg/rules/benchmark
+pkg: github.com/khulnasoft-lab/tracker/pkg/rules/benchmark
 cpu: Intel(R) Core(TM) i9-9900K CPU @ 3.60GHz
 BenchmarkEngineWithNSignatures/noop/2Signatures-16         	     100	   1301712 ns/op	     529 B/op	       3 allocs/op
 BenchmarkEngineWithNSignatures/noop/4Signatures-16         	     100	   1327458 ns/op	     637 B/op	       3 allocs/op
@@ -120,7 +120,7 @@ BenchmarkEngineWithNSignatures/noop/32Signatures-16        	     100	   1249964 
 BenchmarkEngineWithNSignatures/noop/64Signatures-16        	     100	   1257590 ns/op	    4048 B/op	      41 allocs/op
 BenchmarkEngineWithNSignatures/noop/128Signatures-16       	     100	   1241413 ns/op	    9333 B/op	     100 allocs/op
 PASS
-ok  	github.com/khulnasoft-labs/tracker/pkg/rules/benchmark	1.639s
+ok  	github.com/khulnasoft-lab/tracker/pkg/rules/benchmark	1.639s
 ```
 
 #### Go
@@ -132,7 +132,7 @@ go test -bench=EngineWithNSignatures/golang -benchtime=100x -benchmem
 ```text
 goos: darwin
 goarch: amd64
-pkg: github.com/khulnasoft-labs/tracker/pkg/rules/benchmark
+pkg: github.com/khulnasoft-lab/tracker/pkg/rules/benchmark
 cpu: Intel(R) Core(TM) i9-9900K CPU @ 3.60GHz
 BenchmarkEngineWithNSignatures/golang/2Signatures-16         	     100	   2163504 ns/op	  473897 B/op	    4030 allocs/op
 BenchmarkEngineWithNSignatures/golang/4Signatures-16         	     100	   3153459 ns/op	  946281 B/op	    7998 allocs/op
@@ -142,7 +142,7 @@ BenchmarkEngineWithNSignatures/golang/32Signatures-16        	     100	   947472
 BenchmarkEngineWithNSignatures/golang/64Signatures-16        	     100	  17449105 ns/op	13234869 B/op	  128030 allocs/op
 BenchmarkEngineWithNSignatures/golang/128Signatures-16       	     100	  33983570 ns/op	26490405 B/op	  255662 allocs/op
 PASS
-ok  	github.com/khulnasoft-labs/tracker/pkg/rules/benchmark	8.415s
+ok  	github.com/khulnasoft-lab/tracker/pkg/rules/benchmark	8.415s
 ```
 
 #### OPA `rego` Target
@@ -154,7 +154,7 @@ go test -bench=EngineWithNSignatures/rego -benchtime=100x -benchmem
 ```text
 goos: darwin
 goarch: amd64
-pkg: github.com/khulnasoft-labs/tracker/pkg/rules/benchmark
+pkg: github.com/khulnasoft-lab/tracker/pkg/rules/benchmark
 cpu: Intel(R) Core(TM) i9-9900K CPU @ 3.60GHz
 BenchmarkEngineWithNSignatures/rego/2Signatures-16         	     100	  13850918 ns/op	11435425 B/op	  241931 allocs/op
 BenchmarkEngineWithNSignatures/rego/4Signatures-16         	     100	  21849863 ns/op	23076399 B/op	  486469 allocs/op
@@ -164,7 +164,7 @@ BenchmarkEngineWithNSignatures/rego/32Signatures-16        	     100	  84383169 
 BenchmarkEngineWithNSignatures/rego/64Signatures-16        	     100	 146659052 ns/op	360762744 B/op	 7659578 allocs/op
 BenchmarkEngineWithNSignatures/rego/128Signatures-16       	     100	 285815478 ns/op	728968827 B/op	15477259 allocs/op
 PASS
-ok  	github.com/khulnasoft-labs/tracker/pkg/rules/benchmark	66.856s
+ok  	github.com/khulnasoft-lab/tracker/pkg/rules/benchmark	66.856s
 ```
 
 #### OPA `wasm` Target
@@ -176,7 +176,7 @@ go test -tags=opa_wasm -bench=EngineWithNSignatures/wasm -benchmem
 ```text
 goos: darwin
 goarch: amd64
-pkg: github.com/khulnasoft-labs/tracker/pkg/rules/benchmark
+pkg: github.com/khulnasoft-lab/tracker/pkg/rules/benchmark
 cpu: Intel(R) Core(TM) i9-9900K CPU @ 3.60GHz
 BenchmarkEngineWithNSignatures/wasm/2Signatures-16         	       2	 514803519 ns/op	100335968 B/op	 3286271 allocs/op
 BenchmarkEngineWithNSignatures/wasm/4Signatures-16         	       2	 795849985 ns/op	199761468 B/op	 6532683 allocs/op
@@ -186,7 +186,7 @@ BenchmarkEngineWithNSignatures/wasm/32Signatures-16        	       1	2447603349 
 BenchmarkEngineWithNSignatures/wasm/64Signatures-16        	       1	4953602994 ns/op	3174994912 B/op	103727996 allocs/op
 BenchmarkEngineWithNSignatures/wasm/128Signatures-16       	       1	11184859051 ns/op	6314287224 B/op	206598951 allocs/op
 PASS
-ok  	github.com/khulnasoft-labs/tracker/pkg/rules/benchmark	118.785s
+ok  	github.com/khulnasoft-lab/tracker/pkg/rules/benchmark	118.785s
 ```
 
 ### OPA Overhead
@@ -198,13 +198,13 @@ go test -tags=opa_wasm -bench=OnEventWithCodeInjectionSignature -benchtime=1000x
 ```text
 goos: darwin
 goarch: amd64
-pkg: github.com/khulnasoft-labs/tracker/pkg/rules/benchmark
+pkg: github.com/khulnasoft-lab/tracker/pkg/rules/benchmark
 cpu: Intel(R) Core(TM) i9-9900K CPU @ 3.60GHz
 BenchmarkOnEventWithCodeInjectionSignature/rego-16         	    1000	     37893 ns/op	   18557 B/op	     381 allocs/op
 BenchmarkOnEventWithCodeInjectionSignature/golang-16       	    1000	       643.0 ns/op	     784 B/op	       6 allocs/op
 BenchmarkOnEventWithCodeInjectionSignature/wasm-16         	    1000	    386341 ns/op	   47215 B/op	    1564 allocs/op
 PASS
-ok  	github.com/khulnasoft-labs/tracker/pkg/rules/benchmark	1.327s
+ok  	github.com/khulnasoft-lab/tracker/pkg/rules/benchmark	1.327s
 ```
 
 ## Summary
@@ -376,8 +376,8 @@ Entering interactive mode (type "help" for commands, "o" for options)
 Showing nodes accounting for 757.66MB, 99.80% of 759.18MB total
 Dropped 7 nodes (cum <= 3.80MB)
       flat  flat%   sum%        cum   cum%
-  534.12MB 70.35% 70.35%   534.12MB 70.35%  github.com/khulnasoft-labs/tracker/pkg/rules/benchmark/signature/golang.(*codeInjection).OnEvent
-  223.54MB 29.45% 99.80%   757.66MB 99.80%  github.com/khulnasoft-labs/tracker/pkg/rules/benchmark.BenchmarkOnEventWithCodeInjectionSignature.func1
+  534.12MB 70.35% 70.35%   534.12MB 70.35%  github.com/khulnasoft-lab/tracker/pkg/rules/benchmark/signature/golang.(*codeInjection).OnEvent
+  223.54MB 29.45% 99.80%   757.66MB 99.80%  github.com/khulnasoft-lab/tracker/pkg/rules/benchmark.BenchmarkOnEventWithCodeInjectionSignature.func1
          0     0% 99.80%   757.66MB 99.80%  testing.(*B).launch
          0     0% 99.80%   757.66MB 99.80%  testing.(*B).runN
 ```
@@ -385,7 +385,7 @@ Dropped 7 nodes (cum <= 3.80MB)
 ## Running Tests
 
 ```console
-git clone https://github.com/khulnasoft-labs/tracker.git
+git clone https://github.com/khulnasoft-lab/tracker.git
 cd tracker/tracker-rules/benchmark
 ```
 

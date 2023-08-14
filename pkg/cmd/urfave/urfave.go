@@ -3,17 +3,17 @@ package urfave
 import (
 	cli "github.com/urfave/cli/v2"
 
-	"github.com/khulnasoft-labs/libbpfgo/helpers"
+	"github.com/khulnasoft-lab/libbpfgo/helpers"
 
-	"github.com/khulnasoft-labs/tracker/pkg/cmd"
-	"github.com/khulnasoft-labs/tracker/pkg/cmd/flags"
-	"github.com/khulnasoft-labs/tracker/pkg/cmd/flags/server"
-	"github.com/khulnasoft-labs/tracker/pkg/cmd/initialize"
-	"github.com/khulnasoft-labs/tracker/pkg/cmd/printer"
-	"github.com/khulnasoft-labs/tracker/pkg/config"
-	"github.com/khulnasoft-labs/tracker/pkg/errfmt"
-	"github.com/khulnasoft-labs/tracker/pkg/logger"
-	"github.com/khulnasoft-labs/tracker/types/trace"
+	"github.com/khulnasoft-lab/tracker/pkg/cmd"
+	"github.com/khulnasoft-lab/tracker/pkg/cmd/flags"
+	"github.com/khulnasoft-lab/tracker/pkg/cmd/flags/server"
+	"github.com/khulnasoft-lab/tracker/pkg/cmd/initialize"
+	"github.com/khulnasoft-lab/tracker/pkg/cmd/printer"
+	"github.com/khulnasoft-lab/tracker/pkg/config"
+	"github.com/khulnasoft-lab/tracker/pkg/errfmt"
+	"github.com/khulnasoft-lab/tracker/pkg/logger"
+	"github.com/khulnasoft-lab/tracker/types/trace"
 )
 
 func GetTrackerRunner(c *cli.Context, version string) (cmd.Runner, error) {

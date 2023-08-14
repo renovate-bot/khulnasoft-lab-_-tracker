@@ -6,8 +6,8 @@ import (
 
 	"gotest.tools/assert"
 
-	"github.com/khulnasoft-labs/tracker/pkg/events"
-	"github.com/khulnasoft-labs/tracker/types/trace"
+	"github.com/khulnasoft-lab/tracker/pkg/events"
+	"github.com/khulnasoft-lab/tracker/types/trace"
 )
 
 func TestPolicyValidate(t *testing.T) {
@@ -49,7 +49,7 @@ func TestPolicyValidate(t *testing.T) {
 		{
 			testName: "invalid API",
 			policy: PolicyFile{
-				APIVersion: "khulnasoft-labs.github.io/test",
+				APIVersion: "khulnasoft-lab.github.io/test",
 				Metadata:   Metadata{Name: "invalid-api"},
 			},
 			expectedError: errors.New("policy invalid-api, apiVersion not supported"),
@@ -57,7 +57,7 @@ func TestPolicyValidate(t *testing.T) {
 		{
 			testName: "empty Kind",
 			policy: PolicyFile{
-				APIVersion: "khulnasoft-labs.github.io/v1beta1",
+				APIVersion: "khulnasoft-lab.github.io/v1beta1",
 				Metadata:   Metadata{Name: "empty-kind"},
 			},
 			expectedError: errors.New("policy empty-kind, kind not supported"),
@@ -65,7 +65,7 @@ func TestPolicyValidate(t *testing.T) {
 		{
 			testName: "invalid Kind",
 			policy: PolicyFile{
-				APIVersion: "khulnasoft-labs.github.io/v1beta1",
+				APIVersion: "khulnasoft-lab.github.io/v1beta1",
 				Kind:       "Policy",
 				Metadata:   Metadata{Name: "invalid-kind"},
 			},
@@ -74,7 +74,7 @@ func TestPolicyValidate(t *testing.T) {
 		{
 			testName: "empty scope",
 			policy: PolicyFile{
-				APIVersion: "khulnasoft-labs.github.io/v1beta1",
+				APIVersion: "khulnasoft-lab.github.io/v1beta1",
 				Kind:       "TrackerPolicy",
 				Metadata: Metadata{
 					Name: "empty-scope",
@@ -89,7 +89,7 @@ func TestPolicyValidate(t *testing.T) {
 		{
 			testName: "empty rules",
 			policy: PolicyFile{
-				APIVersion: "khulnasoft-labs.github.io/v1beta1",
+				APIVersion: "khulnasoft-lab.github.io/v1beta1",
 				Kind:       "TrackerPolicy",
 				Metadata: Metadata{
 					Name: "empty-rules",
@@ -105,7 +105,7 @@ func TestPolicyValidate(t *testing.T) {
 		{
 			testName: "empty event name",
 			policy: PolicyFile{
-				APIVersion: "khulnasoft-labs.github.io/v1beta1",
+				APIVersion: "khulnasoft-lab.github.io/v1beta1",
 				Kind:       "TrackerPolicy",
 				Metadata: Metadata{
 					Name: "empty-event-name",
@@ -123,7 +123,7 @@ func TestPolicyValidate(t *testing.T) {
 		{
 			testName: "invalid event name",
 			policy: PolicyFile{
-				APIVersion: "khulnasoft-labs.github.io/v1beta1",
+				APIVersion: "khulnasoft-lab.github.io/v1beta1",
 				Kind:       "TrackerPolicy",
 				Metadata: Metadata{
 					Name: "invalid-event-name",
@@ -141,7 +141,7 @@ func TestPolicyValidate(t *testing.T) {
 		{
 			testName: "invalid_scope_operator",
 			policy: PolicyFile{
-				APIVersion: "khulnasoft-labs.github.io/v1beta1",
+				APIVersion: "khulnasoft-lab.github.io/v1beta1",
 				Kind:       "TrackerPolicy",
 				Metadata: Metadata{
 					Name: "invalid-scope-operator",
@@ -159,7 +159,7 @@ func TestPolicyValidate(t *testing.T) {
 		{
 			testName: "invalid_scope",
 			policy: PolicyFile{
-				APIVersion: "khulnasoft-labs.github.io/v1beta1",
+				APIVersion: "khulnasoft-lab.github.io/v1beta1",
 				Kind:       "TrackerPolicy",
 				Metadata: Metadata{
 					Name: "invalid-scope",
@@ -177,7 +177,7 @@ func TestPolicyValidate(t *testing.T) {
 		{
 			testName: "global scope must be unique",
 			policy: PolicyFile{
-				APIVersion: "khulnasoft-labs.github.io/v1beta1",
+				APIVersion: "khulnasoft-lab.github.io/v1beta1",
 				Kind:       "TrackerPolicy",
 				Metadata: Metadata{
 					Name: "global-scope-must-be-unique",
@@ -195,7 +195,7 @@ func TestPolicyValidate(t *testing.T) {
 		{
 			testName: "duplicated event",
 			policy: PolicyFile{
-				APIVersion: "khulnasoft-labs.github.io/v1beta1",
+				APIVersion: "khulnasoft-lab.github.io/v1beta1",
 				Kind:       "TrackerPolicy",
 				Metadata: Metadata{
 					Name: "duplicated-event",
@@ -214,7 +214,7 @@ func TestPolicyValidate(t *testing.T) {
 		{
 			testName: "invalid filter operator",
 			policy: PolicyFile{
-				APIVersion: "khulnasoft-labs.github.io/v1beta1",
+				APIVersion: "khulnasoft-lab.github.io/v1beta1",
 				Kind:       "TrackerPolicy",
 				Metadata: Metadata{
 					Name: "invalid-filter-operator",
@@ -237,7 +237,7 @@ func TestPolicyValidate(t *testing.T) {
 		{
 			testName: "invalid policy action",
 			policy: PolicyFile{
-				APIVersion: "khulnasoft-labs.github.io/v1beta1",
+				APIVersion: "khulnasoft-lab.github.io/v1beta1",
 				Kind:       "TrackerPolicy",
 				Metadata: Metadata{
 					Name: "invalid-policy-action",
@@ -255,7 +255,7 @@ func TestPolicyValidate(t *testing.T) {
 		{
 			testName: "invalid retval",
 			policy: PolicyFile{
-				APIVersion: "khulnasoft-labs.github.io/v1beta1",
+				APIVersion: "khulnasoft-lab.github.io/v1beta1",
 				Kind:       "TrackerPolicy",
 				Metadata: Metadata{
 					Name: "invalid-retval",
@@ -278,7 +278,7 @@ func TestPolicyValidate(t *testing.T) {
 		{
 			testName: "empty retval",
 			policy: PolicyFile{
-				APIVersion: "khulnasoft-labs.github.io/v1beta1",
+				APIVersion: "khulnasoft-lab.github.io/v1beta1",
 				Kind:       "TrackerPolicy",
 				Metadata: Metadata{
 					Name: "empty-retval",
@@ -301,7 +301,7 @@ func TestPolicyValidate(t *testing.T) {
 		{
 			testName: "retval not an integer",
 			policy: PolicyFile{
-				APIVersion: "khulnasoft-labs.github.io/v1beta1",
+				APIVersion: "khulnasoft-lab.github.io/v1beta1",
 				Kind:       "TrackerPolicy",
 				Metadata: Metadata{
 					Name: "retval-not-an-integer",
@@ -324,7 +324,7 @@ func TestPolicyValidate(t *testing.T) {
 		{
 			testName: "empty arg name 1",
 			policy: PolicyFile{
-				APIVersion: "khulnasoft-labs.github.io/v1beta1",
+				APIVersion: "khulnasoft-lab.github.io/v1beta1",
 				Kind:       "TrackerPolicy",
 				Metadata: Metadata{
 					Name: "empty-filter-arg-1",
@@ -347,7 +347,7 @@ func TestPolicyValidate(t *testing.T) {
 		{
 			testName: "empty arg name 3",
 			policy: PolicyFile{
-				APIVersion: "khulnasoft-labs.github.io/v1beta1",
+				APIVersion: "khulnasoft-lab.github.io/v1beta1",
 				Kind:       "TrackerPolicy",
 				Metadata: Metadata{
 					Name: "empty-filter-arg-3",
@@ -370,7 +370,7 @@ func TestPolicyValidate(t *testing.T) {
 		{
 			testName: "empty arg name 4",
 			policy: PolicyFile{
-				APIVersion: "khulnasoft-labs.github.io/v1beta1",
+				APIVersion: "khulnasoft-lab.github.io/v1beta1",
 				Kind:       "TrackerPolicy",
 				Metadata: Metadata{
 					Name: "empty-filter-arg-4",
@@ -393,7 +393,7 @@ func TestPolicyValidate(t *testing.T) {
 		{
 			testName: "invalid arg",
 			policy: PolicyFile{
-				APIVersion: "khulnasoft-labs.github.io/v1beta1",
+				APIVersion: "khulnasoft-lab.github.io/v1beta1",
 				Kind:       "TrackerPolicy",
 				Metadata: Metadata{
 					Name: "invalid-arg",
@@ -416,7 +416,7 @@ func TestPolicyValidate(t *testing.T) {
 		{
 			testName: "empty arg value",
 			policy: PolicyFile{
-				APIVersion: "khulnasoft-labs.github.io/v1beta1",
+				APIVersion: "khulnasoft-lab.github.io/v1beta1",
 				Kind:       "TrackerPolicy",
 				Metadata: Metadata{
 					Name: "empty-arg-value",
@@ -439,7 +439,7 @@ func TestPolicyValidate(t *testing.T) {
 		{
 			testName: "empty arg value",
 			policy: PolicyFile{
-				APIVersion: "khulnasoft-labs.github.io/v1beta1",
+				APIVersion: "khulnasoft-lab.github.io/v1beta1",
 				Kind:       "TrackerPolicy",
 				Metadata: Metadata{
 					Name: "empty-arg-value",
@@ -462,7 +462,7 @@ func TestPolicyValidate(t *testing.T) {
 		{
 			testName: "signature filter arg",
 			policy: PolicyFile{
-				APIVersion: "khulnasoft-labs.github.io/v1beta1",
+				APIVersion: "khulnasoft-lab.github.io/v1beta1",
 				Kind:       "TrackerPolicy",
 				Metadata: Metadata{
 					Name: "signature-filter-arg",

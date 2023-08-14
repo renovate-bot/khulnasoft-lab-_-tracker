@@ -7,9 +7,9 @@ import (
 
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"github.com/khulnasoft-labs/tracker/pkg/logger"
-	"github.com/khulnasoft-labs/tracker/types/protocol"
-	"github.com/khulnasoft-labs/tracker/types/trace"
+	"github.com/khulnasoft-lab/tracker/pkg/logger"
+	"github.com/khulnasoft-lab/tracker/types/protocol"
+	"github.com/khulnasoft-lab/tracker/types/trace"
 )
 
 // Wrap the specified protocol.Event as Event so we can use cel-go without implementing custom ref.TypeProvider.
@@ -84,7 +84,7 @@ var (
 
 // NOTE There might be cases where casting Go types to Protocol Buffer will panic
 // because we don't implement safe type mapping for all available argument types.
-// See https://github.com/khulnasoft-labs/tracker/pull/1766
+// See https://github.com/khulnasoft-lab/tracker/pull/1766
 func toArg(event trace.Event, source trace.Argument) (*Argument, error) {
 	valueType, ok := typesMapping[source.Type]
 	if !ok {

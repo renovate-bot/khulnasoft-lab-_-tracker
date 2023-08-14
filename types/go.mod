@@ -1,4 +1,4 @@
-module github.com/khulnasoft-labs/tracker/types
+module github.com/khulnasoft-lab/tracker/types
 
 go 1.19
 

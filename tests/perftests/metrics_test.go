@@ -10,7 +10,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/khulnasoft-labs/tracker/tests/testutils"
+	"github.com/khulnasoft-lab/tracker/tests/testutils"
 )
 
 var metrics = []string{

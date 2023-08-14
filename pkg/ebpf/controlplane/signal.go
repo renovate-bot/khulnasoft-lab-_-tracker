@@ -1,10 +1,10 @@
 package controlplane
 
 import (
-	"github.com/khulnasoft-labs/tracker/pkg/bufferdecoder"
-	"github.com/khulnasoft-labs/tracker/pkg/errfmt"
-	"github.com/khulnasoft-labs/tracker/pkg/events"
-	"github.com/khulnasoft-labs/tracker/types/trace"
+	"github.com/khulnasoft-lab/tracker/pkg/bufferdecoder"
+	"github.com/khulnasoft-lab/tracker/pkg/errfmt"
+	"github.com/khulnasoft-lab/tracker/pkg/events"
+	"github.com/khulnasoft-lab/tracker/types/trace"
 )
 
 type signal struct {

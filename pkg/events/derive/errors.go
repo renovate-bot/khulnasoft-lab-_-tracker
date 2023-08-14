@@ -3,7 +3,7 @@ package derive
 import (
 	"fmt"
 
-	"github.com/khulnasoft-labs/tracker/pkg/events"
+	"github.com/khulnasoft-lab/tracker/pkg/events"
 )
 
 func deriveError(id events.ID, err error) error {

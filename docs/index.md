@@ -5,7 +5,7 @@ hide:
 ![Tracker Logo >](images/tracker.png)
 
 Before moving on, please consider giving us a star ⭐️
-by clicking the button at the top of the [GitHub page](https://github.com/khulnasoft-labs/tracker/)
+by clicking the button at the top of the [GitHub page](https://github.com/khulnasoft-lab/tracker/)
 
 # Tracker Documentation
 
@@ -40,4 +40,4 @@ To learn how to install Tracker in a production environment, [check out the Kube
 
 Tracker is an [KhulnaSoft](https://khulnasoft.com) open source project.  
 Learn about our open source work and portfolio [Here](https://www.khulnasoft.com/products/open-source-projects/).  
-Join the community, and talk to us about any matter in [GitHub Discussion](https://github.com/khulnasoft-labs/tracker/discussions) or [Slack](https://slack.khulnasoft.com).  
+Join the community, and talk to us about any matter in [GitHub Discussion](https://github.com/khulnasoft-lab/tracker/discussions) or [Slack](https://slack.khulnasoft.com).  

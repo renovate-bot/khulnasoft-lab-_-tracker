@@ -10,15 +10,15 @@ import (
 	"golang.org/x/sys/unix"
 	"kernel.org/pub/linux/libs/security/libcap/cap"
 
-	"github.com/khulnasoft-labs/libbpfgo/helpers"
+	"github.com/khulnasoft-lab/libbpfgo/helpers"
 
-	"github.com/khulnasoft-labs/tracker/pkg/capabilities"
-	"github.com/khulnasoft-labs/tracker/pkg/errfmt"
-	"github.com/khulnasoft-labs/tracker/pkg/events"
-	"github.com/khulnasoft-labs/tracker/pkg/events/parse"
-	"github.com/khulnasoft-labs/tracker/pkg/logger"
-	"github.com/khulnasoft-labs/tracker/pkg/utils"
-	"github.com/khulnasoft-labs/tracker/types/trace"
+	"github.com/khulnasoft-lab/tracker/pkg/capabilities"
+	"github.com/khulnasoft-lab/tracker/pkg/errfmt"
+	"github.com/khulnasoft-lab/tracker/pkg/events"
+	"github.com/khulnasoft-lab/tracker/pkg/events/parse"
+	"github.com/khulnasoft-lab/tracker/pkg/logger"
+	"github.com/khulnasoft-lab/tracker/pkg/utils"
+	"github.com/khulnasoft-lab/tracker/types/trace"
 )
 
 var (
@@ -41,7 +41,7 @@ func (t *Tracker) processLostEvents() {
 		case lost := <-t.lostEvChannel:
 			// When terminating tracker-ebpf the lost channel receives multiple "0 lost events" events.
 			// This check prevents those 0 lost events messages to be written to stderr until the bug is fixed:
-			// https://github.com/khulnasoft-labs/libbpfgo/issues/122
+			// https://github.com/khulnasoft-lab/libbpfgo/issues/122
 			if lost > 0 {
 				if err := t.stats.LostEvCount.Increment(lost); err != nil {
 					logger.Errorw("Incrementing lost event count", "error", err)

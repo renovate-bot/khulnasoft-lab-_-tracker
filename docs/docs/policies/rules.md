@@ -12,7 +12,7 @@ Events support three types of filters: `context`, `arguments` and `return value`
 Context is data which is collected along the event. They can be filtered like:
 
 ```yaml
-apiVersion: khulnasoft-labs.github.io/v1beta1
+apiVersion: khulnasoft-lab.github.io/v1beta1
 kind: TrackerPolicy
 metadata:
 	name: sample-context-filter
@@ -187,7 +187,7 @@ filters:
 Events have arguments, which can be filtered. 
 
 ```yaml
-apiVersion: khulnasoft-labs.github.io/v1beta1
+apiVersion: khulnasoft-lab.github.io/v1beta1
 kind: TrackerPolicy
 metadata:
 	name: sample-argument-filter
@@ -202,7 +202,7 @@ spec:
 		- args.pathname=/tmp*
 ```
 
-Arguments can be found on the respective event definition, in this case [security_file_open](https://github.com/khulnasoft-labs/tracker/blob/main/pkg/events/events.goL5293-L529), or the user can test the event output in CLI before defining a policy, e.g:
+Arguments can be found on the respective event definition, in this case [security_file_open](https://github.com/khulnasoft-lab/tracker/blob/main/pkg/events/events.goL5293-L529), or the user can test the event output in CLI before defining a policy, e.g:
 
 ```console
 tracker -e security_file_open --output json
@@ -217,7 +217,7 @@ tracker -e security_file_open --output json
 Return values can also be filtered.
 
 ```yaml
-apiVersion: khulnasoft-labs.github.io/v1beta1
+apiVersion: khulnasoft-lab.github.io/v1beta1
 kind: TrackerPolicy
 metadata:
 	name: sample-return-value

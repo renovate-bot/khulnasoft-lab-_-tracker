@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"path"
 
-	"github.com/khulnasoft-labs/tracker/signatures/helpers"
-	"github.com/khulnasoft-labs/tracker/types/detect"
-	"github.com/khulnasoft-labs/tracker/types/protocol"
-	"github.com/khulnasoft-labs/tracker/types/trace"
+	"github.com/khulnasoft-lab/tracker/signatures/helpers"
+	"github.com/khulnasoft-lab/tracker/types/detect"
+	"github.com/khulnasoft-lab/tracker/types/protocol"
+	"github.com/khulnasoft-lab/tracker/types/trace"
 )
 
 type CgroupNotifyOnReleaseModification struct {

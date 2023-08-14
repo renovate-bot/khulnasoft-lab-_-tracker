@@ -1,9 +1,9 @@
 package cobra
 
 import (
-	"github.com/khulnasoft-labs/tracker/pkg/cmd/flags"
-	"github.com/khulnasoft-labs/tracker/pkg/policy"
-	"github.com/khulnasoft-labs/tracker/pkg/policy/v1beta1"
+	"github.com/khulnasoft-lab/tracker/pkg/cmd/flags"
+	"github.com/khulnasoft-lab/tracker/pkg/policy"
+	"github.com/khulnasoft-lab/tracker/pkg/policy/v1beta1"
 )
 
 func createPoliciesFromPolicyFiles(policyFlags []string) (*policy.Policies, error) {

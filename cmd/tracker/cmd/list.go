@@ -6,11 +6,11 @@ import (
 	"github.com/open-policy-agent/opa/compile"
 	"github.com/spf13/cobra"
 
-	"github.com/khulnasoft-labs/tracker/pkg/cmd"
-	"github.com/khulnasoft-labs/tracker/pkg/cmd/initialize"
-	"github.com/khulnasoft-labs/tracker/pkg/events"
-	"github.com/khulnasoft-labs/tracker/pkg/logger"
-	"github.com/khulnasoft-labs/tracker/pkg/signatures/signature"
+	"github.com/khulnasoft-lab/tracker/pkg/cmd"
+	"github.com/khulnasoft-lab/tracker/pkg/cmd/initialize"
+	"github.com/khulnasoft-lab/tracker/pkg/events"
+	"github.com/khulnasoft-lab/tracker/pkg/logger"
+	"github.com/khulnasoft-lab/tracker/pkg/signatures/signature"
 )
 
 func init() {

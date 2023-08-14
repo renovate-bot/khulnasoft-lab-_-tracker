@@ -8,12 +8,12 @@ import (
 	"sync"
 	"unsafe"
 
-	"github.com/khulnasoft-labs/tracker/pkg/bufferdecoder"
-	"github.com/khulnasoft-labs/tracker/pkg/errfmt"
-	"github.com/khulnasoft-labs/tracker/pkg/events"
-	"github.com/khulnasoft-labs/tracker/pkg/logger"
-	"github.com/khulnasoft-labs/tracker/pkg/utils"
-	"github.com/khulnasoft-labs/tracker/types/trace"
+	"github.com/khulnasoft-lab/tracker/pkg/bufferdecoder"
+	"github.com/khulnasoft-lab/tracker/pkg/errfmt"
+	"github.com/khulnasoft-lab/tracker/pkg/events"
+	"github.com/khulnasoft-lab/tracker/pkg/logger"
+	"github.com/khulnasoft-lab/tracker/pkg/utils"
+	"github.com/khulnasoft-lab/tracker/types/trace"
 )
 
 // Max depth of each stack trace to track
@@ -523,7 +523,7 @@ func (t *Tracker) deriveEvents(ctx context.Context, in <-chan *trace.Event) (
 
 				for i := range derivatives {
 					// Skip events that dont work with filtering due to missing types being handled.
-					// https://github.com/khulnasoft-labs/tracker/issues/2486
+					// https://github.com/khulnasoft-lab/tracker/issues/2486
 					switch events.ID(derivatives[i].EventID) {
 					case events.SymbolsLoaded:
 					case events.SharedObjectLoaded:

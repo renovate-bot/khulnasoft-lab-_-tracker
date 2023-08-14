@@ -16,7 +16,7 @@ To install Tracker using Helm, follow these steps:
 Add the KhulnaSoft Helm repository:
 
 ```console
-helm repo add khulnasoft https://khulnasoft-labs.github.io/helm-charts/
+helm repo add khulnasoft https://khulnasoft-lab.github.io/helm-charts/
 ```
 
 Install Tracker with the default settings:
@@ -56,7 +56,7 @@ Data
 ====
 signatures.yaml:
 ----
-apiVersion: khulnasoft-labs.github.io/v1beta1
+apiVersion: khulnasoft-lab.github.io/v1beta1
 kind: TrackerPolicy
 metadata:
 	name: signature-events
@@ -112,7 +112,7 @@ To add a new policy for tracking execve events, append the following YAML block 
 
 ```yaml
 events.yaml: |-
-  apiVersion: khulnasoft-labs.github.io/v1beta1
+  apiVersion: khulnasoft-lab.github.io/v1beta1
   kind: TrackerPolicy
   metadata:
 	  name: execve-event

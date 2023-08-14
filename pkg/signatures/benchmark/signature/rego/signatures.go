@@ -5,8 +5,8 @@ import (
 
 	"github.com/open-policy-agent/opa/compile"
 
-	"github.com/khulnasoft-labs/tracker/pkg/signatures/regosig"
-	"github.com/khulnasoft-labs/tracker/types/detect"
+	"github.com/khulnasoft-lab/tracker/pkg/signatures/regosig"
+	"github.com/khulnasoft-lab/tracker/types/detect"
 )
 
 var (

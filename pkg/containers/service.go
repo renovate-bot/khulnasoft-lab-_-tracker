@@ -3,8 +3,8 @@ package containers
 import (
 	"context"
 
-	"github.com/khulnasoft-labs/tracker/pkg/containers/runtime"
-	"github.com/khulnasoft-labs/tracker/pkg/errfmt"
+	"github.com/khulnasoft-lab/tracker/pkg/containers/runtime"
+	"github.com/khulnasoft-lab/tracker/pkg/errfmt"
 )
 
 type runtimeInfoService struct {

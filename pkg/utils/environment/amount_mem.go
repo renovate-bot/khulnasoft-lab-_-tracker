@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/khulnasoft-labs/tracker/pkg/logger"
+	"github.com/khulnasoft-lab/tracker/pkg/logger"
 )
 
 // GetMEMAmountInMBs reads meminfo file and returns MemTotal in megabytes

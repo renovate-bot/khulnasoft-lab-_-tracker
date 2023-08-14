@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/khulnasoft-labs/tracker/types/protocol"
+	"github.com/khulnasoft-lab/tracker/types/protocol"
 )
 
 // Event is a single result of an ebpf event process. It is used as a payload later delivered to tracker-rules.

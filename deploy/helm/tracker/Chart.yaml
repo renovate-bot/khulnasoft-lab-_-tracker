@@ -1,9 +1,9 @@
 apiVersion: v2
 name: tracker
 description: Linux Runtime Security and Forensics using eBPF
-home: https://khulnasoft-labs.github.io/tracker/v0.17.0/
+home: https://khulnasoft-lab.github.io/tracker/v0.17.0/
 sources:
-  - https://github.com/khulnasoft-labs/tracker
+  - https://github.com/khulnasoft-lab/tracker
 
 # A chart can be either an 'application' or a 'library' chart.
 #

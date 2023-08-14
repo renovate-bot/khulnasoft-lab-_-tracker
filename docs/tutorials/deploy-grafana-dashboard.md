@@ -8,7 +8,7 @@ Since version 0.7.0, tracker exports useful runtime metrics to prometheus.
 These metrics exports are enabled by default in all docker images and can be
 enabled using the `--metrics`.
 
-[tracker]: https://github.com/khulnasoft-labs/tracker/tree/{{ git.tag }}/cmd/tracker
+[tracker]: https://github.com/khulnasoft-lab/tracker/tree/{{ git.tag }}/cmd/tracker
 
 By using grafana and the new metrics from tracker, we can deploy a simple
 dashboard which tracks your tracker's instance performance and outputs.
@@ -18,7 +18,7 @@ dashboard which tracks your tracker's instance performance and outputs.
 The following tools must be available for use, they can all be installed either
 through docker or installed/built on your machine.
 
-- [Tracker](https://github.com/khulnasoft-labs/tracker/)
+- [Tracker](https://github.com/khulnasoft-lab/tracker/)
 - [Prometheus](https://prometheus.io/download/)
 - [Grafana](https://grafana.com/docs/grafana/latest/getting-started/getting-started)
 
@@ -102,7 +102,7 @@ You may now either create your own Dashboard or import our default dashboard.
 
 First download our Grafana Dashboard's json [here].
 
-[here]: https://github.com/khulnasoft-labs/tracker/tree/main/deploy/grafana/tracker.json
+[here]: https://github.com/khulnasoft-lab/tracker/tree/main/deploy/grafana/tracker.json
 
 After adding the data source hover on the plus icon in the sidebar and select
 "Import". Press "Upload JSON File" at the top of the page and select the

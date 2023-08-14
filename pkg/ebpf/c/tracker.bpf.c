@@ -5115,7 +5115,7 @@ int BPF_KPROBE(trace_security_sk_clone)
     // - by linking old "sock" to the new "sock" we can relate the task.
     // - some of the initial packets, sometimes with big length, are traced now.
     //
-    // More at: https://github.com/khulnasoft-labs/tracker/issues/2739
+    // More at: https://github.com/khulnasoft-lab/tracker/issues/2739
 
     struct sock *osock = (void *) PT_REGS_PARM1(ctx);
     struct sock *nsock = (void *) PT_REGS_PARM2(ctx);

@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/khulnasoft-labs/tracker/types/trace"
+	"github.com/khulnasoft-lab/tracker/types/trace"
 )
 
 func GetTrackerArgumentByName(event trace.Event, argName string) (trace.Argument, error) {

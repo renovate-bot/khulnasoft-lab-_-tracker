@@ -1,6 +1,6 @@
 package main
 
-import "github.com/khulnasoft-labs/tracker/types/detect"
+import "github.com/khulnasoft-lab/tracker/types/detect"
 
 var ExportedSignatures = []detect.Signature{
 	// Network Protocol Events

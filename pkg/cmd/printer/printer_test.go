@@ -7,8 +7,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/khulnasoft-labs/tracker/pkg/cmd/flags"
-	"github.com/khulnasoft-labs/tracker/pkg/config"
+	"github.com/khulnasoft-lab/tracker/pkg/cmd/flags"
+	"github.com/khulnasoft-lab/tracker/pkg/config"
 )
 
 func TestTrackerEbpfPrepareOutputPrinterConfig(t *testing.T) {

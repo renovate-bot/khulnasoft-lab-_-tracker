@@ -3,7 +3,7 @@ package utils
 import (
 	"strings"
 
-	"github.com/khulnasoft-labs/libbpfgo/helpers"
+	"github.com/khulnasoft-lab/libbpfgo/helpers"
 )
 
 func ParseSymbol(address uint64, table helpers.KernelSymbolTable) *helpers.KernelSymbol {

@@ -3,7 +3,7 @@ package events
 import (
 	"kernel.org/pub/linux/libs/security/libcap/cap"
 
-	"github.com/khulnasoft-labs/tracker/pkg/ebpf/probes"
+	"github.com/khulnasoft-lab/tracker/pkg/ebpf/probes"
 )
 
 // Dependencies is a struct that holds all the dependencies of a given event definition.

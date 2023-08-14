@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/khulnasoft-labs/tracker/tests/testutils"
+	"github.com/khulnasoft-lab/tracker/tests/testutils"
 )
 
 // Test_ParseCmd tests the parseCmd function

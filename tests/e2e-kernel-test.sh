@@ -35,7 +35,7 @@ if [[ ! -d ./signatures ]]; then
     error_exit "need to be in tracker root directory"
 fi
 
-DOCKER_IMAGE=ghcr.io/khulnasoft-labs/tracker-tester:latest
+DOCKER_IMAGE=ghcr.io/khulnasoft-lab/tracker-tester:latest
 
 # run CO-RE TRC-102 test only by default
 TESTS=${TESTS:=TRC-102}

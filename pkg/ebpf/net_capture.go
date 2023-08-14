@@ -8,9 +8,9 @@ import (
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 
-	"github.com/khulnasoft-labs/tracker/pkg/events"
-	"github.com/khulnasoft-labs/tracker/pkg/logger"
-	"github.com/khulnasoft-labs/tracker/types/trace"
+	"github.com/khulnasoft-lab/tracker/pkg/events"
+	"github.com/khulnasoft-lab/tracker/pkg/logger"
+	"github.com/khulnasoft-lab/tracker/types/trace"
 )
 
 //
@@ -63,7 +63,7 @@ func (t *Tracker) processNetCapEvents(ctx context.Context, in <-chan *trace.Even
 
 			case lost := <-t.lostNetCapChannel:
 				if lost > 0 {
-					// https://github.com/khulnasoft-labs/libbpfgo/issues/122
+					// https://github.com/khulnasoft-lab/libbpfgo/issues/122
 					if err := t.stats.LostNtCapCount.Increment(lost); err != nil {
 						logger.Errorw("Incrementing lost network events count", "error", err)
 					}

@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/khulnasoft-labs/tracker/pkg/filters"
+	"github.com/khulnasoft-lab/tracker/pkg/filters"
 )
 
 func matchFilter(fils []string, argValStr string) bool {

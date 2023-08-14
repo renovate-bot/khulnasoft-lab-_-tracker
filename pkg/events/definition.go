@@ -1,7 +1,7 @@
 package events
 
 import (
-	"github.com/khulnasoft-labs/tracker/types/trace"
+	"github.com/khulnasoft-lab/tracker/types/trace"
 )
 
 type Definition struct {

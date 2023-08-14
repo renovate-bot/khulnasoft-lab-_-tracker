@@ -5,9 +5,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/khulnasoft-labs/tracker/types/detect"
-	"github.com/khulnasoft-labs/tracker/types/protocol"
-	"github.com/khulnasoft-labs/tracker/types/trace"
+	"github.com/khulnasoft-lab/tracker/types/detect"
+	"github.com/khulnasoft-lab/tracker/types/protocol"
+	"github.com/khulnasoft-lab/tracker/types/trace"
 )
 
 // lint:ignore U1000 This is an example file with no real usage

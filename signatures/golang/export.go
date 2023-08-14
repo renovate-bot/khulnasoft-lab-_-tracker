@@ -1,6 +1,6 @@
 package main
 
-import "github.com/khulnasoft-labs/tracker/types/detect"
+import "github.com/khulnasoft-lab/tracker/types/detect"
 
 // ExportedSignatures fulfills the goplugins contract required by the rule-engine
 // this is a list of signatures that this plugin exports

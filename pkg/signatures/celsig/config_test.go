@@ -6,8 +6,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/khulnasoft-labs/tracker/pkg/signatures/celsig"
-	"github.com/khulnasoft-labs/tracker/types/detect"
+	"github.com/khulnasoft-lab/tracker/pkg/signatures/celsig"
+	"github.com/khulnasoft-lab/tracker/types/detect"
 )
 
 func TestNewConfigFromFile(t *testing.T) {

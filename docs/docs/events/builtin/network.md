@@ -210,7 +210,7 @@ tracker --output json --events net_packet_dns.args.src=8.8.8.8
 It is possible to create Golang (or Rego) signatures for the network events. If you haven't read about how to create signatures, do it [HERE](../../detecting/golang/).
 
 !!! Examples Note
-    Below is an example of how to create a signature for the `net_packet_dns` event. This same example is used by Tracker CI/CD tests and can be found at the [GitHub repository](https://github.com/khulnasoft-labs/tracker/tree/main/tests/e2e-net-signatures), together with some other signatures for the network events.
+    Below is an example of how to create a signature for the `net_packet_dns` event. This same example is used by Tracker CI/CD tests and can be found at the [GitHub repository](https://github.com/khulnasoft-lab/tracker/tree/main/tests/e2e-net-signatures), together with some other signatures for the network events.
 
 1. **net_packet_dns** signature example
 
@@ -221,10 +221,10 @@ import (
     "fmt"
     "strings"
 
-    "github.com/khulnasoft-labs/tracker/signatures/helpers"
-    "github.com/khulnasoft-labs/tracker/types/detect"
-    "github.com/khulnasoft-labs/tracker/types/protocol"
-    "github.com/khulnasoft-labs/tracker/types/trace"
+    "github.com/khulnasoft-lab/tracker/signatures/helpers"
+    "github.com/khulnasoft-lab/tracker/types/detect"
+    "github.com/khulnasoft-lab/tracker/types/protocol"
+    "github.com/khulnasoft-lab/tracker/types/trace"
 )
 
 //

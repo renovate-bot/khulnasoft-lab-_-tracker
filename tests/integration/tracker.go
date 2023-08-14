@@ -11,13 +11,13 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/khulnasoft-labs/libbpfgo/helpers"
+	"github.com/khulnasoft-lab/libbpfgo/helpers"
 
-	"github.com/khulnasoft-labs/tracker/pkg/cmd/initialize"
-	"github.com/khulnasoft-labs/tracker/pkg/config"
-	tracker "github.com/khulnasoft-labs/tracker/pkg/ebpf"
-	uproc "github.com/khulnasoft-labs/tracker/pkg/utils/proc"
-	"github.com/khulnasoft-labs/tracker/types/trace"
+	"github.com/khulnasoft-lab/tracker/pkg/cmd/initialize"
+	"github.com/khulnasoft-lab/tracker/pkg/config"
+	tracker "github.com/khulnasoft-lab/tracker/pkg/ebpf"
+	uproc "github.com/khulnasoft-lab/tracker/pkg/utils/proc"
+	"github.com/khulnasoft-lab/tracker/types/trace"
 )
 
 // eventBuffer is a thread-safe buffer for tracker events

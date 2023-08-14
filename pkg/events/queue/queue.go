@@ -4,7 +4,7 @@
 package queue
 
 import (
-	"github.com/khulnasoft-labs/tracker/types/trace"
+	"github.com/khulnasoft-lab/tracker/types/trace"
 )
 
 type CacheConfig EventQueue

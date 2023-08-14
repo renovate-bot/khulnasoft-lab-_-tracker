@@ -9,10 +9,10 @@ import (
 	"path"
 	"strings"
 
-	"github.com/khulnasoft-labs/tracker/pkg/bufferdecoder"
-	"github.com/khulnasoft-labs/tracker/pkg/errfmt"
-	"github.com/khulnasoft-labs/tracker/pkg/logger"
-	"github.com/khulnasoft-labs/tracker/pkg/utils"
+	"github.com/khulnasoft-lab/tracker/pkg/bufferdecoder"
+	"github.com/khulnasoft-lab/tracker/pkg/errfmt"
+	"github.com/khulnasoft-lab/tracker/pkg/logger"
+	"github.com/khulnasoft-lab/tracker/pkg/utils"
 )
 
 func (t *Tracker) processFileCaptures(ctx context.Context) {
@@ -216,7 +216,7 @@ func (t *Tracker) processFileCaptures(ctx context.Context) {
 		case lost := <-t.lostCapturesChannel:
 			// When terminating tracker-ebpf the lost channel receives multiple "0 lost events" events.
 			// This check prevents those 0 lost events messages to be written to stderr until the bug is fixed:
-			// https://github.com/khulnasoft-labs/libbpfgo/issues/122
+			// https://github.com/khulnasoft-lab/libbpfgo/issues/122
 			if lost > 0 {
 				if err := t.stats.LostWrCount.Increment(lost); err != nil {
 					logger.Errorw("Incrementing lost capture count", "error", err)

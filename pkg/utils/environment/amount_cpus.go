@@ -5,7 +5,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/khulnasoft-labs/tracker/pkg/errfmt"
+	"github.com/khulnasoft-lab/tracker/pkg/errfmt"
 )
 
 const possibleCPUsFilePath = "/sys/devices/system/cpu/possible"

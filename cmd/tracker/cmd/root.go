@@ -11,11 +11,11 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
-	cmdcobra "github.com/khulnasoft-labs/tracker/pkg/cmd/cobra"
-	"github.com/khulnasoft-labs/tracker/pkg/cmd/flags/server"
-	"github.com/khulnasoft-labs/tracker/pkg/cmd/initialize"
-	"github.com/khulnasoft-labs/tracker/pkg/errfmt"
-	"github.com/khulnasoft-labs/tracker/pkg/logger"
+	cmdcobra "github.com/khulnasoft-lab/tracker/pkg/cmd/cobra"
+	"github.com/khulnasoft-lab/tracker/pkg/cmd/flags/server"
+	"github.com/khulnasoft-lab/tracker/pkg/cmd/initialize"
+	"github.com/khulnasoft-lab/tracker/pkg/errfmt"
+	"github.com/khulnasoft-lab/tracker/pkg/logger"
 )
 
 var (

@@ -3,9 +3,9 @@ package printer
 import (
 	"sync"
 
-	"github.com/khulnasoft-labs/tracker/pkg/config"
-	"github.com/khulnasoft-labs/tracker/pkg/metrics"
-	"github.com/khulnasoft-labs/tracker/types/trace"
+	"github.com/khulnasoft-lab/tracker/pkg/config"
+	"github.com/khulnasoft-lab/tracker/pkg/metrics"
+	"github.com/khulnasoft-lab/tracker/types/trace"
 )
 
 // Broadcast is a printer that broadcasts events to multiple printers

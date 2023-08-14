@@ -15,7 +15,7 @@ Build-Depends: debhelper,
                zlib1g-dev,
                golang
 Standards-Version: 4.5.0
-Vcs-Git: https://github.com/khulnasoft-labs/tracker.git
+Vcs-Git: https://github.com/khulnasoft-lab/tracker.git
 Homepage: https://www.khulnasoft.com/products/tracker/
 Rules-Requires-Root: no
 

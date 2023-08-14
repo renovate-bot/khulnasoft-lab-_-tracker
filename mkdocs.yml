@@ -1,9 +1,9 @@
 site_name: Tracker
-site_url: https://khulnasoft-labs.github.io/tracker/
+site_url: https://khulnasoft-lab.github.io/tracker/
 site_description: Runtime security and forensics using eBPF.
 docs_dir: docs/
 repo_name: GitHub
-repo_url: https://github.com/khulnasoft-labs/tracker
+repo_url: https://github.com/khulnasoft-lab/tracker
 edit_uri: ""
 
 nav:
