@@ -70,7 +70,7 @@ jobs:
             --charts-repo https://${{ env.GH_OWNER }}.github.io/${{ env.HELM_REP }}/ \
             --index-path index.yaml
       - name: Push index file
-        uses: dmnemec/copy_file_to_another_repo_action@c93037aa10fa8893de271f19978c980d0c1a9b37
+        uses: dmnemec/copy_file_to_another_repo_action@bbebd3da22e4a37d04dca5f782edd5201cb97083
         env:
           API_TOKEN_GITHUB: ${{ secrets.ORG_REPO_TOKEN }}
         with:
