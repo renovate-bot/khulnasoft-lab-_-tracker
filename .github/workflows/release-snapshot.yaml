@@ -15,6 +15,10 @@ on:
 jobs:
   release-snapshot:
     name: Release Snapshot X64 (Default)
+    runs-on:
+      [
+        "github-self-hosted_ami-0f4881c8d69684001_${{ github.event.number }}-${{ github.run_id }}",
+      ]
     permissions:
       contents: read
       packages: write
