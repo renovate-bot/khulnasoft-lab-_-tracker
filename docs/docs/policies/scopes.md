@@ -74,7 +74,7 @@ Events are collected from everything but containers:
 
 ```yaml
 scope:
-    - !container
+    - "!container"
 ```
 
 ### tree
