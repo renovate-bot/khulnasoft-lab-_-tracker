@@ -11,7 +11,6 @@ import (
 	"github.com/khulnasoft-lab/tracker/pkg/events/queue"
 	"github.com/khulnasoft-lab/tracker/pkg/policy"
 	"github.com/khulnasoft-lab/tracker/pkg/signatures/engine"
-	"github.com/khulnasoft-lab/tracker/types/trace"
 )
 
 // Config is a struct containing user defined configuration of tracker
@@ -27,7 +26,6 @@ type Config struct {
 	BTFObjPath         string
 	BPFObjBytes        []byte
 	KernelConfig       *helpers.KernelConfig
-	ChanEvents         chan trace.Event
 	OSInfo             *helpers.OSInfo
 	Sockets            runtime.Sockets
 	ContainersEnrich   bool
@@ -84,11 +82,6 @@ func (c Config) Validate() error {
 		return errfmt.Errorf("nil bpf object in memory")
 	}
 
-	// Events channel
-	if c.ChanEvents == nil {
-		return errfmt.Errorf("nil events channel")
-	}
-
 	return nil
 }
 
@@ -123,6 +116,7 @@ const (
 	CaptureRegularFiles FileCaptureType = 1 << iota
 	CapturePipeFiles
 	CaptureSocketFiles
+	CaptureELFFiles
 )
 
 // Filters for FDs flags

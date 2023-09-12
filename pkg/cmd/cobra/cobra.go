@@ -21,7 +21,6 @@ import (
 	"github.com/khulnasoft-lab/tracker/pkg/signatures/engine"
 	"github.com/khulnasoft-lab/tracker/pkg/signatures/signature"
 	"github.com/khulnasoft-lab/tracker/types/detect"
-	"github.com/khulnasoft-lab/tracker/types/trace"
 )
 
 func GetTrackerRunner(c *cobra.Command, version string) (cmd.Runner, error) {
@@ -212,23 +211,26 @@ func GetTrackerRunner(c *cobra.Command, version string) (cmd.Runner, error) {
 		return runner, errfmt.Errorf("failed preparing BPF object: %v", err)
 	}
 
-	cfg.ChanEvents = make(chan trace.Event, 1000)
-
 	// Prepare the server
 
-	httpServer, err := server.PrepareServer(
-		viper.GetString(server.ListenEndpointFlag),
+	httpServer, err := server.PrepareHTTPServer(
+		viper.GetString(server.HTTPListenEndpointFlag),
 		viper.GetBool(server.MetricsEndpointFlag),
 		viper.GetBool(server.HealthzEndpointFlag),
 		viper.GetBool(server.PProfEndpointFlag),
 		viper.GetBool(server.PyroscopeAgentFlag),
 	)
-
 	if err != nil {
 		return runner, err
 	}
 
-	runner.Server = httpServer
+	grpcServer, err := flags.PrepareGRPCServer(viper.GetString(server.GRPCListenEndpointFlag))
+	if err != nil {
+		return runner, err
+	}
+
+	runner.HTTPServer = httpServer
+	runner.GRPCServer = grpcServer
 	runner.TrackerConfig = cfg
 	runner.Printer = p
 

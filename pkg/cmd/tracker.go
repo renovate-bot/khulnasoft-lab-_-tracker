@@ -11,14 +11,16 @@ import (
 	tracker "github.com/khulnasoft-lab/tracker/pkg/ebpf"
 	"github.com/khulnasoft-lab/tracker/pkg/errfmt"
 	"github.com/khulnasoft-lab/tracker/pkg/logger"
-	"github.com/khulnasoft-lab/tracker/pkg/server"
+	"github.com/khulnasoft-lab/tracker/pkg/server/grpc"
+	"github.com/khulnasoft-lab/tracker/pkg/server/http"
 	"github.com/khulnasoft-lab/tracker/pkg/utils"
 )
 
 type Runner struct {
 	TrackerConfig config.Config
-	Printer       printer.EventPrinter
-	Server        *server.Server
+	Printer      printer.EventPrinter
+	HTTPServer   *http.Server
+	GRPCServer   *grpc.Server
 }
 
 func (r Runner) Run(ctx context.Context) error {
@@ -30,20 +32,23 @@ func (r Runner) Run(ctx context.Context) error {
 	}
 
 	// Readiness Callback: Tracker is ready to receive events
-
 	t.AddReadyCallback(
 		func(ctx context.Context) {
 			logger.Debugw("Tracker is ready callback")
-			if r.Server == nil {
-				return
-			}
-			if r.Server.MetricsEndpointEnabled() {
-				r.TrackerConfig.MetricsEnabled = true // TODO: is this needed ?
-				if err := t.Stats().RegisterPrometheus(); err != nil {
-					logger.Errorw("Registering prometheus metrics", "error", err)
+			if r.HTTPServer != nil {
+				if r.HTTPServer.MetricsEndpointEnabled() {
+					r.TrackerConfig.MetricsEnabled = true // TODO: is this needed ?
+					if err := t.Stats().RegisterPrometheus(); err != nil {
+						logger.Errorw("Registering prometheus metrics", "error", err)
+					}
 				}
+				go r.HTTPServer.Start(ctx)
 			}
-			go r.Server.Start(ctx)
+
+			// start server if one is configured
+			if r.GRPCServer != nil {
+				go r.GRPCServer.Start(ctx, t)
+			}
 		},
 	)
 
@@ -65,6 +70,9 @@ func (r Runner) Run(ctx context.Context) error {
 		}
 	}()
 
+	stream := t.SubscribeAll()
+	defer t.Unsubscribe(stream)
+
 	// Preeamble
 
 	r.Printer.Preamble()
@@ -74,7 +82,7 @@ func (r Runner) Run(ctx context.Context) error {
 	go func() {
 		for {
 			select {
-			case event := <-r.TrackerConfig.ChanEvents:
+			case event := <-stream.ReceiveEvents():
 				r.Printer.Print(event)
 			case <-ctx.Done():
 				return
@@ -83,22 +91,19 @@ func (r Runner) Run(ctx context.Context) error {
 	}()
 
 	// Blocks (until ctx is Done)
-
 	err = t.Run(ctx)
 
-	// Drain remaininig channel events (sent during shutdown)
-
-	for {
-		select {
-		case event := <-r.TrackerConfig.ChanEvents:
-			r.Printer.Print(event)
-		default:
-			stats := t.Stats()
-			r.Printer.Epilogue(*stats)
-			r.Printer.Close()
-			return err
-		}
+	// Drain remaininig channel events (sent during shutdown),
+	// the channel is closed by the tracker when it's done
+	for event := range stream.ReceiveEvents() {
+		r.Printer.Print(event)
 	}
+
+	stats := t.Stats()
+	r.Printer.Epilogue(*stats)
+	r.Printer.Close()
+
+	return err
 }
 
 func GetContainerMode(cfg config.Config) config.ContainerMode {

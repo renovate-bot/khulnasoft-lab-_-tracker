@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
+        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
         with:
           fetch-depth: 0
 
@@ -19,7 +19,7 @@ jobs:
         with:
           version: v3.10.3
 
-      - uses: actions/setup-python@v4 # v4.6.0
+      - uses: actions/setup-python@57ded4d7d5e986d7296eab16560982c6dd7c923b # v4.6.0
         with:
           python-version: 3.7
 
@@ -30,7 +30,7 @@ jobs:
         run: ct lint --config deploy/helm/ct.yaml --lint-conf  deploy/helm/lintconf.yaml --chart-yaml-schema deploy/helm/chart_schema.yaml
 
       - name: Create KIND Cluster
-        uses: helm/kind-action@dda0770415bac9fc20092cacbc54aa298604d140 # v1.8.0
+        uses: helm/kind-action@fa81e57adff234b2908110485695db0f181f3c67 # v1.7.0
 
       - name: Run chart-testing (install)
         run: ct install --config deploy/helm/ct.yaml

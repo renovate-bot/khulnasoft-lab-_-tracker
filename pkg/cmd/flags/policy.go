@@ -47,23 +47,12 @@ func PrepareFilterMapsFromPolicies(policies []v1beta1.PolicyFile) (PolicyScopeMa
 				break
 			}
 
-			var scopeName, operatorAndValues string
-
-			switch s {
-			case "follow", "!container", "container":
-				scopeName = s
-				operatorAndValues = ""
-			default:
-				operatorIdx := strings.IndexAny(s, "=!<>")
-				scopeName = s[:operatorIdx]
-				operatorAndValues = s[operatorIdx:]
+			parsed, err := parseScopeFlag(s)
+			if err != nil {
+				return nil, nil, errfmt.WrapError(err)
 			}
 
-			scopeFlags = append(scopeFlags, scopeFlag{
-				full:              s,
-				scopeName:         scopeName,
-				operatorAndValues: operatorAndValues,
-			})
+			scopeFlags = append(scopeFlags, parsed)
 		}
 
 		policyScopeMap[pIdx] = policyScopes{
@@ -74,31 +63,31 @@ func PrepareFilterMapsFromPolicies(policies []v1beta1.PolicyFile) (PolicyScopeMa
 		eventFlags := make([]eventFlag, 0)
 
 		for _, r := range p.Rules() {
-			evtFlag, err := parseEventFlag(r.Event)
+			evtFlags, err := parseEventFlag(r.Event)
 			if err != nil {
 				return nil, nil, errfmt.WrapError(err)
 			}
-			eventFlags = append(eventFlags, evtFlag)
+			eventFlags = append(eventFlags, evtFlags...)
 
 			for _, f := range r.Filters {
 				// event argument or return value filter
 				if strings.HasPrefix(f, "args.") || strings.HasPrefix(f, "retval") {
-					evtFilterFlag, err := parseEventFlag(fmt.Sprintf("%s.%s", r.Event, f))
+					evtFilterFlags, err := parseEventFlag(fmt.Sprintf("%s.%s", r.Event, f))
 					if err != nil {
 						return nil, nil, errfmt.WrapError(err)
 					}
-					eventFlags = append(eventFlags, evtFilterFlag)
+					eventFlags = append(eventFlags, evtFilterFlags...)
 
 					continue
 				}
 
 				// at this point we know the filter is an event context filter
 				// context filters are provided without "context." prefix so we need to add it
-				evtContextFlag, err := parseEventFlag(fmt.Sprintf("%s.context.%s", r.Event, f))
+				evtContextFlags, err := parseEventFlag(fmt.Sprintf("%s.context.%s", r.Event, f))
 				if err != nil {
 					return nil, nil, errfmt.WrapError(err)
 				}
-				eventFlags = append(eventFlags, evtContextFlag)
+				eventFlags = append(eventFlags, evtContextFlags...)
 			}
 		}
 
@@ -147,7 +136,14 @@ func CreatePolicies(policyScopeMap PolicyScopeMap, policyEventsMap PolicyEventMa
 				continue
 			}
 
-			if strings.HasPrefix("container", scopeFlag.scopeName) {
+			if scopeFlag.scopeName == "container" {
+				if scopeFlag.operator == "!" {
+					err := p.ContFilter.Parse(scopeFlag.full) // !container
+					if err != nil {
+						return nil, err
+					}
+					continue
+				}
 				if scopeFlag.operatorAndValues == "=new" {
 					err := p.NewContFilter.Parse("new")
 					if err != nil {
@@ -173,14 +169,7 @@ func CreatePolicies(policyScopeMap PolicyScopeMap, policyEventsMap PolicyEventMa
 					}
 					continue
 				}
-				err := p.ContFilter.Parse(scopeFlag.scopeName)
-				if err != nil {
-					return nil, err
-				}
-				continue
-			}
 
-			if strings.HasPrefix("!container", scopeFlag.scopeName) {
 				err := p.ContFilter.Parse(scopeFlag.scopeName)
 				if err != nil {
 					return nil, err
@@ -218,7 +207,7 @@ func CreatePolicies(policyScopeMap PolicyScopeMap, policyEventsMap PolicyEventMa
 				continue
 			}
 
-			if strings.HasPrefix("pid", scopeFlag.scopeName) {
+			if scopeFlag.scopeName == "pid" {
 				if scopeFlag.operatorAndValues == "=new" {
 					if err := p.NewPidFilter.Parse("new"); err != nil {
 						return nil, err
@@ -246,7 +235,7 @@ func CreatePolicies(policyScopeMap PolicyScopeMap, policyEventsMap PolicyEventMa
 				continue
 			}
 
-			if strings.HasPrefix("uid", scopeFlag.scopeName) {
+			if scopeFlag.scopeName == "uid" {
 				err := p.UIDFilter.Parse(scopeFlag.operatorAndValues)
 				if err != nil {
 					return nil, err
@@ -254,7 +243,7 @@ func CreatePolicies(policyScopeMap PolicyScopeMap, policyEventsMap PolicyEventMa
 				continue
 			}
 
-			if strings.HasPrefix("follow", scopeFlag.scopeName) {
+			if scopeFlag.scopeName == "follow" {
 				p.Follow = true
 				continue
 			}
@@ -273,15 +262,12 @@ func CreatePolicies(policyScopeMap PolicyScopeMap, policyEventsMap PolicyEventMa
 		}
 
 		for _, evtFlag := range policyEvents.eventFlags {
-			if evtFlag.operator == "" && evtFlag.eventOptionType == "" {
-				// no operator and no event option type means that the flag contains only event names
-				evtsNames := strings.Split(evtFlag.full, ",")
-				for _, evtName := range evtsNames {
-					if !strings.HasPrefix(evtName, "-") {
-						eventFilter.Equal = append(eventFilter.Equal, evtName)
-					} else {
-						eventFilter.NotEqual = append(eventFilter.NotEqual, evtName[1:])
-					}
+			if evtFlag.eventOptionType == "" {
+				// no event option type means that the flag contains only event names
+				if evtFlag.operator == "-" {
+					eventFilter.NotEqual = append(eventFilter.NotEqual, evtFlag.eventName)
+				} else {
+					eventFilter.Equal = append(eventFilter.Equal, evtFlag.eventName)
 				}
 				continue
 			}

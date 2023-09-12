@@ -1636,14 +1636,20 @@ func Test_EventFilters(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			// prepare tracker config
 			config := config.Config{
-				Policies:   newPolicies(tc.policyFiles),
-				ChanEvents: make(chan trace.Event, 1000),
+				Policies: newPolicies(tc.policyFiles),
 				Capabilities: &config.CapabilitiesConfig{
 					BypassCaps: true,
 				},
 			}
 
 			ctx, cancel := context.WithCancel(context.Background())
+
+			// start tracker
+			trc := startTracker(ctx, t, config, nil, nil)
+			waitForTrackerStart(t, trc)
+
+			stream := trc.SubscribeAll()
+			defer trc.Unsubscribe(stream)
 
 			// start a goroutine to read events from the channel into the buffer
 			buf := &eventBuffer{}
@@ -1652,17 +1658,13 @@ func Test_EventFilters(t *testing.T) {
 					select {
 					case <-ctx.Done():
 						return
-					case evt := <-config.ChanEvents:
+					case evt := <-stream.ReceiveEvents():
 						buf.mu.Lock()
 						buf.events = append(buf.events, evt)
 						buf.mu.Unlock()
 					}
 				}
 			}(ctx)
-
-			// start tracker
-			trc := startTracker(ctx, t, config, nil, nil)
-			waitForTrackerStart(t, trc)
 
 			// run a test case and validate the results against the expected events
 			tc.test(t, tc.cmdEvents, buf, tc.useSyscaller)

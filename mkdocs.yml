@@ -10,6 +10,7 @@ nav:
   - Getting Started:
       - Overview: index.md
       - Kubernetes - Quick Start: getting-started/kubernetes-quickstart.md
+      - Docker - Quick Start: getting-started/docker-quickstart.md
       - Installation:
           - Getting Tracker: getting-started/installing/getting.md
           - Prerequisites: getting-started/installing/prerequisites.md
@@ -25,6 +26,7 @@ nav:
       - Working with Tracker's Policies on Kubernetes: tutorials/k8s-policies.md
       - Deploy Tracker Grafana Dashboard: tutorials/deploy-grafana-dashboard.md
       - Accessing Tracker Logs through Promtail and Loki: tutorials/promtail.md
+      - Additional Resources: tutorials/additional-resources.md
   - Docs:
       - Overview: docs/overview.md
       - Events:
@@ -497,6 +499,7 @@ nav:
                 - hidden_kernel_module: docs/events/builtin/extra/hidden_kernel_module.md
                 - process_execute_failed: docs/events/builtin/extra/process_execute_failed.md
                 - security_bpf_prog: docs/events/builtin/extra/security_bpf_prog.md
+                - security_bprm_check: docs/events/builtin/extra/security_bprm_check.md
           - Custom Events:
               - Overview: docs/events/custom/overview.md
               - Go: docs/events/custom/golang.md

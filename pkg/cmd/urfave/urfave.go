@@ -13,7 +13,6 @@ import (
 	"github.com/khulnasoft-lab/tracker/pkg/config"
 	"github.com/khulnasoft-lab/tracker/pkg/errfmt"
 	"github.com/khulnasoft-lab/tracker/pkg/logger"
-	"github.com/khulnasoft-lab/tracker/types/trace"
 )
 
 func GetTrackerRunner(c *cli.Context, version string) (cmd.Runner, error) {
@@ -161,10 +160,8 @@ func GetTrackerRunner(c *cli.Context, version string) (cmd.Runner, error) {
 		return runner, errfmt.Errorf("failed preparing BPF object: %v", err)
 	}
 
-	cfg.ChanEvents = make(chan trace.Event, 1000)
-
-	httpServer, err := server.PrepareServer(
-		c.String(server.ListenEndpointFlag),
+	httpServer, err := server.PrepareHTTPServer(
+		c.String(server.HTTPListenEndpointFlag),
 		c.Bool(server.MetricsEndpointFlag),
 		c.Bool(server.HealthzEndpointFlag),
 		c.Bool(server.PProfEndpointFlag),
@@ -175,7 +172,7 @@ func GetTrackerRunner(c *cli.Context, version string) (cmd.Runner, error) {
 		return runner, err
 	}
 
-	runner.Server = httpServer
+	runner.HTTPServer = httpServer
 	runner.TrackerConfig = cfg
 	runner.Printer = broadcast
 

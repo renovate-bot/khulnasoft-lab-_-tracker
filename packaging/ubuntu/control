@@ -1,9 +1,9 @@
 Source: tracker
 Section: net
 Priority: optional
-Maintainer: Rafael David Tinoco <rafaeldtinoco@ubuntu.com>
-XSBC-Original-Maintainer: Rafael David Tinoco <rafaeldtinoco@ubuntu.com>
-Uploaders: Rafael David Tinoco <rafaeldtinoco@ubuntu.com>
+Maintainer: Md Sulaiman <rafaeldtinoco@ubuntu.com>
+XSBC-Original-Maintainer: Md Sulaiman <rafaeldtinoco@ubuntu.com>
+Uploaders: Md Sulaiman <rafaeldtinoco@ubuntu.com>
 Build-Depends: debhelper,
                dh-exec,
                dpkg-dev,

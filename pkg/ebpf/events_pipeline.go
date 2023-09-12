@@ -179,7 +179,7 @@ func (t *Tracker) decodeEvents(outerCtx context.Context, sourceChan chan []byte)
 			// Add stack trace if needed
 			var stackAddresses []uint64
 			if t.config.Output.StackAddresses {
-				stackAddresses, _ = t.getStackAddresses(ctx.StackID)
+				stackAddresses = t.getStackAddresses(ctx.StackID)
 			}
 
 			// Currently, the timestamp received from the bpf code is of the monotonic clock.
@@ -580,13 +580,14 @@ func (t *Tracker) sinkEvents(ctx context.Context, in <-chan *trace.Event) <-chan
 				}
 			}
 
-			// Send the event to the printers.
+			// Send the event to the streams.
 			select {
-			case t.config.ChanEvents <- *event:
-				_ = t.stats.EventCount.Increment()
-				t.eventsPool.Put(event)
 			case <-ctx.Done():
 				return
+			default:
+				t.streamsManager.Publish(ctx, *event)
+				_ = t.stats.EventCount.Increment()
+				t.eventsPool.Put(event)
 			}
 		}
 	}()
@@ -594,7 +595,7 @@ func (t *Tracker) sinkEvents(ctx context.Context, in <-chan *trace.Event) <-chan
 	return errc
 }
 
-func (t *Tracker) getStackAddresses(stackID uint32) ([]uint64, error) {
+func (t *Tracker) getStackAddresses(stackID uint32) []uint64 {
 	stackAddresses := make([]uint64, maxStackDepth)
 	stackFrameSize := (strconv.IntSize / 8)
 
@@ -603,7 +604,8 @@ func (t *Tracker) getStackAddresses(stackID uint32) ([]uint64, error) {
 	// Stack IDs in it's Map
 	stackBytes, err := t.StackAddressesMap.GetValue(unsafe.Pointer(&stackID))
 	if err != nil {
-		return stackAddresses[0:0], nil
+		logger.Debugw("failed to get StackAddress", "error", err)
+		return stackAddresses[0:0]
 	}
 
 	stackCounter := 0
@@ -621,7 +623,7 @@ func (t *Tracker) getStackAddresses(stackID uint32) ([]uint64, error) {
 	// But if this fails continue on
 	_ = t.StackAddressesMap.DeleteKey(unsafe.Pointer(&stackID))
 
-	return stackAddresses[0:stackCounter], nil
+	return stackAddresses[0:stackCounter]
 }
 
 // WaitForPipeline waits for results from all error channels.

@@ -10,7 +10,7 @@ in a Kubernetes environment either with **Helm** or with a static yaml.
 
 1. Install **Tracker** using **Helm**
 
-	1. Add KhulnaSoft chart repository:
+	1. Add Khulnasoft chart repository:
 
 		```console
 		helm repo add khulnasoft https://khulnasoft-lab.github.io/helm-charts/
@@ -25,7 +25,7 @@ in a Kubernetes environment either with **Helm** or with a static yaml.
 		```
 
 
-	2. Install the chart from the KhulnaSoft chart repository:
+	2. Install the chart from the Khulnasoft chart repository:
 
 		```console
 		helm install tracker khulnasoft/tracker \

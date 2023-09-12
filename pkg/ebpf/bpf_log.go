@@ -192,15 +192,10 @@ func (t *Tracker) processBPFLogs(ctx context.Context) {
 			}
 
 		case lost := <-t.lostBPFLogChannel:
-			// When terminating tracker-ebpf the lost channel receives multiple "0 lost events" events.
-			// This check prevents those 0 lost events messages to be written to stderr until the bug is fixed:
-			// https://github.com/khulnasoft-lab/libbpfgo/issues/122
-			if lost > 0 {
-				if err := t.stats.LostBPFLogsCount.Increment(lost); err != nil {
-					logger.Errorw("Incrementing lost BPF logs count", "error", err)
-				}
-				logger.Warnw(fmt.Sprintf("Lost %d ebpf logs events", lost))
+			if err := t.stats.LostBPFLogsCount.Increment(lost); err != nil {
+				logger.Errorw("Incrementing lost BPF logs count", "error", err)
 			}
+			logger.Warnw(fmt.Sprintf("Lost %d ebpf logs events", lost))
 
 		case <-ctx.Done():
 			return

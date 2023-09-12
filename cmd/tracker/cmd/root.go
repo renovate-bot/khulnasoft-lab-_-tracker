@@ -16,10 +16,13 @@ import (
 	"github.com/khulnasoft-lab/tracker/pkg/cmd/initialize"
 	"github.com/khulnasoft-lab/tracker/pkg/errfmt"
 	"github.com/khulnasoft-lab/tracker/pkg/logger"
+	"github.com/khulnasoft-lab/tracker/pkg/version"
 )
 
 var (
-	cfgFile string
+	cfgFileFlag string
+	helpFlag    bool
+
 	rootCmd = &cobra.Command{
 		Use:   "tracker",
 		Short: "Trace OS events and syscalls using eBPF",
@@ -28,29 +31,28 @@ access to hundreds of events that help you understand how your system behaves.`,
 		DisableFlagParsing: true, // in order to have fine grained control over flags parsing
 		PreRun: func(cmd *cobra.Command, args []string) {
 			if len(args) > 0 {
-				// parse --help, -h flags as the first argument
-				if len(args) == 1 && (args[0] == "--help" || args[0] == "-h") {
+				// parse all flags
+				if err := cmd.Flags().Parse(args); err != nil {
+					fmt.Fprintf(os.Stderr, "Error: %s\n", err)
+					fmt.Fprintf(os.Stderr, "Run 'tracker --help' for usage.\n")
+					os.Exit(1)
+				}
+
+				if helpFlag {
 					if err := cmd.Help(); err != nil {
 						fmt.Fprintf(os.Stderr, "Error: %s\n", err)
 						os.Exit(1)
 					}
 					os.Exit(0)
 				}
-
-				// parse all other flags
-				if err := cmd.Flags().Parse(args); err != nil {
-					fmt.Fprintf(os.Stderr, "Error: %s\n", err)
-					fmt.Fprintf(os.Stderr, "Run 'tracker --help' for usage.\n")
-					os.Exit(1)
-				}
-				initConfig()
+				checkConfigFlag()
 			}
 		},
 		Run: func(cmd *cobra.Command, args []string) {
 			logger.Init(logger.NewDefaultLoggingConfig())
 			initialize.SetLibbpfgoCallbacks()
 
-			runner, err := cmdcobra.GetTrackerRunner(cmd, version)
+			runner, err := cmdcobra.GetTrackerRunner(cmd, version.GetVersion())
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Error: %s\n", err)
 				os.Exit(1)
@@ -76,6 +78,15 @@ func initCmd() error {
 
 	// disable default help command (./tracker help) overriding it with an empty command
 	rootCmd.SetHelpCommand(&cobra.Command{})
+
+	// help is not bound to viper
+	rootCmd.Flags().BoolVarP(
+		&helpFlag,
+		"help",
+		"h",
+		false,
+		"",
+	)
 
 	// Scope/Event/Policy flags
 
@@ -128,7 +139,7 @@ func initCmd() error {
 
 	// config is not bound to viper
 	rootCmd.Flags().StringVar(
-		&cfgFile,
+		&cfgFileFlag,
 		"config",
 		"",
 		"<file>\t\t\t\tGlobal config file (yaml, json between others - see documentation)",
@@ -255,11 +266,21 @@ func initCmd() error {
 	}
 
 	rootCmd.Flags().String(
-		server.ListenEndpointFlag,
+		server.HTTPListenEndpointFlag,
 		":3366",
 		"<url:port>\t\t\t\tListening address of the metrics endpoint server",
 	)
-	err = viper.BindPFlag(server.ListenEndpointFlag, rootCmd.Flags().Lookup(server.ListenEndpointFlag))
+	err = viper.BindPFlag(server.HTTPListenEndpointFlag, rootCmd.Flags().Lookup(server.HTTPListenEndpointFlag))
+	if err != nil {
+		return errfmt.WrapError(err)
+	}
+
+	rootCmd.Flags().String(
+		server.GRPCListenEndpointFlag,
+		"", // disabled by default
+		"<protocol:addr>\t\t\tListening address of the grpc server eg: tcp:4466, unix:/tmp/tracker.sock (default: disabled)",
+	)
+	err = viper.BindPFlag(server.GRPCListenEndpointFlag, rootCmd.Flags().Lookup(server.GRPCListenEndpointFlag))
 	if err != nil {
 		return errfmt.WrapError(err)
 	}
@@ -303,12 +324,12 @@ func initCmd() error {
 	return nil
 }
 
-func initConfig() {
-	if cfgFile == "" {
+func checkConfigFlag() {
+	if cfgFileFlag == "" {
 		return
 	}
 
-	cfgFile, err := filepath.Abs(cfgFile)
+	cfgFile, err := filepath.Abs(cfgFileFlag)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", errfmt.WrapError(err))
 		os.Exit(1)

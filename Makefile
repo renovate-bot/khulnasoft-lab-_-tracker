@@ -36,6 +36,7 @@ CMD_STATICCHECK ?= staticcheck
 CMD_STRIP ?= llvm-strip
 CMD_TOUCH ?= touch
 CMD_TR ?= tr
+CMD_PROTOC ?= protoc
 
 .check_%:
 #
@@ -165,6 +166,7 @@ env:
 	@echo "CMD_STRIP                $(CMD_STRIP)"
 	@echo "CMD_TOUCH                $(CMD_TOUCH)"
 	@echo "CMD_TR                   $(CMD_TR)"
+	@echo "CMD_PROTOC               $(CMD_PROTOC)"
 	@echo ---------------------------------------
 	@echo "LIB_ELF                  $(LIB_ELF)"
 	@echo "LIB_ZLIB                 $(LIB_ZLIB)"
@@ -226,6 +228,8 @@ env:
 	@echo "E2E_NET_SRC              $(E2E_NET_SRC)"
 	@echo "E2E_INST_DIR             $(E2E_INST_DIR)"
 	@echo "E2E_INST_SRC             $(E2E_INST_SRC)"
+	@echo ---------------------------------------
+	@echo "TRACKER_PROTOS            $(TRACKER_PROTOS)"
 	@echo ---------------------------------------
 
 #
@@ -393,6 +397,8 @@ GO_ENV_EBPF += GOARCH=$(GO_ARCH)
 GO_ENV_EBPF += CGO_CFLAGS=$(CUSTOM_CGO_CFLAGS)
 GO_ENV_EBPF += CGO_LDFLAGS=$(CUSTOM_CGO_LDFLAGS)
 
+TRACKER_PROTOS = ./types/api/v1beta1/*.proto
+
 #
 # btfhub (expensive: only run if ebpf obj changed)
 #
@@ -438,7 +444,7 @@ $(OUTPUT_DIR)/tracker: \
 		-tags $(GO_TAGS_EBPF) \
 		-ldflags="$(GO_DEBUG_FLAG) \
 			-extldflags \"$(CGO_EXT_LDFLAGS_EBPF)\" \
-			-X github.com/khulnasoft-lab/tracker/cmd/tracker/cmd.version=\"$(VERSION)\" \
+			-X github.com/khulnasoft-lab/tracker/pkg/version.version=\"$(VERSION)\" \
 			" \
 		-v -o $@ \
 		./cmd/tracker
@@ -902,3 +908,16 @@ clean:
 	$(CMD_RM) -f .*.md5
 	$(CMD_RM) -f .check*
 	$(CMD_RM) -f .*-pkgs*
+
+#
+# tracker.proto
+#
+
+.PHONY: protoc
+protoc:
+#
+	$(CMD_PROTOC) \
+		--go_out=. \
+		--go_opt=paths=source_relative \
+		--go-grpc_out=. \
+		--go-grpc_opt=paths=source_relative $(TRACKER_PROTOS)

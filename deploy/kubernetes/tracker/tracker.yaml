@@ -96,7 +96,7 @@ spec:
     spec:
       containers:
       - name: tracker
-        image: docker.io/khulnasoft/tracker:0.17.0
+        image: docker.io/khulnasoft/tracker:0.17.1
         imagePullPolicy: IfNotPresent
         command: 
           - /tracker/tracker

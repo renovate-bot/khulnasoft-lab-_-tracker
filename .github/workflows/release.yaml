@@ -13,6 +13,10 @@ jobs:
     name: Release X64 (Default)
     env:
       GH_TOKEN: ${{ github.token }}
+    runs-on:
+      [
+        "github-self-hosted_ami-0f4881c8d69684001_${{ github.event.number }}-${{ github.run_id }}",
+      ]
     permissions:
       contents: write
       packages: write

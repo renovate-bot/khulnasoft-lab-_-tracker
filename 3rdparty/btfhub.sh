@@ -1,12 +1,12 @@
 #!/bin/bash -e
 
-# This script downloads & updates 2 repos inside tracker dir structure:
+# This script downloads & updates 2 repos inside tracee dir structure:
 #
 #     1) ./3rdparty/btfhub-archive
 #     2) ./3rdparty/btfhub
 #
 # It uses the 2 repositories to generate tailored BTF files, according to
-# latest CO-RE object file, so those files can be embedded in tracker Go binary.
+# latest CO-RE object file, so those files can be embedded in tracee Go binary.
 #
 # Note: You may opt out from fetching repositories changes in the beginning of
 # the execution by exporting SKIP_FETCH=1 env variable.
@@ -21,7 +21,7 @@ cd ${BASEDIR}
 BTFHUB_REPO="https://github.com/khulnasoft-lab/btfhub.git"
 BTFHUB_ARCH_REPO="https://github.com/khulnasoft-lab/btfhub-archive.git"
 
-TRACKER_BPF_CORE="${BASEDIR}/dist/tracker.bpf.o"
+TRACEE_BPF_CORE="${BASEDIR}/dist/tracee.bpf.o"
 
 BTFHUB_DIR="${BASEDIR}/3rdparty/btfhub"
 BTFHUB_ARCH_DIR="${BASEDIR}/3rdparty/btfhub-archive"
@@ -68,7 +68,7 @@ for cmd in ${CMDS}; do
     command -v $cmd 2>&1 >/dev/null || die "cmd ${cmd} not found"
 done
 
-[ ! -f ${TRACKER_BPF_CORE} ] && die "tracker CO-RE obj not found"
+[ ! -f ${TRACEE_BPF_CORE} ] && die "tracee CO-RE obj not found"
 
 [ ! -d ${BTFHUB_DIR} ] && git clone "${BTFHUB_REPO}" ${BTFHUB_DIR}
 [ ! -d ${BTFHUB_ARCH_DIR} ] && git clone "${BTFHUB_ARCH_REPO}" ${BTFHUB_ARCH_DIR}
@@ -105,7 +105,7 @@ done
 # generate tailored BTFs
 
 [ ! -f ./tools/btfgen.sh ] && die "could not find btfgen.sh"
-./tools/btfgen.sh -a ${ARCH} -o ${TRACKER_BPF_CORE}
+./tools/btfgen.sh -a ${ARCH} -o ${TRACEE_BPF_CORE}
 
 # move tailored BTFs to dist
 

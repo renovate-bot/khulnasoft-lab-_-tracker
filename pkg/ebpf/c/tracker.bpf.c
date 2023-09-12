@@ -2,7 +2,7 @@
 
 // Note: This file is licenced differently from the rest of the project
 // SPDX-License-Identifier: GPL-2.0
-// Copyright (C) KhulnaSoft inc.
+// Copyright (C) Khulnasoft Security inc.
 
 #include <vmlinux.h>
 #include <vmlinux_flavors.h>
@@ -857,8 +857,14 @@ statfunc int check_is_proc_modules_hooked(program_data_t *p)
         }
 
         // Check with the address being the start of the memory area, since
-        // the address from /proc/modules is the base core layout.
-        mod_base_addr = (u64) BPF_CORE_READ(pos, core_layout.base);
+        // this is what is given from /proc/modules.
+        if (bpf_core_field_exists(pos->mem)) { // Version >= v6.4
+            mod_base_addr = (u64) BPF_CORE_READ(pos, mem[MOD_TEXT].base);
+        } else {
+            struct module___older_v64 *old_mod = (void *) pos;
+            mod_base_addr = (u64) BPF_CORE_READ(old_mod, core_layout.base);
+        }
+
         if (unlikely(mod_base_addr == 0)) { // Module memory was possibly tampered.. submit an error
             ret = 7;
             break;
@@ -1940,9 +1946,28 @@ int BPF_KPROBE(trace_security_bprm_check)
     unsigned long inode_nr = get_inode_nr_from_file(file);
     void *file_path = get_path_str(__builtin_preserve_access_index(&file->f_path));
 
+    syscall_data_t *sys = &p.task_info->syscall_data;
+    const char *const *argv = NULL;
+    const char *const *envp = NULL;
+    switch (sys->id) {
+        case SYSCALL_EXECVE:
+            argv = (const char *const *) sys->args.args[1];
+            envp = (const char *const *) sys->args.args[2];
+            break;
+        case SYSCALL_EXECVEAT:
+            argv = (const char *const *) sys->args.args[2];
+            envp = (const char *const *) sys->args.args[3];
+            break;
+        default:
+            break;
+    }
+
     save_str_to_buf(&p.event->args_buf, file_path, 0);
     save_to_submit_buf(&p.event->args_buf, &s_dev, sizeof(dev_t), 1);
     save_to_submit_buf(&p.event->args_buf, &inode_nr, sizeof(unsigned long), 2);
+    save_str_arr_to_buf(&p.event->args_buf, argv, 3);
+    if (p.config->options & OPT_EXEC_ENV)
+        save_str_arr_to_buf(&p.event->args_buf, envp, 4);
 
     return events_perf_submit(&p, SECURITY_BPRM_CHECK, 0);
 }
@@ -2038,22 +2063,40 @@ int BPF_KPROBE(trace_security_inode_unlink)
     if (!should_trace(&p))
         return 0;
 
-    if (!should_submit(SECURITY_INODE_UNLINK, p.event))
+    bool should_trace_inode_unlink = should_submit(SECURITY_INODE_UNLINK, p.event);
+    bool should_capture_io = false;
+    if ((p.config->options & (OPT_CAPTURE_FILES_READ | OPT_CAPTURE_FILES_WRITE)) != 0)
+        should_capture_io = true;
+
+    if (!should_trace_inode_unlink && !should_capture_io)
         return 0;
+
+    file_id_t unlinked_file_id = {};
+    int ret = 0;
 
     // struct inode *dir = (struct inode *)PT_REGS_PARM1(ctx);
     struct dentry *dentry = (struct dentry *) PT_REGS_PARM2(ctx);
-    void *dentry_path = get_dentry_path_str(dentry);
-    unsigned long inode_nr = get_inode_nr_from_dentry(dentry);
-    dev_t dev = get_dev_from_dentry(dentry);
-    u64 ctime = get_ctime_nanosec_from_dentry(dentry);
+    unlinked_file_id.inode = get_inode_nr_from_dentry(dentry);
+    unlinked_file_id.device = get_dev_from_dentry(dentry);
 
-    save_str_to_buf(&p.event->args_buf, dentry_path, 0);
-    save_to_submit_buf(&p.event->args_buf, &inode_nr, sizeof(unsigned long), 1);
-    save_to_submit_buf(&p.event->args_buf, &dev, sizeof(dev_t), 2);
-    save_to_submit_buf(&p.event->args_buf, &ctime, sizeof(u64), 3);
+    if (should_trace_inode_unlink) {
+        void *dentry_path = get_dentry_path_str(dentry);
+        unlinked_file_id.ctime = get_ctime_nanosec_from_dentry(dentry);
 
-    return events_perf_submit(&p, SECURITY_INODE_UNLINK, 0);
+        save_str_to_buf(&p.event->args_buf, dentry_path, 0);
+        save_to_submit_buf(&p.event->args_buf, &unlinked_file_id.inode, sizeof(unsigned long), 1);
+        save_to_submit_buf(&p.event->args_buf, &unlinked_file_id.device, sizeof(dev_t), 2);
+        save_to_submit_buf(&p.event->args_buf, &unlinked_file_id.ctime, sizeof(u64), 3);
+        ret = events_perf_submit(&p, SECURITY_INODE_UNLINK, 0);
+    }
+
+    if (should_capture_io) {
+        // We want to avoid reacquisition of the same inode-device affecting capture behavior
+        unlinked_file_id.ctime = 0;
+        bpf_map_delete_elem(&elf_files_map, &unlinked_file_id);
+    }
+
+    return ret;
 }
 
 SEC("kprobe/commit_creds")
@@ -2609,6 +2652,7 @@ statfunc u32 send_bin_helper(void *ctx, void *prog_array, int tail_call)
         bin_args->iov_idx++;
         if (bin_args->iov_idx < bin_args->iov_len) {
             // Handle the rest of write recursively
+            bin_args->start_off += bin_args->full_size;
             struct iovec io_vec;
             bpf_probe_read(&io_vec, sizeof(struct iovec), &bin_args->vec[bin_args->iov_idx]);
             bin_args->ptr = io_vec.iov_base;
@@ -2691,6 +2735,7 @@ statfunc u32 send_bin_helper(void *ctx, void *prog_array, int tail_call)
     bin_args->iov_idx++;
     if (bin_args->iov_idx < bin_args->iov_len) {
         // Handle the rest of write recursively
+        bin_args->start_off += bin_args->full_size;
         struct iovec io_vec;
         bpf_probe_read(&io_vec, sizeof(struct iovec), &bin_args->vec[bin_args->iov_idx]);
         bin_args->ptr = io_vec.iov_base;
@@ -2725,20 +2770,7 @@ submit_magic_write(program_data_t *p, file_info_t *file_info, io_data_t io_data,
 
     save_str_to_buf(&(p->event->args_buf), file_info->pathname_p, 0);
 
-    if (io_data.is_buf) {
-        if (header_bytes < FILE_MAGIC_HDR_SIZE)
-            bpf_probe_read(header, header_bytes & FILE_MAGIC_MASK, io_data.ptr);
-        else
-            bpf_probe_read(header, FILE_MAGIC_HDR_SIZE, io_data.ptr);
-    } else {
-        struct iovec io_vec;
-        __builtin_memset(&io_vec, 0, sizeof(io_vec));
-        bpf_probe_read(&io_vec, sizeof(struct iovec), io_data.ptr);
-        if (header_bytes < FILE_MAGIC_HDR_SIZE)
-            bpf_probe_read(header, header_bytes & FILE_MAGIC_MASK, io_vec.iov_base);
-        else
-            bpf_probe_read(header, FILE_MAGIC_HDR_SIZE, io_vec.iov_base);
-    }
+    fill_file_header(header, io_data);
 
     save_bytes_to_buf(&(p->event->args_buf), header, header_bytes, 1);
     save_to_submit_buf(&(p->event->args_buf), &file_info->id.device, sizeof(dev_t), 2);
@@ -2838,19 +2870,25 @@ extract_vfs_ret_io_data(struct pt_regs *ctx, args_t *saved_args, io_data_t *io_d
 {
     io_data->is_buf = is_buf;
     if (is_buf) {
-        io_data->ptr = (void *) saved_args->args[1];
-        io_data->len = (size_t) PT_REGS_RC(ctx);
+        io_data->ptr = (void *) saved_args->args[1]; // pointer to buf
+        io_data->len = (size_t) PT_REGS_RC(ctx);     // number of bytes written to buf
     } else {
-        io_data->ptr = (struct iovec *) saved_args->args[1];
-        io_data->len = saved_args->args[2];
+        io_data->ptr = (struct iovec *) saved_args->args[1]; // pointer to iovec array
+        io_data->len = saved_args->args[2];                  // number of iovec elements in array
     }
 }
 
 // Filter capture of file writes according to path prefix, type and fd.
-statfunc bool filter_file_write_capture(program_data_t *p, struct file *file)
+statfunc bool
+filter_file_write_capture(program_data_t *p, struct file *file, io_data_t io_data, off_t start_pos)
 {
     return filter_file_path(p->ctx, &file_write_path_filter, file) ||
-           filter_file_type(p->ctx, &file_type_filter, CAPTURE_WRITE_TYPE_FILTER_IDX, file) ||
+           filter_file_type(p->ctx,
+                            &file_type_filter,
+                            CAPTURE_WRITE_TYPE_FILTER_IDX,
+                            file,
+                            io_data,
+                            start_pos) ||
            filter_file_fd(p->ctx, &file_type_filter, CAPTURE_WRITE_TYPE_FILTER_IDX, file);
 }
 
@@ -2881,8 +2919,15 @@ statfunc int capture_file_write(struct pt_regs *ctx, u32 event_id, bool is_buf)
     extract_vfs_ret_io_data(ctx, &saved_args, &io_data, is_buf);
     struct file *file = (struct file *) saved_args.args[0];
     loff_t *pos = (loff_t *) saved_args.args[3];
+    size_t written_bytes = PT_REGS_RC(ctx);
 
-    if (filter_file_write_capture(&p, file)) {
+    off_t start_pos;
+    bpf_probe_read(&start_pos, sizeof(off_t), pos);
+    // Calculate write start offset
+    if (start_pos != 0)
+        start_pos -= written_bytes;
+
+    if (filter_file_write_capture(&p, file, io_data, start_pos)) {
         // There is a filter, but no match
         del_args(event_id);
         return 0;
@@ -2900,7 +2945,6 @@ statfunc int capture_file_write(struct pt_regs *ctx, u32 event_id, bool is_buf)
     }
 
     bin_args_t bin_args = {};
-    u64 id = bpf_get_current_pid_tgid();
     fill_vfs_file_bin_args(SEND_VFS_WRITE, file, pos, io_data, PT_REGS_RC(ctx), pid, &bin_args);
 
     // Send file data
@@ -2909,10 +2953,12 @@ statfunc int capture_file_write(struct pt_regs *ctx, u32 event_id, bool is_buf)
 }
 
 // Filter capture of file reads according to path prefix, type and fd.
-statfunc bool filter_file_read_capture(program_data_t *p, struct file *file)
+statfunc bool
+filter_file_read_capture(program_data_t *p, struct file *file, io_data_t io_data, off_t start_pos)
 {
     return filter_file_path(p->ctx, &file_read_path_filter, file) ||
-           filter_file_type(p->ctx, &file_type_filter, CAPTURE_READ_TYPE_FILTER_IDX, file) ||
+           filter_file_type(
+               p->ctx, &file_type_filter, CAPTURE_READ_TYPE_FILTER_IDX, file, io_data, start_pos) ||
            filter_file_fd(p->ctx, &file_type_filter, CAPTURE_READ_TYPE_FILTER_IDX, file);
 }
 
@@ -2939,8 +2985,15 @@ statfunc int capture_file_read(struct pt_regs *ctx, u32 event_id, bool is_buf)
     extract_vfs_ret_io_data(ctx, &saved_args, &io_data, is_buf);
     struct file *file = (struct file *) saved_args.args[0];
     loff_t *pos = (loff_t *) saved_args.args[3];
+    size_t read_bytes = PT_REGS_RC(ctx);
 
-    if (filter_file_read_capture(&p, file)) {
+    off_t start_pos;
+    bpf_probe_read(&start_pos, sizeof(off_t), pos);
+    // Calculate write start offset
+    if (start_pos != 0)
+        start_pos -= read_bytes;
+
+    if (filter_file_read_capture(&p, file, io_data, start_pos)) {
         // There is a filter, but no match
         del_args(event_id);
         return 0;
@@ -3025,7 +3078,7 @@ int BPF_KPROBE(trace_ret_vfs_readv)
     return do_file_io_operation(ctx, VFS_READV, TAIL_VFS_READV, true, false);
 }
 
-SEC("kretprobe/vfs_readV_tail")
+SEC("kretprobe/vfs_readv_tail")
 int BPF_KPROBE(trace_ret_vfs_readv_tail)
 {
     return capture_file_read(ctx, VFS_READV, false);
@@ -3930,7 +3983,7 @@ int BPF_KPROBE(trace_ret_do_splice)
     // v5.10, so its existence might be used to determine whether the current version is older than
     // 5.9 or newer than 5.10.
     //
-    // https://lore.kernel.org/stable/20210821203108.215937-1-rafaeldtinoco@gmail.com/
+    // https://lore.kernel.org/stable/20210821203108.215937-1-infosulaimanbd@gmail.com/
     //
     struct public_key_signature *check;
 

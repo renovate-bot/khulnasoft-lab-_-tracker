@@ -42,6 +42,7 @@ import (
 	"github.com/khulnasoft-lab/tracker/pkg/pcaps"
 	"github.com/khulnasoft-lab/tracker/pkg/policy"
 	"github.com/khulnasoft-lab/tracker/pkg/signatures/engine"
+	"github.com/khulnasoft-lab/tracker/pkg/streams"
 	"github.com/khulnasoft-lab/tracker/pkg/utils"
 	"github.com/khulnasoft-lab/tracker/pkg/utils/proc"
 	"github.com/khulnasoft-lab/tracker/pkg/utils/sharedobjs"
@@ -116,6 +117,8 @@ type Tracker struct {
 	// Specific Events Needs
 	triggerContexts trigger.Context
 	readyCallback   func(gocontext.Context)
+	// Streams
+	streamsManager *streams.StreamsManager
 }
 
 func (t *Tracker) Stats() *metrics.Stats {
@@ -215,6 +218,7 @@ func New(cfg config.Config) (*Tracker, error) {
 		capturedFiles:   make(map[string]int64),
 		eventsState:     GetEssentialEventsList(),
 		eventSignatures: make(map[events.ID]bool),
+		streamsManager:  streams.NewStreamsManager(),
 	}
 
 	// Initialize capabilities rings soon
@@ -1366,16 +1370,16 @@ func (t *Tracker) Run(ctx gocontext.Context) error {
 	t.ready(ctx)          // executes ready callback, non blocking
 	<-ctx.Done()          // block until ctx is cancelled elsewhere
 
-	// Stop perf buffers
+	// Close perf buffers
 
-	t.eventsPerfMap.Stop()
+	t.eventsPerfMap.Close()
 	if t.config.BlobPerfBufferSize > 0 {
-		t.fileWrPerfMap.Stop()
+		t.fileWrPerfMap.Close()
 	}
 	if pcaps.PcapsEnabled(t.config.Capture.Net) {
-		t.netCapPerfMap.Stop()
+		t.netCapPerfMap.Close()
 	}
-	t.bpfLogsPerfMap.Stop()
+	t.bpfLogsPerfMap.Close()
 
 	// TODO: move logic below somewhere else (related to file writes)
 
@@ -1432,6 +1436,11 @@ func updateCaptureMapFile(fileDir *os.File, filePath string, capturedFiles map[s
 
 // Close cleans up created resources
 func (t *Tracker) Close() {
+	// clean up (unsubscribe) all streams connected if tracker is done
+	if t.streamsManager != nil {
+		t.streamsManager.Close()
+	}
+
 	if t.probes != nil {
 		err := t.probes.DetachAll()
 		if err != nil {
@@ -1735,4 +1744,35 @@ func (t *Tracker) ready(ctx gocontext.Context) {
 //go:noinline
 func (t *Tracker) triggerMemDumpCall(address uint64, length uint64, eventHandle uint64) error {
 	return nil
+}
+
+// SubscribeAll returns a stream subscribed to all policies
+func (t *Tracker) SubscribeAll() *streams.Stream {
+	return t.subscribe(policy.AllPoliciesOn)
+}
+
+// Subscribe returns a stream subscribed to selected policies
+func (t *Tracker) Subscribe(policyNames []string) (*streams.Stream, error) {
+	var policyMask uint64
+
+	for _, policyName := range policyNames {
+		p, err := t.config.Policies.LookupByName(policyName)
+		if err != nil {
+			return nil, err
+		}
+		utils.SetBit(&policyMask, uint(p.ID))
+	}
+
+	return t.subscribe(policyMask), nil
+}
+
+func (t *Tracker) subscribe(policyMask uint64) *streams.Stream {
+	// TODO: the channel size matches the pipeline channel size,
+	// but we should make it configurable in the future.
+	return t.streamsManager.Subscribe(policyMask, 10000)
+}
+
+// Unsubscribe unsubscribes stream
+func (t *Tracker) Unsubscribe(s *streams.Stream) {
+	t.streamsManager.Unsubscribe(s)
 }

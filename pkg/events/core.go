@@ -9189,6 +9189,16 @@ var CoreEvents = map[ID]Definition{
 		dependencies: Dependencies{
 			probes: []Probe{
 				{handle: probes.SecurityBPRMCheck, required: true},
+				{handle: probes.SyscallEnter__Internal, required: true},
+			},
+			tailCalls: []TailCall{
+				{
+					"sys_enter_init_tail",
+					"sys_enter_init",
+					[]uint32{
+						uint32(Execve), uint32(Execveat),
+					},
+				},
 			},
 		},
 		sets: []string{"lsm_hooks", "proc", "proc_life"},
@@ -9196,6 +9206,8 @@ var CoreEvents = map[ID]Definition{
 			{Type: "const char*", Name: "pathname"},
 			{Type: "dev_t", Name: "dev"},
 			{Type: "unsigned long", Name: "inode"},
+			{Type: "const char*const*", Name: "argv"},
+			{Type: "const char*const*", Name: "envp"},
 		},
 	},
 	SecurityFileOpen: {
@@ -9629,7 +9641,7 @@ var CoreEvents = map[ID]Definition{
 				{handle: probes.DoSpliceRet, required: true},
 			},
 			kSymbols: []KSymbol{
-				{symbol: "pipefifo_fops", required: true},
+				{symbol: "pipe_write", required: true},
 			},
 		},
 		params: []trace.ArgMeta{
@@ -9974,6 +9986,7 @@ var CoreEvents = map[ID]Definition{
 				{handle: probes.VfsWriteVRet, required: false},
 				{handle: probes.KernelWrite, required: false},
 				{handle: probes.KernelWriteRet, required: false},
+				{handle: probes.SecurityInodeUnlink, required: false}, // Used for ELF filter
 			},
 			tailCalls: []TailCall{
 				{"prog_array", "trace_ret_vfs_write_tail", []uint32{TailVfsWrite}},
@@ -9982,7 +9995,7 @@ var CoreEvents = map[ID]Definition{
 				{"prog_array", "send_bin", []uint32{TailSendBin}},
 			},
 			kSymbols: []KSymbol{
-				{symbol: "pipefifo_fops", required: true},
+				{symbol: "pipe_write", required: true},
 			},
 		},
 	},
@@ -9997,6 +10010,7 @@ var CoreEvents = map[ID]Definition{
 				{handle: probes.VfsReadRet, required: true},
 				{handle: probes.VfsReadV, required: false},
 				{handle: probes.VfsReadVRet, required: false},
+				{handle: probes.SecurityInodeUnlink, required: false}, // Used for ELF filter
 			},
 			tailCalls: []TailCall{
 				{"prog_array", "trace_ret_vfs_read_tail", []uint32{TailVfsRead}},
@@ -10004,7 +10018,7 @@ var CoreEvents = map[ID]Definition{
 				{"prog_array", "send_bin", []uint32{TailSendBin}},
 			},
 			kSymbols: []KSymbol{
-				{symbol: "pipefifo_fops", required: true},
+				{symbol: "pipe_write", required: true},
 			},
 		},
 	},
@@ -10342,7 +10356,13 @@ var CoreEvents = map[ID]Definition{
 			ids: []ID{
 				DoInitModule,
 			},
-			kSymbols: []KSymbol{},
+			kSymbols: []KSymbol{
+				// Special case for this event: Single symbol, common to all kernel versions. Placed
+				// here so the ksymbols engine is always enabled, during tracker startup. The symbols
+				// are resolved dynamically, during runtime depending on the arguments passed to
+				// the event.
+				{symbol: "_stext", required: true},
+			},
 			capabilities: Capabilities{
 				base: []cap.Value{
 					cap.SYSLOG, // read /proc/kallsyms

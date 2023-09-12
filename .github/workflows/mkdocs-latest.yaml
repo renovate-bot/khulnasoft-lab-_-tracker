@@ -24,16 +24,16 @@ jobs:
         with:
           username: ${{ secrets.DOCKERHUB_USER }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v2
         with:
           python-version: 3.x
       - name: Install dependencies
         run: |
-          pip install git+https://${GH_TOKEN}@github.com/squidfunk/mkdocs-material.git
+          pip install git+https://${GH_TOKEN}@github.com/squidfunk/mkdocs-material-insiders.git
           pip install mike
           pip install mkdocs-macros-plugin
         env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          GH_TOKEN: ${{ secrets.MKDOCS_KHULNASOFT_BOT }}
       - name: Setup Git
         run: |
           git config user.name "github-actions"

@@ -13,7 +13,7 @@ import (
 )
 
 type PrepareOutputResult struct {
-	TrackerConfig  *config.OutputConfig
+	TrackerConfig   *config.OutputConfig
 	PrinterConfigs []config.PrinterConfig
 }
 

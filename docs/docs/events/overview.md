@@ -135,7 +135,7 @@ You can view the list of available events and their schema by running `tracker l
 
 ## Read in AVD
 
-[KhulnaSoft Vulnerability Database (AVD)](https://avd.khulnasoft.com) is a public index of all security information that can be reported across all of KhulnaSoft's products and tools. As such, it also contains entries about Tracker security events. The AVD entries on runtime security are generated from the [detection signatures](https://github.com/khulnasoft-lab/tracker/tree/main/signatures) and are organized by MITRE ATT&CK categorization. Browse at [avd.khulnasoft.com/tracker](https://avd.khulnasoft.com/tracker/).
+[Khulnasoft Vulnerability Database (AVD)](https://avd.khulnasoft.com) is a public index of all security information that can be reported across all of Khulnasoft's products and tools. As such, it also contains entries about Tracker security events. The AVD entries on runtime security are generated from the [detection signatures](https://github.com/khulnasoft-lab/tracker/tree/main/signatures) and are organized by MITRE ATT&CK categorization. Browse at [avd.khulnasoft.com/tracker](https://avd.khulnasoft.com/tracker/).
 
 👈 Please use the side-navigation on the left in order to browse the different topics.
 
