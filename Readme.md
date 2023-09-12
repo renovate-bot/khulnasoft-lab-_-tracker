@@ -1,5 +1,3 @@
-![Tracker Logo](docs/images/tracker.png)
-
 [![GitHub release (latest by date)](https://img.shields.io/github/v/release/khulnasoft-lab/tracker)](https://github.com/khulnasoft-lab/tracker/releases)
 [![License](https://img.shields.io/github/license/khulnasoft-lab/tracker)](https://github.com/khulnasoft-lab/tracker/blob/main/LICENSE)
 [![docker](https://badgen.net/docker/pulls/khulnasoft/tracker)](https://hub.docker.com/r/khulnasoft/tracker)
