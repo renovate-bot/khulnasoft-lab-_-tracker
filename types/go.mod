@@ -4,7 +4,7 @@ go 1.19
 
 require (
 	github.com/stretchr/testify v1.7.0
-	google.golang.org/grpc v1.56.2
+	google.golang.org/grpc v1.56.3
 	google.golang.org/protobuf v1.30.0
 )
 
