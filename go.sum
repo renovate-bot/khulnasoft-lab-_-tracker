@@ -282,8 +282,8 @@ github.com/json-iterator/go v1.1.12 h1:PV8peI4a0ysnczrg+LtxykD8LfKY9ML6u2jnxaEnr
 github.com/json-iterator/go v1.1.12/go.mod h1:e30LSqwooZae/UwlEbR2852Gd8hjQvJoHmT4TnhNGBo=
 github.com/jstemmer/go-junit-report v0.0.0-20190106144839-af01ea7f8024/go.mod h1:6v2b51hI/fHJwM22ozAgKL4VKDeJcHhJFhtBdhmNjmU=
 github.com/jstemmer/go-junit-report v0.9.1/go.mod h1:Brl9GWCQeLvo8nXZwPNNblvFj/XSXhF0NWZEnDohbsk=
-github.com/khulnasoft-lab/libbpfgo v0.5.0-libbpf-1.2 h1:MJ6WWJeQlcFh85q7fl5ATLLyXqpNSeajILYxhXgmOHk=
-github.com/khulnasoft-lab/libbpfgo v0.5.0-libbpf-1.2/go.mod h1:fuLBO2/PqDPKPbKihvqYZE0BegTEq4MtC3W7qAWtZSQ=
+github.com/khulnasoft-lab/libbpfgo v0.4.10-libbpf-1.2 h1:WPVKHoza+evWSo8i3eSBkYx3dpgTc5hhkb7DvsIt0+E=
+github.com/khulnasoft-lab/libbpfgo v0.4.10-libbpf-1.2/go.mod h1:fuLBO2/PqDPKPbKihvqYZE0BegTEq4MtC3W7qAWtZSQ=
 github.com/khulnasoft-lab/libbpfgo/helpers v0.0.0-20230912044128-0d336635f99d h1:RAWKNdq9unxvp3X8YPxWn3N3Pdi4s69AaMDmo7zg1eI=
 github.com/khulnasoft-lab/libbpfgo/helpers v0.0.0-20230912044128-0d336635f99d/go.mod h1:QJhDFwhGHUbW7lR8EGXz69IPem123l3TWV9bFuMCvWw=
 github.com/khulnasoft-lab/tracker/types v0.0.0-20230912054536-d9a415268ec4 h1:Ilk14OLv5HD+DzDowD6qiySDGxnFrg6jMXdFdkBagDM=
