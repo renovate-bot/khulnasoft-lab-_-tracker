@@ -11,7 +11,7 @@ require (
 	github.com/google/gopacket v1.1.19
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/hashicorp/golang-lru/v2 v2.0.2
-	github.com/khulnasoft-lab/libbpfgo v1.0.0
+	github.com/khulnasoft-lab/libbpfgo v0.6.0-libbpf-1.3
 	github.com/khulnasoft-lab/libbpfgo/helpers v0.0.0-20231130211317-43c2546a4d5b
 	github.com/khulnasoft-lab/tracker/api v0.0.0-20231201053426-c9149557194d
 	github.com/khulnasoft-lab/tracker/types v0.0.0-20231201031803-c595a6721eea

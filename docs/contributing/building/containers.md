@@ -44,7 +44,7 @@ release):
     ```
 
     !!! Note
-        `BTFHUB=1` adds support to some [older kernels](https://github.com/khulnasoft-lab/btfhub/blob/main/docs/supported-distros.md).
+        `BTFHUB=1` adds support to some [older kernels](https://github.com/aquasecurity/btfhub/blob/main/docs/supported-distros.md).
 
         ```console
         BTFHUB=1 make -f builder/Makefile.tracker-container build-tracker
