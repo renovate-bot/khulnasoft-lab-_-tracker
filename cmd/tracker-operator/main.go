@@ -30,8 +30,8 @@ func init() {
 type Config struct {
 	MetricsAddr          string
 	ProbeAddr            string
-	TrackerNamespace      string
-	TrackerName           string
+	TrackerNamespace     string
+	TrackerName          string
 	EnableLeaderElection bool
 	LoggingOpts          zap.Options
 }
@@ -61,8 +61,8 @@ func main() {
 	// PolicyReconciler to watch for changes to Policy objects and deal with them.
 
 	reconciler := &controller.PolicyReconciler{
-		Client:          mgr.GetClient(),
-		Scheme:          mgr.GetScheme(),
+		Client:           mgr.GetClient(),
+		Scheme:           mgr.GetScheme(),
 		TrackerNamespace: config.TrackerNamespace,
 		TrackerName:      config.TrackerName,
 	}

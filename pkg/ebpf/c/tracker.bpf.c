@@ -949,9 +949,9 @@ statfunc bool kern_ver_below_min_lkm(struct pt_regs *ctx)
     goto below_threshold; // For compiler - avoid "unused label" warning
 below_threshold:
     tracker_log(ctx,
-               BPF_LOG_LVL_ERROR,
-               BPF_LOG_ID_UNSPEC,
-               -1); // notify the user that the event logic isn't loaded even though it's requested
+                BPF_LOG_LVL_ERROR,
+                BPF_LOG_ID_UNSPEC,
+                -1); // notify the user that the event logic isn't loaded even though it's requested
     return true;
 }
 

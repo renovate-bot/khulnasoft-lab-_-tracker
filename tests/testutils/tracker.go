@@ -14,8 +14,8 @@ import (
 //
 
 const (
-	readinessPollTime    = 200 * time.Millisecond
-	httpRequestTimeout   = 1 * time.Second
+	readinessPollTime     = 200 * time.Millisecond
+	httpRequestTimeout    = 1 * time.Second
 	trackerStartupTimeout = 5 * time.Second
 )
 
@@ -82,7 +82,7 @@ func (r *RunningTracker) Start() (<-chan TrackerStatus, error) {
 
 	r.pid, r.cmdStatus = ExecCmdBgWithSudoAndCtx(r.ctx, r.cmdLine)
 	if r.pid < 0 {
-		err = <-r.cmdStatus   // receive error from the command
+		err = <-r.cmdStatus    // receive error from the command
 		imReady(TrackerFailed) // ready: failed
 		goto exit
 	}
