@@ -17,17 +17,13 @@ __rego_metadoc__ := {
 
 eventSelectors := [{
 	"source": "tracker",
-	"name": "hooked_syscalls",
+	"name": "hooked_syscall",
 }]
 
 tracker_selected_events[eventSelector] {
 	eventSelector := eventSelectors[_]
 }
 
-tracker_match = res {
-	input.eventName == "hooked_syscalls"
-	hooked_syscalls_arr := helpers.get_tracker_argument("hooked_syscalls")
-	c := count(hooked_syscalls_arr)
-	c > 0
-	res := {"hooked syscall": hooked_syscalls_arr}
+tracker_match {
+	input.eventName == "hooked_syscall"
 }
