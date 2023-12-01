@@ -929,6 +929,7 @@ func jsonConvertToProtoDNSResourceRecordType(argMap map[string]interface{}) (Pro
 	// SOA conversion
 	soa, exists := argMap["SOA"]
 	if !exists {
+		ProtoDNSResourceRecord := 
 		return ProtoDNSResourceRecord{}, fmt.Errorf("SOA not found in ProtoDNSResourceRecord arg")
 	}
 
