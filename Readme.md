@@ -1,14 +1,3 @@
-![Tracker Logo](docs/images/tracker.png)
-
-<!-- links that differ between docs and readme -->
-[installation]:https://khulnasoft-lab.github.io/tracker/latest/docs/install/
-[docker-guide]:https://khulnasoft-lab.github.io/tracker/latest/docs/install/docker/
-[kubernetes-guide]:https://khulnasoft-lab.github.io/tracker/latest/docs/install/kubernetes/
-[prereqs]:https://khulnasoft-lab.github.io/tracker/latest/docs/install/prerequisites/
-[macfaq]:https://khulnasoft-lab.github.io/tracker/latest/docs/advanced/mac/
-
-Before moving on, please consider giving us a GitHub star ⭐️. Thank you!
-
 ## About Tracker
 
 Tracker is a runtime security and observability tool that helps you understand how your system and applications behave.  
