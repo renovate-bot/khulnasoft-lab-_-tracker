@@ -18,7 +18,7 @@ import (
 // object.
 type PolicyReconciler struct {
 	client.Client
-	Scheme          *runtime.Scheme
+	Scheme           *runtime.Scheme
 	TrackerNamespace string
 	TrackerName      string
 }
