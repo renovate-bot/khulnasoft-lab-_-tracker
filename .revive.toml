@@ -4,7 +4,7 @@ errorCode = 1
 warningCode = 1
 
 # Enable all available rules
-enableAllRules = false
+enableAllRules = true
 
 [rule.add-constant]
     Disabled = true
