@@ -6,13 +6,11 @@
 
 # variables
 
-TRACKER_TMP="/tmp/tracker"
-TRACKER_OUT="${TRACKER_TMP}/out"
-TRACKER_EXE=${TRACKER_EXE:="/tracker/tracker"}
+TRACEE_TMP="/tmp/tracker"
+TRACEE_OUT="${TRACEE_TMP}/out"
+TRACEE_EXE=${TRACEE_EXE:="/tracker/tracker"}
 
 LIBBPFGO_OSRELEASE_FILE=${LIBBPFGO_OSRELEASE_FILE:="/etc/os-release-host"}
-
-CONTAINERS_ENRICHMENT=${CONTAINERS_ENRICHMENT:="0"}
 
 CAPABILITIES_BYPASS=${CAPABILITIES_BYPASS:="0"}
 CAPABILITIES_ADD=${CAPABILITIES_ADD:=""}
@@ -21,24 +19,24 @@ CAPABILITIES_DROP=${CAPABILITIES_DROP:=""}
 # functions
 
 run_tracker() {
-    mkdir -p $TRACKER_OUT
+    mkdir -p $TRACEE_OUT
 
-    echo "INFO: starting tracker..."
-
-    if [[ $# -ne 0 ]]; then
+    if [ $# -ne 0 ]; then
         # no default arguments, just given ones
-        $TRACKER_EXE $@
+        $TRACEE_EXE "$@"
     else
         # default arguments
-        $TRACKER_EXE \
-            --metrics \
-            --output=option:parse-arguments \
-            --cache cache-type=mem \
-            --cache mem-cache-size=512 \
-            --containers=$CONTAINERS_ENRICHMENT \
-            --capabilities bypass=$CAPABILITIES_BYPASS \
-            --capabilities add=$CAPABILITIES_ADD \
-            --capabilities drop=$CAPABILITIES_DROP
+        $TRACEE_EXE \
+        --metrics \
+        --cache cache-type=mem \
+        --cache mem-cache-size=512 \
+        --capabilities bypass=$CAPABILITIES_BYPASS \
+        --capabilities add=$CAPABILITIES_ADD \
+        --capabilities drop=$CAPABILITIES_DROP \
+        --output=json \
+        --output=option:parse-arguments \
+        --output=option:relative-time \
+        --events signatures,container_create,container_remove
     fi
 
     tracker_ret=$?
@@ -46,8 +44,8 @@ run_tracker() {
 
 # startup
 
-if [ ! -x $TRACKER_EXE ]; then
-    echo "ERROR: cannot execute $TRACKER_EXE"
+if [ ! -x $TRACEE_EXE ]; then
+    echo "ERROR: cannot execute $TRACEE_EXE"
     exit 1
 fi
 

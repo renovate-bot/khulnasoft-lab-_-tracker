@@ -1,19 +1,76 @@
 # Rules
 
-Rules determine which events a policy should trace. 
+Rules are part of the Tracker Policy, which defines which events to trace. The events that are part of a specific policy are recorded in the `rules` section of the Tracker Policy. It is possible to define multiple events within each policy. The [events](../events/index.md) section provides further information on the type of events that Tracker can track.
+
+Below are several examples on configuring events in the Tracker Policy.
 
 ## Events
 
-An event can match all occurrences of events for a specific scope, or specific events depending on its filters.
-Events support three types of filters: `context`, `arguments` and `return value`. 
+Every event that is specified within the `rules` section supports three types of filters: `context`, `arguments` and `return value`. 
+
+### Type of Events
+
+**[A syscall](../events/builtin/syscalls/index.md)**
+
+Example Scope Section referencing the `open` syscall:
+
+```bash
+spec:
+	scope:
+	    - global
+	rules:
+	    event: open
+```
+
+The name of the syscall is going to be the name of the event.
+
+**[Network Events](../events/builtin/network/index.md)**
+
+Network Events can be specified from the list of `Available network events`.
+
+For example:
+
+```bash
+spec:
+	scope:
+	    - global
+	rules:
+	    event: net_packet_ipv4
+```
+
+**[A behavioural Signature](../events/builtin/signatures/index.md)**
+
+To specify one of the behavioral signatures as an event, use the name of the signature from the table in the documentation as the event name:
+
+```bash
+spec:
+	scope:
+	    - global
+	rules:
+	    event: anti_debugging
+```
+
+**[Any of our extra events](../events/builtin/extra/bpf_attach.md)**
+
+Any of the extra events listed in the Tracker documentation can be listed in the Tracker Policy.
+
+For instance, to specify the [do_sigaction](../events/builtin/extra/do_sigaction.md) event, provide the name in the YAML manifest:
+
+```bash
+spec:
+	scope:
+	    - global
+	rules:
+	    event: do_sigaction
+```
 
 ## Context filters
 
 Context is data which is collected along the event. They can be filtered like:
 
 ```yaml
-apiVersion: khulnasoft-lab.github.io/v1beta1
-kind: TrackerPolicy
+apiVersion: tracker.khulnasoft.com/v1beta1
+kind: Policy
 metadata:
 	name: sample-context-filter
 	annotations:
@@ -187,8 +244,8 @@ filters:
 Events have arguments, which can be filtered. 
 
 ```yaml
-apiVersion: khulnasoft-lab.github.io/v1beta1
-kind: TrackerPolicy
+apiVersion: tracker.khulnasoft.com/v1beta1
+kind: Policy
 metadata:
 	name: sample-argument-filter
 	annotations:
@@ -217,8 +274,8 @@ tracker -e security_file_open --output json
 Return values can also be filtered.
 
 ```yaml
-apiVersion: khulnasoft-lab.github.io/v1beta1
-kind: TrackerPolicy
+apiVersion: tracker.khulnasoft.com/v1beta1
+kind: Policy
 metadata:
 	name: sample-return-value
 	annotations:

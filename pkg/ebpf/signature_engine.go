@@ -4,8 +4,10 @@ import (
 	"context"
 
 	"github.com/khulnasoft-lab/tracker/pkg/containers"
+	"github.com/khulnasoft-lab/tracker/pkg/dnscache"
 	"github.com/khulnasoft-lab/tracker/pkg/events"
 	"github.com/khulnasoft-lab/tracker/pkg/logger"
+	"github.com/khulnasoft-lab/tracker/pkg/proctree"
 	"github.com/khulnasoft-lab/tracker/pkg/signatures/engine"
 	"github.com/khulnasoft-lab/tracker/types/detect"
 	"github.com/khulnasoft-lab/tracker/types/protocol"
@@ -17,8 +19,9 @@ func (t *Tracker) engineEvents(ctx context.Context, in <-chan *trace.Event) (<-c
 	out := make(chan *trace.Event)
 	errc := make(chan error, 1)
 
-	engineOutput := make(chan detect.Finding, 100)
-	engineInput := make(chan protocol.Event)
+	engineOutput := make(chan detect.Finding, 10000)
+	engineInput := make(chan protocol.Event, 10000)
+	engineOutputEvents := make(chan *trace.Event, 10000)
 	source := engine.EventSources{Tracker: engineInput}
 
 	// Prepare built in data sources
@@ -44,6 +47,35 @@ func (t *Tracker) engineEvents(ctx context.Context, in <-chan *trace.Event) (<-c
 
 	go t.sigEngine.Start(ctx)
 
+	// Create a function for feeding the engine with an event
+	feedFunc := func(event *trace.Event) {
+		if event == nil {
+			return // might happen during initialization (ctrl+c seg faults)
+		}
+
+		id := events.ID(event.EventID)
+
+		// if the event is marked as submit, we pass it to the engine
+		if t.eventsState[id].Submit > 0 {
+			err := t.parseArguments(event)
+			if err != nil {
+				t.handleError(err)
+				return
+			}
+
+			// Get a copy of our event before sending it down the pipeline.
+			// This is needed because a later modification of the event (in
+			// particular of the matched policies) can affect engine stage.
+			eventCopy := *event
+			// pass the event to the sink stage, if the event is also marked as emit
+			// it will be sent to print by the sink stage
+			out <- event
+
+			// send the event to the rule event
+			engineInput <- eventCopy.ToProtocol()
+		}
+	}
+
 	// TODO: in the upcoming releases, the rule engine should be changed to receive trace.Event,
 	// and return a trace.Event, which should remove the necessity of converting trace.Event to protocol.Event,
 	// and converting detect.Finding into trace.Event
@@ -57,31 +89,9 @@ func (t *Tracker) engineEvents(ctx context.Context, in <-chan *trace.Event) (<-c
 		for {
 			select {
 			case event := <-in:
-				if event == nil {
-					continue // might happen during initialization (ctrl+c seg faults)
-				}
-
-				id := events.ID(event.EventID)
-
-				// if the event is marked as submit, we pass it to the engine
-				if t.eventsState[id].Submit > 0 {
-					err := t.parseArguments(event)
-					if err != nil {
-						t.handleError(err)
-						continue
-					}
-
-					// Get a copy of our event before sending it down the pipeline.
-					// This is needed because a later modification of the event (in
-					// particular of the matched policies) can affect engine stage.
-					eventCopy := *event
-					// pass the event to the sink stage, if the event is also marked as emit
-					// it will be sent to print by the sink stage
-					out <- event
-
-					// send the event to the rule event
-					engineInput <- eventCopy.ToProtocol()
-				}
+				feedFunc(event)
+			case event := <-engineOutputEvents:
+				feedFunc(event)
 			case <-ctx.Done():
 				return
 			}
@@ -107,7 +117,7 @@ func (t *Tracker) engineEvents(ctx context.Context, in <-chan *trace.Event) (<-c
 					continue
 				}
 
-				out <- event
+				engineOutputEvents <- event
 			case <-ctx.Done():
 				return
 			}
@@ -119,7 +129,22 @@ func (t *Tracker) engineEvents(ctx context.Context, in <-chan *trace.Event) (<-c
 
 // PrepareBuiltinDataSources returns a list of all data sources tracker makes available built-in
 func (t *Tracker) PrepareBuiltinDataSources() []detect.DataSource {
-	return []detect.DataSource{
-		containers.NewDataSource(t.containers),
+	datasources := []detect.DataSource{}
+
+	// Containers Data Source
+	datasources = append(datasources, containers.NewDataSource(t.containers))
+
+	// DNS Data Source
+	if t.config.DNSCacheConfig.Enable {
+		datasources = append(datasources, dnscache.NewDataSource(t.dnsCache))
 	}
+
+	// Process Tree Data Source
+	switch t.config.ProcTree.Source {
+	case proctree.SourceNone:
+	default:
+		datasources = append(datasources, proctree.NewDataSource(t.processTree))
+	}
+
+	return datasources
 }

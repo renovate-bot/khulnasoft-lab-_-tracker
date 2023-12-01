@@ -56,8 +56,8 @@ Data
 ====
 signatures.yaml:
 ----
-apiVersion: khulnasoft-lab.github.io/v1beta1
-kind: TrackerPolicy
+apiVersion: tracker.khulnasoft.com/v1beta1
+kind: Policy
 metadata:
 	name: signature-events
 	annotations:
@@ -113,8 +113,8 @@ To add a new policy for tracking execve events, add the following YAML block bef
 ```yaml
 data:
   events.yaml: |-
-    apiVersion: khulnasoft-lab.github.io/v1beta1
-    kind: TrackerPolicy
+    apiVersion: tracker.khulnasoft.com/v1beta1
+    kind: Policy
     metadata:
         name: execve-event
         annotations:

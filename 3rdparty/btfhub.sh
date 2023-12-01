@@ -18,8 +18,8 @@ cd ${BASEDIR}
 
 # variables
 
-BTFHUB_REPO="https://github.com/khulnasoft-lab/btfhub.git"
-BTFHUB_ARCH_REPO="https://github.com/khulnasoft-lab/btfhub-archive.git"
+BTFHUB_REPO="https://github.com/aquasecurity/btfhub.git"
+BTFHUB_ARCH_REPO="https://github.com/aquasecurity/btfhub-archive.git"
 
 TRACEE_BPF_CORE="${BASEDIR}/dist/tracee.bpf.o"
 

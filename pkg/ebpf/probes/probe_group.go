@@ -98,6 +98,10 @@ func (p *ProbeGroup) Autoload(handle Handle, autoload bool) error {
 	return p.probes[handle].autoload(p.module, autoload)
 }
 
+func (p *ProbeGroup) GetProbeByHandle(handle Handle) Probe {
+	return p.probes[handle]
+}
+
 // NewDefaultProbeGroup initializes the default ProbeGroup (TODO: extensions will use probe groups)
 func NewDefaultProbeGroup(module *bpf.Module, netEnabled bool) (*ProbeGroup, error) {
 	binaryPath := "/proc/self/exe"
@@ -161,7 +165,7 @@ func NewDefaultProbeGroup(module *bpf.Module, netEnabled bool) (*ProbeGroup, err
 		LoadElfPhdrs:               NewTraceProbe(KProbe, "load_elf_phdrs", "trace_load_elf_phdrs"),
 		Filldir64:                  NewTraceProbe(KProbe, "filldir64", "trace_filldir64"),
 		TaskRename:                 NewTraceProbe(RawTracepoint, "task:task_rename", "tracepoint__task__task_rename"),
-		PrintSyscallTable:          NewUprobe("print_syscall_table", "uprobe_syscall_trigger", binaryPath, "github.com/khulnasoft-lab/tracker/pkg/ebpf.(*Tracker).triggerSyscallsIntegrityCheckCall"),
+		SyscallTableCheck:          NewUprobe("syscall_table_check", "uprobe_syscall_table_check", binaryPath, "github.com/khulnasoft-lab/tracker/pkg/ebpf.(*Tracker).triggerSyscallTableIntegrityCheckCall"),
 		HiddenKernelModuleSeeker:   NewUprobe("hidden_kernel_module", "uprobe_lkm_seeker", binaryPath, "github.com/khulnasoft-lab/tracker/pkg/ebpf.(*Tracker).triggerKernelModuleSeeker"),
 		HiddenKernelModuleVerifier: NewUprobe("hidden_kernel_module", "uprobe_lkm_seeker_submitter", binaryPath, "github.com/khulnasoft-lab/tracker/pkg/ebpf.(*Tracker).triggerKernelModuleSubmitter"),
 		PrintNetSeqOps:             NewUprobe("print_net_seq_ops", "uprobe_seq_ops_trigger", binaryPath, "github.com/khulnasoft-lab/tracker/pkg/ebpf.(*Tracker).triggerSeqOpsIntegrityCheckCall"),
@@ -206,6 +210,11 @@ func NewDefaultProbeGroup(module *bpf.Module, netEnabled bool) (*ProbeGroup, err
 		ModuleLoad:                 NewTraceProbe(RawTracepoint, "module:module_load", "tracepoint__module__module_load"),
 		ModuleFree:                 NewTraceProbe(RawTracepoint, "module:module_free", "tracepoint__module__module_free"),
 		LayoutAndAllocate:          NewTraceProbe(KretProbe, "layout_and_allocate", "trace_ret_layout_and_allocate"),
+		SignalCgroupMkdir:          NewTraceProbe(RawTracepoint, "cgroup:cgroup_mkdir", "cgroup_mkdir_signal"),
+		SignalCgroupRmdir:          NewTraceProbe(RawTracepoint, "cgroup:cgroup_rmdir", "cgroup_rmdir_signal"),
+		SignalSchedProcessFork:     NewTraceProbe(RawTracepoint, "sched:sched_process_fork", "sched_process_fork_signal"),
+		SignalSchedProcessExec:     NewTraceProbe(RawTracepoint, "sched:sched_process_exec", "sched_process_exec_signal"),
+		SignalSchedProcessExit:     NewTraceProbe(RawTracepoint, "sched:sched_process_exit", "sched_process_exit_signal"),
 	}
 
 	if !netEnabled {

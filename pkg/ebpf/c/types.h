@@ -8,31 +8,33 @@
 #include <common/consts.h>
 
 typedef struct task_context {
-    u64 start_time; // thread's start time
-    u64 cgroup_id;
-    u32 pid;       // PID as in the userspace term
-    u32 tid;       // TID as in the userspace term
-    u32 ppid;      // Parent PID as in the userspace term
-    u32 host_pid;  // PID in host pid namespace
-    u32 host_tid;  // TID in host pid namespace
-    u32 host_ppid; // Parent PID in host pid namespace
-    u32 uid;
-    u32 mnt_id;
-    u32 pid_id;
-    char comm[TASK_COMM_LEN];
-    char uts_name[TASK_COMM_LEN];
-    u32 flags;
+    u64 start_time;               // task's start time
+    u64 cgroup_id;                // control group ID
+    u32 pid;                      // PID as in the userspace term
+    u32 tid;                      // TID as in the userspace term
+    u32 ppid;                     // Parent PID as in the userspace term
+    u32 host_pid;                 // PID in host pid namespace
+    u32 host_tid;                 // TID in host pid namespace
+    u32 host_ppid;                // Parent PID in host pid namespace
+    u32 uid;                      // task's effective UID
+    u32 mnt_id;                   // task's mount namespace ID
+    u32 pid_id;                   // task's pid namespace ID
+    char comm[TASK_COMM_LEN];     // task's comm
+    char uts_name[TASK_COMM_LEN]; // task's uts name
+    u32 flags;                    // task's status flags (see context_flags_e)
+    u64 leader_start_time;        // task leader's monotonic start time
+    u64 parent_start_time;        // parent process task leader's monotonic start time
 } task_context_t;
 
 typedef struct event_context {
-    u64 ts; // Timestamp
+    u64 ts; // timestamp
     task_context_t task;
     u32 eventid;
-    s32 syscall; // The syscall which triggered the event
+    s32 syscall; // syscall that triggered the event
     u64 matched_policies;
     s64 retval;
     u32 stack_id;
-    u16 processor_id; // The ID of the processor which processed the event
+    u16 processor_id; // ID of the processor that processed the event
 } event_context_t;
 
 enum event_id_e
@@ -94,7 +96,7 @@ enum event_id_e
     CALL_USERMODE_HELPER,
     DIRTY_PIPE_SPLICE,
     DEBUGFS_CREATE_FILE,
-    PRINT_SYSCALL_TABLE,
+    SYSCALL_TABLE_CHECK,
     DEBUGFS_CREATE_DIR,
     DEVICE_ADD,
     REGISTER_CHRDEV,
@@ -121,6 +123,15 @@ enum event_id_e
     MODULE_LOAD,
     MODULE_FREE,
     MAX_EVENT_ID,
+};
+
+enum signal_event_id_e
+{
+    SIGNAL_CGROUP_MKDIR = 5000,
+    SIGNAL_CGROUP_RMDIR,
+    SIGNAL_SCHED_PROCESS_FORK,
+    SIGNAL_SCHED_PROCESS_EXEC,
+    SIGNAL_SCHED_PROCESS_EXIT,
 };
 
 typedef struct args {
@@ -171,12 +182,6 @@ typedef struct syscall_data {
     unsigned long ts;  // Timestamp of syscall entry
     unsigned long ret; // Syscall ret val. May be used by syscall exit tail calls.
 } syscall_data_t;
-
-typedef struct fd_arg_task {
-    u32 pid;
-    u32 tid;
-    int fd;
-} fd_arg_task_t;
 
 #define MAX_CACHED_PATH_SIZE 64
 
@@ -339,6 +344,10 @@ typedef struct netconfig_entry {
     u32 capture_options; // bitmask of capture options (pcap)
     u32 capture_length;  // amount of network packet payload to capture (pcap)
 } netconfig_entry_t;
+
+typedef struct syscall_table_entry {
+    u64 address;
+} syscall_table_entry_t;
 
 typedef struct args_buffer {
     u8 argnum;

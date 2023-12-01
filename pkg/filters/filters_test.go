@@ -10,6 +10,8 @@ import (
 )
 
 func TestBoolFilter(t *testing.T) {
+	t.Parallel()
+
 	testCases := []struct {
 		name         string
 		expressions  []string
@@ -36,7 +38,7 @@ func TestBoolFilter(t *testing.T) {
 		},
 		{
 			name:         "eval false 1",
-			expressions:  []string{"!container"},
+			expressions:  []string{"not-container"},
 			expected:     false,
 			filterResult: []bool{false, true},
 		},
@@ -54,7 +56,7 @@ func TestBoolFilter(t *testing.T) {
 		},
 		{
 			name:         "eval false then true",
-			expressions:  []string{"!container", "=true"},
+			expressions:  []string{"not-container", "=true"},
 			expected:     true,
 			filterResult: []bool{true, true},
 		},
@@ -67,7 +69,11 @@ func TestBoolFilter(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
+		tc := tc
+
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
 			filter := filters.NewBoolFilter()
 			for _, expr := range tc.expressions {
 				err := filter.Parse(expr)
@@ -87,6 +93,8 @@ func TestBoolFilter(t *testing.T) {
 }
 
 func TestIntFilter(t *testing.T) {
+	t.Parallel()
+
 	testCases := []struct {
 		name        string
 		expressions []string
@@ -122,7 +130,11 @@ func TestIntFilter(t *testing.T) {
 		},
 	}
 	for _, tc := range testCases {
+		tc := tc
+
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
 			filter := filters.NewIntFilter()
 			for _, expr := range tc.expressions {
 				err := filter.Parse(expr)
@@ -138,6 +150,8 @@ func TestIntFilter(t *testing.T) {
 }
 
 func TestUIntFilter(t *testing.T) {
+	t.Parallel()
+
 	testCases := []struct {
 		name        string
 		expressions []string
@@ -181,7 +195,11 @@ func TestUIntFilter(t *testing.T) {
 		},
 	}
 	for _, tc := range testCases {
+		tc := tc
+
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
 			filter := filters.NewUIntFilter()
 			for _, expr := range tc.expressions {
 				err := filter.Parse(expr)
@@ -197,6 +215,8 @@ func TestUIntFilter(t *testing.T) {
 }
 
 func TestStringFilter(t *testing.T) {
+	t.Parallel()
+
 	testCases := []struct {
 		name        string
 		expressions []string
@@ -310,7 +330,11 @@ func TestStringFilter(t *testing.T) {
 		},
 	}
 	for _, tc := range testCases {
+		tc := tc
+
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
 			filter := filters.NewStringFilter()
 			for _, expr := range tc.expressions {
 				err := filter.Parse(expr)

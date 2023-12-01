@@ -22,7 +22,7 @@ func GetTrackerRunner(c *cli.Context, version string) (cmd.Runner, error) {
 	cfg := config.Config{
 		PerfBufferSize:     c.Int("perf-buffer-size"),
 		BlobPerfBufferSize: c.Int("blob-perf-buffer-size"),
-		ContainersEnrich:   c.Bool("containers"),
+		NoContainersEnrich: c.Bool("no-containers"),
 	}
 
 	// Output command line flags
@@ -63,11 +63,13 @@ func GetTrackerRunner(c *cli.Context, version string) (cmd.Runner, error) {
 
 	// Container Runtime command line flags
 
-	sockets, err := flags.PrepareContainers(c.StringSlice("crs"))
-	if err != nil {
-		return runner, err
+	if !cfg.NoContainersEnrich {
+		sockets, err := flags.PrepareContainers(c.StringSlice("cri"))
+		if err != nil {
+			return runner, err
+		}
+		cfg.Sockets = sockets
 	}
-	cfg.Sockets = sockets
 
 	// Cache command line flags
 
@@ -79,6 +81,14 @@ func GetTrackerRunner(c *cli.Context, version string) (cmd.Runner, error) {
 	if cfg.Cache != nil {
 		logger.Debugw("Cache", "type", cfg.Cache.String())
 	}
+
+	// Cache command line flags
+
+	procTree, err := flags.PrepareProcTree(c.StringSlice("proctree"))
+	if err != nil {
+		return runner, err
+	}
+	cfg.ProcTree = procTree
 
 	// Capture command line flags
 

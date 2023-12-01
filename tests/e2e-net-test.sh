@@ -4,11 +4,11 @@
 # This test is executed by github workflows inside the action runners
 #
 
-TRACKER_STARTUP_TIMEOUT=60
-TRACKER_SHUTDOWN_TIMEOUT=60
-TRACKER_RUN_TIMEOUT=60
+TRACEE_STARTUP_TIMEOUT=60
+TRACEE_SHUTDOWN_TIMEOUT=60
+TRACEE_RUN_TIMEOUT=60
 SCRIPT_TMP_DIR=/tmp
-TRACKER_TMP_DIR=/tmp/tracker
+TRACEE_TMP_DIR=/tmp/tracker
 
 info_exit() {
     echo -n "INFO: "
@@ -46,7 +46,7 @@ fi
 TESTS=${NETTESTS:=IPv4}
 
 # startup needs
-rm -rf $TRACKER_TMP_DIR/* || error_exit "could not delete $TRACKER_TMP_DIR"
+rm -rf $TRACEE_TMP_DIR/* || error_exit "could not delete $TRACEE_TMP_DIR"
 git config --global --add safe.directory "*"
 
 info
@@ -64,7 +64,7 @@ if [[ $ret -ne 0 ]]; then
     error_exit "could not setup network namespaces: error $ret"
 fi
 info
-info "= COMPILING TRACKER ============================================"
+info "= COMPILING TRACEE ============================================"
 info
 # make clean # if you want to be extra cautious
 set -e
@@ -91,7 +91,7 @@ for TEST in $TESTS; do
     events=$(./dist/tracker-rules --allcaps --rules-dir ./dist/e2e-net-signatures/ --rules $TEST --list-events)
 
     ./dist/tracker-ebpf \
-        --install-path $TRACKER_TMP_DIR \
+        --install-path $TRACEE_TMP_DIR \
         --cache cache-type=mem \
         --cache mem-cache-size=512 \
         --output format:json \
@@ -113,14 +113,14 @@ for TEST in $TESTS; do
     while true; do
         times=$(($times + 1))
         sleep 1
-        if [[ -f $TRACKER_TMP_DIR/out/tracker.pid ]]; then
+        if [[ -f $TRACEE_TMP_DIR/out/tracker.pid ]]; then
             info
             info "UP AND RUNNING"
             info
             break
         fi
 
-        if [[ $times -gt $TRACKER_STARTUP_TIMEOUT ]]; then
+        if [[ $times -gt $TRACEE_STARTUP_TIMEOUT ]]; then
             timedout=1
             break
         fi
@@ -141,7 +141,7 @@ for TEST in $TESTS; do
     sleep 3
 
     # run test scripts
-    timeout --preserve-status $TRACKER_RUN_TIMEOUT \
+    timeout --preserve-status $TRACEE_RUN_TIMEOUT \
         ./tests/e2e-net-signatures/scripts/${TEST,,}.sh
 
     # so event can be processed and detected
@@ -173,7 +173,7 @@ for TEST in $TESTS; do
     kill -2 $pid_rules
     kill -2 $pid_ebpf
 
-    sleep $TRACKER_SHUTDOWN_TIMEOUT
+    sleep $TRACEE_SHUTDOWN_TIMEOUT
 
     # make sure tracker is exited with SIGKILL
     kill -9 $pid_rules >/dev/null 2>&1
@@ -183,7 +183,7 @@ for TEST in $TESTS; do
     sleep 3
 
     # cleanup leftovers
-    rm -rf $TRACKER_TMP_DIR
+    rm -rf $TRACEE_TMP_DIR
 done
 
 info

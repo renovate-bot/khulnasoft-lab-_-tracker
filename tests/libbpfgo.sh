@@ -33,7 +33,7 @@ git_restore() {
 }
 
 BASE_DIR="$(dirname "$(realpath "${0}")")"
-TRACKER_DIR="$(realpath "${BASE_DIR}"/..)"
+TRACEE_DIR="$(realpath "${BASE_DIR}"/..)"
 GO_ENV_EBPF=( "$@" )
 export "${GO_ENV_EBPF[@]}"
 
@@ -41,7 +41,7 @@ git_setup
 trap git_restore ERR
 
 set -e
-STATIC=1 make -C "${TRACKER_DIR}"
+STATIC=1 make -C "${TRACEE_DIR}"
 set +e
 
 git_restore

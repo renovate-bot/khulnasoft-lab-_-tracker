@@ -148,21 +148,21 @@ func initCmd() error {
 	// Container flags
 
 	rootCmd.Flags().Bool(
-		"containers",
+		"no-containers",
 		false,
-		"\t\t\t\t\tEnable container info enrichment to events. This feature is experimental and may cause unexpected behavior in the pipeline",
+		"\t\t\t\t\tDisable container info enrichment to events. Safeguard option.",
 	)
-	err = viper.BindPFlag("containers", rootCmd.Flags().Lookup("containers"))
+	err = viper.BindPFlag("no-containers", rootCmd.Flags().Lookup("no-containers"))
 	if err != nil {
 		return errfmt.WrapError(err)
 	}
 
 	rootCmd.Flags().StringArray(
-		"crs",
+		"cri",
 		[]string{},
 		"<runtime:socket>\t\t\tDefine connected container runtimes",
 	)
-	err = viper.BindPFlag("crs", rootCmd.Flags().Lookup("crs"))
+	err = viper.BindPFlag("cri", rootCmd.Flags().Lookup("cri"))
 	if err != nil {
 		return errfmt.WrapError(err)
 	}
@@ -172,7 +172,7 @@ func initCmd() error {
 	rootCmd.Flags().StringArray(
 		"signatures-dir",
 		[]string{},
-		"<dir>\t\t\t\tDirectories where to search for signatures in CEL (.yaml), OPA (.rego), and Go plugin (.so) formats",
+		"<dir>\t\t\t\tDirectories where to search for signatures in OPA (.rego) and Go plugin (.so) formats",
 	)
 	err = viper.BindPFlag("signatures-dir", rootCmd.Flags().Lookup("signatures-dir"))
 	if err != nil {
@@ -219,6 +219,31 @@ func initCmd() error {
 		"[type|mem-cache-size]\t\tControl event caching queues",
 	)
 	err = viper.BindPFlag("cache", rootCmd.Flags().Lookup("cache"))
+	if err != nil {
+		return errfmt.WrapError(err)
+	}
+
+	// Process Tree flags
+
+	rootCmd.Flags().StringArrayP(
+		"proctree",
+		"t",
+		[]string{"none"},
+		"[process|thread]\t\t\tControl process tree options",
+	)
+	err = viper.BindPFlag("proctree", rootCmd.Flags().Lookup("proctree"))
+	if err != nil {
+		return errfmt.WrapError(err)
+	}
+
+	// DNS Cache flags
+
+	rootCmd.Flags().StringArray(
+		"dnscache",
+		[]string{"none"},
+		"\t\t\t\t\tEnable DNS Cache",
+	)
+	err = viper.BindPFlag("dnscache", rootCmd.Flags().Lookup("dnscache"))
 	if err != nil {
 		return errfmt.WrapError(err)
 	}

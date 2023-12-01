@@ -21,6 +21,8 @@ import (
 )
 
 func Test_setupOutput(t *testing.T) {
+	t.Parallel()
+
 	var testCases = []struct {
 		name           string
 		inputEvent     protocol.Event
@@ -125,6 +127,8 @@ func checkOutput(t *testing.T, testName string, actualOutput *SyncBuffer, expect
 }
 
 func Test_sendToWebhook(t *testing.T) {
+	t.Parallel()
+
 	var testCases = []struct {
 		name               string
 		inputTemplateFile  string
@@ -170,7 +174,11 @@ func Test_sendToWebhook(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
+		tc := tc
+
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
 			ts := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 				got, err := io.ReadAll(request.Body)
 				require.NoError(t, err)
@@ -209,6 +217,8 @@ func Test_sendToWebhook(t *testing.T) {
 }
 
 func TestOutputTemplates(t *testing.T) {
+	t.Parallel()
+
 	testCases := []struct {
 		testName     string
 		finding      detect.Finding
@@ -234,8 +244,11 @@ func TestOutputTemplates(t *testing.T) {
 					Container: trace.Container{
 						ID: "abbc123",
 					},
-					EventName:    "execve",
-					Syscall:      "execve",
+					EventName: "execve",
+					Syscall:   "execve",
+					Executable: trace.File{
+						Path: "/bin/test",
+					},
 					ContextFlags: trace.ContextFlags{ContainerStarted: true},
 				}.ToProtocol(),
 				SigMetadata: detect.SignatureMetadata{
@@ -256,7 +269,7 @@ func TestOutputTemplates(t *testing.T) {
 					"a":123,"b":"c","d":true,"f":{"123":"456","foo":"bar"}
 				},
 				"Context":{
-					"timestamp":1321321,"processorId":0,"processId":21312,"threadId":0,"threadStartTime":0,"parentProcessId":0,"hostProcessId":0,"hostThreadId":0,"hostParentProcessId":0,"userId":0,"mountNamespace":0,"pidNamespace":0,"processName":"","hostName":"","cgroupId":0,"containerId":"abbc123","container":{"id":"abbc123"},"kubernetes":{},"eventId":"0","eventName":"execve","argsNum":0,"returnValue":0,"syscall":"execve","stackAddresses":null,"args":null,"contextFlags":{"containerStarted":true,"isCompat":false}
+					"timestamp":1321321,"processorId":0,"processId":21312,"threadId":0,"threadStartTime":0,"parentProcessId":0,"hostProcessId":0,"hostThreadId":0,"hostParentProcessId":0,"userId":0,"mountNamespace":0,"pidNamespace":0,"processName":"","hostName":"","cgroupId":0,"containerId":"abbc123","container":{"id":"abbc123"},"kubernetes":{},"eventId":"0","eventName":"execve","argsNum":0,"returnValue":0,"syscall":"execve","stackAddresses":null,"args":null,"threadEntityId":0,"processEntityId":0,"parentEntityId":0,"contextFlags":{"containerStarted":true,"isCompat":false},"executable":{"path":"/bin/test"}
 				},
 				"SigMetadata":{
 					"ID":"TRC-1","EventName": "stdio","Version":"0.1.0","Name":"Standard Input/Output Over Socket","Description":"Redirection of process's standard input/output to socket","Tags":["linux","container"],"Properties":{"MITRE ATT\u0026CK":"Persistence: Server Software Component","Severity":3}
@@ -269,7 +282,11 @@ func TestOutputTemplates(t *testing.T) {
 	require.NoError(t, err)
 
 	for _, tc := range testCases {
+		tc := tc
+
 		t.Run(tc.testName, func(t *testing.T) {
+			t.Parallel()
+
 			var buf bytes.Buffer
 			err := jsonTemplate.Execute(&buf, tc.finding)
 			require.NoError(t, err)

@@ -107,7 +107,7 @@ func main() {
 
 			outputMode := OutputMode(ctx.String(outputFlag))
 			if outputMode == prettyOutput {
-				fmt.Println("===================TRACKER-ER===================")
+				fmt.Println("===================TRACEE-ER===================")
 			}
 			go func() {
 				for {

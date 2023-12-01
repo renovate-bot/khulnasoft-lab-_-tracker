@@ -11,8 +11,9 @@ import (
 // It is used only by the old binary (tracker-ebpf).
 func PrintAndExitIfHelp(ctx *cli.Context) {
 	keys := []string{
-		"crs",
+		"cri",
 		"cache",
+		"proctree",
 		"capture",
 		"scope",
 		"events",
@@ -47,10 +48,12 @@ func GetHelpString(key string) string {
 	switch key {
 	case "config":
 		return configHelp()
-	case "crs":
+	case "cri":
 		return containersHelp()
 	case "cache":
 		return cacheHelp()
+	case "proctree":
+		return procTreeHelp()
 	case "capture":
 		return captureHelp()
 	case "scope", "events":

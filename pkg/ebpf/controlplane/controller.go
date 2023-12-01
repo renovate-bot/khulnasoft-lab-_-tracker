@@ -3,182 +3,142 @@ package controlplane
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/khulnasoft-lab/libbpfgo"
 
-	"github.com/khulnasoft-lab/tracker/pkg/capabilities"
 	"github.com/khulnasoft-lab/tracker/pkg/containers"
-	"github.com/khulnasoft-lab/tracker/pkg/ebpf/probes"
-	"github.com/khulnasoft-lab/tracker/pkg/errfmt"
 	"github.com/khulnasoft-lab/tracker/pkg/events"
-	"github.com/khulnasoft-lab/tracker/pkg/events/parse"
 	"github.com/khulnasoft-lab/tracker/pkg/logger"
-	"github.com/khulnasoft-lab/tracker/types/trace"
+	"github.com/khulnasoft-lab/tracker/pkg/proctree"
 )
+
+// TODO: With the introduction of signal events, the control plane can now have a generic argument
+// parsing, just like the regular pipeline. So all arguments can be parsed before the handlers are
+// called.
 
 const pollTimeout int = 300 // from tracker.go (move to a consts package?)
-
-// Control Plane probe handles
-const (
-	cgroupMkdirControlProbe probes.Handle = iota
-	cgroupRmdirControlProbe
-)
 
 type Controller struct {
 	ctx            context.Context
 	signalChan     chan []byte
 	lostSignalChan chan uint64
 	bpfModule      *libbpfgo.Module
-	probeGroup     *probes.ProbeGroup
 	signalBuffer   *libbpfgo.PerfBuffer
 	cgroupManager  *containers.Containers
-	enrichEnabled  bool
+	processTree    *proctree.ProcessTree
+	enrichDisabled bool
 }
 
-func NewController(bpfModule *libbpfgo.Module, cgroupManager *containers.Containers, enrichEnabled bool) (*Controller, error) {
+// NewController creates a new controller.
+func NewController(
+	bpfModule *libbpfgo.Module,
+	cgroupManager *containers.Containers,
+	enrichDisabled bool,
+	procTree *proctree.ProcessTree,
+) (*Controller, error) {
 	var err error
+
 	p := &Controller{
 		signalChan:     make(chan []byte, 100),
 		lostSignalChan: make(chan uint64),
 		bpfModule:      bpfModule,
 		cgroupManager:  cgroupManager,
-		enrichEnabled:  enrichEnabled,
+		processTree:    procTree,
+		enrichDisabled: enrichDisabled,
 	}
+
 	p.signalBuffer, err = bpfModule.InitPerfBuf("signals", p.signalChan, p.lostSignalChan, 1024)
 	if err != nil {
 		return nil, err
 	}
 
-	p.probeGroup = probes.NewProbeGroup(bpfModule, map[probes.Handle]probes.Probe{
-		cgroupMkdirControlProbe: probes.NewTraceProbe(
-			probes.RawTracepoint,
-			"cgroup:cgroup_mkdir",
-			"cgroup_mkdir_signal",
-		),
-		cgroupRmdirControlProbe: probes.NewTraceProbe(
-			probes.RawTracepoint,
-			"cgroup:cgroup_rmdir",
-			"cgroup_rmdir_signal",
-		),
-	})
-
 	return p, nil
 }
 
-func (p *Controller) Attach() error {
-	err := p.probeGroup.Attach(cgroupMkdirControlProbe)
-	if err != nil {
-		return fmt.Errorf("failed to attach cgroup_mkdir probe in control plane: %v", err)
-	}
-	err = p.probeGroup.Attach(cgroupRmdirControlProbe)
-	if err != nil {
-		return fmt.Errorf("failed to attach cgroup_rmdir probe in control plane: %v", err)
-	}
-	return nil
+// Start starts the controller.
+func (ctrl *Controller) Start() {
+	ctrl.signalBuffer.Poll(pollTimeout)
 }
 
-func (p *Controller) Start() error {
-	p.signalBuffer.Poll(pollTimeout)
-	return nil
-}
+// Run runs the controller.
+func (ctrl *Controller) Run(ctx context.Context) {
+	ctrl.ctx = ctx
+	ctrl.debug(false) // change this to "true" to enable process tree printing periodically.
 
-func (p *Controller) Run(ctx context.Context) {
-	p.ctx = ctx
 	for {
 		select {
-		case signalData := <-p.signalChan:
+		case signalData := <-ctrl.signalChan:
 			signal := signal{}
 			err := signal.Unmarshal(signalData)
 			if err != nil {
 				logger.Errorw("error unmarshaling signal ebpf buffer", "error", err)
 				continue
 			}
-			err = p.processSignal(signal)
+			err = ctrl.processSignal(signal)
 			if err != nil {
 				logger.Errorw("error processing control plane signal", "error", err)
 			}
-		case lost := <-p.lostSignalChan:
+		case lost := <-ctrl.lostSignalChan:
 			logger.Warnw(fmt.Sprintf("Lost %d control plane signals", lost))
-		case <-p.ctx.Done():
+		case <-ctrl.ctx.Done():
 			return
 		}
 	}
 }
 
-func (p *Controller) Stop() error {
-	p.signalBuffer.Stop()
-	return p.probeGroup.DetachAll()
-}
-
-func (p *Controller) processSignal(signal signal) error {
-	switch signal.eventID {
-	case events.CgroupMkdir:
-		return p.processCgroupMkdir(signal.args)
-	case events.CgroupRmdir:
-		return p.processCgroupRmdir(signal.args)
-	}
+// Stop stops the controller.
+func (ctrl *Controller) Stop() error {
+	ctrl.signalBuffer.Stop()
 	return nil
 }
 
-func (p *Controller) processCgroupMkdir(args []trace.Argument) error {
-	cgroupId, err := parse.ArgVal[uint64](args, "cgroup_id")
-	if err != nil {
-		return errfmt.Errorf("error parsing cgroup_mkdir signal args: %v", err)
-	}
-	path, err := parse.ArgVal[string](args, "cgroup_path")
-	if err != nil {
-		return errfmt.Errorf("error parsing cgroup_mkdir signal args: %v", err)
-	}
-	hId, err := parse.ArgVal[uint32](args, "hierarchy_id")
-	if err != nil {
-		return errfmt.Errorf("error parsing cgroup_mkdir signal args: %v", err)
-	}
-	info, err := p.cgroupManager.CgroupMkdir(cgroupId, path, hId)
-	if err != nil {
-		return errfmt.WrapError(err)
-	}
-	if info.Container.ContainerId == "" && !info.Dead {
-		// If cgroupId is from a regular cgroup directory, and not the
-		// container base directory (from known runtimes), it should be
-		// removed from the containers bpf map.
-		err := capabilities.GetInstance().EBPF(
-			func() error {
-				return p.cgroupManager.RemoveFromBPFMap(p.bpfModule, cgroupId, hId)
-			},
-		)
-		if err != nil {
-			// If the cgroupId was not found in bpf map, this could mean that
-			// it is not a container cgroup and, as a systemd cgroup, could have been
-			// created and removed very quickly.
-			// In this case, we don't want to return an error.
-			logger.Debugw("Failed to remove entry from containers bpf map", "error", err)
-		}
-		return errfmt.WrapError(err)
+// processSignal processes a signal from the control plane.
+func (ctrl *Controller) processSignal(signal signal) error {
+	switch signal.id {
+	case events.SignalCgroupMkdir:
+		return ctrl.processCgroupMkdir(signal.args)
+	case events.SignalCgroupRmdir:
+		return ctrl.processCgroupRmdir(signal.args)
+	case events.SignalSchedProcessFork:
+		return ctrl.procTreeForkProcessor(signal.args)
+	case events.SignalSchedProcessExec:
+		return ctrl.procTreeExecProcessor(signal.args)
+	case events.SignalSchedProcessExit:
+		return ctrl.procTreeExitProcessor(signal.args)
 	}
 
-	if p.enrichEnabled {
-		// If cgroupId belongs to a container, enrich now (in a goroutine)
+	return nil
+}
+
+// Private
+
+// debug prints the process tree every 5 seconds (for debugging purposes).
+func (ctrl *Controller) debug(enable bool) {
+	//
+	// The "best way" to debug hash problems is:
+	//
+	// 1. To enable the process tree "display" (this function);
+	// 2. To bpf_printk the "hash" and "start_time" at sched_process_exit_signal() in eBPF code;
+	// 3. To start a simple multi-threaded application (with processes and threads): https://gist.github.com/rafaeldtinoco/4b0a13213283ad636d5cc33be053a817
+	// 4. To start tracker.
+	//
+	// Wait for the tree to be printed by proctree_output.go code (with "main" program on it, and
+	// its threads), exit "main program" and check "bpf tracelog". You will be able to compare the
+	// hash from the exit hook with the process tree one (and check different values).
+	//
+	// You may also execute "main" program after tracker has started, with debug enabled, and check
+	// if the process tree shows it, and its threads, correctly.
+	//
+	// NOTE: Of course there are other ways of debugging, this one is the fastest and simpler
+	// (without adding/removing too much code).
+
+	if enable && ctrl.processTree != nil { // debug AND process tree are enabled
 		go func() {
-			_, err := p.cgroupManager.EnrichCgroupInfo(cgroupId)
-			if err != nil {
-				logger.Errorw("error triggering container enrich in control plane", "error", err)
+			for {
+				time.Sleep(5 * time.Second)
+				fmt.Printf("%s", ctrl.processTree)
 			}
 		}()
 	}
-
-	return nil
-}
-
-func (p *Controller) processCgroupRmdir(args []trace.Argument) error {
-	cgroupId, err := parse.ArgVal[uint64](args, "cgroup_id")
-	if err != nil {
-		return errfmt.Errorf("error parsing cgroup_rmdir args: %v", err)
-	}
-
-	hId, err := parse.ArgVal[uint32](args, "hierarchy_id")
-	if err != nil {
-		return errfmt.Errorf("error parsing cgroup_rmdir args: %v", err)
-	}
-	p.cgroupManager.CgroupRemove(cgroupId, hId)
-	return nil
 }

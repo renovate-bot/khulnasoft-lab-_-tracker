@@ -9,6 +9,8 @@ import (
 )
 
 func TestNewDefinition(t *testing.T) {
+	t.Parallel()
+
 	expectedDefinition := Definition{
 		name: "hooked_seq_ops2",
 		dependencies: Dependencies{
@@ -25,6 +27,8 @@ func TestNewDefinition(t *testing.T) {
 		0,
 		Sys32Undefined,
 		"hooked_seq_ops2",
+		version,
+		"",
 		"",
 		false,
 		false,
@@ -44,6 +48,8 @@ func TestNewDefinition(t *testing.T) {
 }
 
 func TestAdd(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name string
 		evt  Definition
@@ -96,7 +102,11 @@ func TestAdd(t *testing.T) {
 	}
 
 	for _, test := range tests {
+		test := test
+
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
 			err := Core.Add(test.evt.GetID32Bit(), test.evt)
 			if err != nil {
 				assert.ErrorContains(t, err, test.err)

@@ -8,9 +8,9 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/keepalive"
 
+	pb "github.com/khulnasoft-lab/tracker/api/v1beta1"
 	tracker "github.com/khulnasoft-lab/tracker/pkg/ebpf"
 	"github.com/khulnasoft-lab/tracker/pkg/logger"
-	pb "github.com/khulnasoft-lab/tracker/types/api/v1beta1"
 )
 
 type Server struct {
@@ -43,7 +43,7 @@ func (s *Server) Start(ctx context.Context, t *tracker.Tracker) {
 	}
 
 	grpcServer := grpc.NewServer(grpc.KeepaliveParams(keepaliveParams))
-	pb.RegisterTrackerServiceServer(grpcServer, &TrackerService{})
+	pb.RegisterTrackerServiceServer(grpcServer, &TrackerService{tracker: t})
 	pb.RegisterDiagnosticServiceServer(grpcServer, &DiagnosticService{tracker: t})
 
 	go func() {
