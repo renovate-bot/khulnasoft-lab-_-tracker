@@ -13,7 +13,6 @@ import (
 	"github.com/khulnasoft-lab/tracker/pkg/config"
 	"github.com/khulnasoft-lab/tracker/pkg/errfmt"
 	"github.com/khulnasoft-lab/tracker/pkg/logger"
-	"github.com/khulnasoft-lab/tracker/types/trace"
 )
 
 func GetTrackerRunner(c *cli.Context, version string) (cmd.Runner, error) {
@@ -23,7 +22,7 @@ func GetTrackerRunner(c *cli.Context, version string) (cmd.Runner, error) {
 	cfg := config.Config{
 		PerfBufferSize:     c.Int("perf-buffer-size"),
 		BlobPerfBufferSize: c.Int("blob-perf-buffer-size"),
-		ContainersEnrich:   c.Bool("containers"),
+		NoContainersEnrich: c.Bool("no-containers"),
 	}
 
 	// Output command line flags
@@ -64,11 +63,13 @@ func GetTrackerRunner(c *cli.Context, version string) (cmd.Runner, error) {
 
 	// Container Runtime command line flags
 
-	sockets, err := flags.PrepareContainers(c.StringSlice("crs"))
-	if err != nil {
-		return runner, err
+	if !cfg.NoContainersEnrich {
+		sockets, err := flags.PrepareContainers(c.StringSlice("cri"))
+		if err != nil {
+			return runner, err
+		}
+		cfg.Sockets = sockets
 	}
-	cfg.Sockets = sockets
 
 	// Cache command line flags
 
@@ -80,6 +81,14 @@ func GetTrackerRunner(c *cli.Context, version string) (cmd.Runner, error) {
 	if cfg.Cache != nil {
 		logger.Debugw("Cache", "type", cfg.Cache.String())
 	}
+
+	// Cache command line flags
+
+	procTree, err := flags.PrepareProcTree(c.StringSlice("proctree"))
+	if err != nil {
+		return runner, err
+	}
+	cfg.ProcTree = procTree
 
 	// Capture command line flags
 
@@ -161,10 +170,8 @@ func GetTrackerRunner(c *cli.Context, version string) (cmd.Runner, error) {
 		return runner, errfmt.Errorf("failed preparing BPF object: %v", err)
 	}
 
-	cfg.ChanEvents = make(chan trace.Event, 1000)
-
-	httpServer, err := server.PrepareServer(
-		c.String(server.ListenEndpointFlag),
+	httpServer, err := server.PrepareHTTPServer(
+		c.String(server.HTTPListenEndpointFlag),
 		c.Bool(server.MetricsEndpointFlag),
 		c.Bool(server.HealthzEndpointFlag),
 		c.Bool(server.PProfEndpointFlag),
@@ -175,7 +182,7 @@ func GetTrackerRunner(c *cli.Context, version string) (cmd.Runner, error) {
 		return runner, err
 	}
 
-	runner.Server = httpServer
+	runner.HTTPServer = httpServer
 	runner.TrackerConfig = cfg
 	runner.Printer = broadcast
 

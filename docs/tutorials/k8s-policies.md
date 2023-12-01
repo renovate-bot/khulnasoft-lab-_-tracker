@@ -13,7 +13,7 @@ Before you begin, ensure that you have the following:
 
 To install Tracker using Helm, follow these steps:
 
-Add the KhulnaSoft Helm repository:
+Add the Khulnasoft Security Helm repository:
 
 ```console
 helm repo add khulnasoft https://khulnasoft-lab.github.io/helm-charts/
@@ -56,8 +56,8 @@ Data
 ====
 signatures.yaml:
 ----
-apiVersion: khulnasoft-lab.github.io/v1beta1
-kind: TrackerPolicy
+apiVersion: tracker.khulnasoft.com/v1beta1
+kind: Policy
 metadata:
 	name: signature-events
 	annotations:
@@ -106,25 +106,28 @@ Let's edit the tracker-policies ConfigMap using kubectl:
 kubectl edit cm/tracker-policies -n tracker-system
 ```
 
-The ConfigMap will open in your default text editor. Locate the signatures.yaml section.
+The ConfigMap will open in your default text editor. Locate the data section.
 
-To add a new policy for tracking execve events, append the following YAML block under the signatures.yaml section, maintaining proper indentation:
+To add a new policy for tracking execve events, add the following YAML block before the signatures.yaml section, maintaining proper indentation:
 
 ```yaml
-events.yaml: |-
-  apiVersion: khulnasoft-lab.github.io/v1beta1
-  kind: TrackerPolicy
-  metadata:
-	  name: execve-event
-	  annotations:
-	  	description: traces all signature events
-  spec:
-	  scope:
-	    - global
-	  rules:
-	    - event: execve
+data:
+  events.yaml: |-
+    apiVersion: tracker.khulnasoft.com/v1beta1
+    kind: Policy
+    metadata:
+        name: execve-event
+        annotations:
+          description: traces all execve events
+    spec:
+        scope:
+          - global
+        rules:
+          - event: execve
+  signatures.yaml: |-
+  ...
 ```
-Save and close the file. The changes will be applied automatically.
+Save and close the file. The changes will be applied to the configmap.
 
 !!! note
 	If you having a problem editing the configmap, you can apply it directly with:

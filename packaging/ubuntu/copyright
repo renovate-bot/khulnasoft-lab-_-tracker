@@ -1,7 +1,0 @@
-Files: tracker/pkg/ebpf/c/*
-Copyright: 2022, KhulnaSoft
-License: GPL-2+
-
-Files: *
-Copyright: 2022, KhulnaSoft
-License: Apache-2.0

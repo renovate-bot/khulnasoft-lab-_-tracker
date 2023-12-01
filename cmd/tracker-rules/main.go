@@ -149,8 +149,8 @@ func main() {
 				return fmt.Errorf("constructing engine: %w", err)
 			}
 
-			httpServer, err := server.PrepareServer(
-				c.String(server.ListenEndpointFlag),
+			httpServer, err := server.PrepareHTTPServer(
+				c.String(server.HTTPListenEndpointFlag),
 				c.Bool(server.MetricsEndpointFlag),
 				c.Bool(server.HealthzEndpointFlag),
 				c.Bool(server.PProfEndpointFlag),
@@ -183,7 +183,7 @@ func main() {
 			},
 			&cli.StringFlag{
 				Name:  "rules-dir",
-				Usage: "directory where to search for rules in CEL (.yaml), OPA (.rego), and Go plugin (.so) formats",
+				Usage: "directory where to search for rules in OPA (.rego) and Go plugin (.so) formats",
 			},
 			&cli.BoolFlag{
 				Name:  "rego-partial-eval",
@@ -252,7 +252,7 @@ func main() {
 				Value: false,
 			},
 			&cli.StringFlag{
-				Name:  server.ListenEndpointFlag,
+				Name:  server.HTTPListenEndpointFlag,
 				Usage: "listening address of the metrics endpoint server",
 				Value: ":4466",
 			},

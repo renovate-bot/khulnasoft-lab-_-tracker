@@ -9,12 +9,97 @@ on:
         description: The tag to be released, e.g. v0.0.1
         required: true
 jobs:
+  release-x86_64:
+    name: Release (x86_64)
+    env:
+      GH_TOKEN: ${{ github.token }}
+    runs-on: [ "github-self-hosted_ami-0f4881c8d69684001_${{ github.event.number }}-${{ github.run_id }}" ]
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.inputs.ref }}
+          submodules: true
+          fetch-depth: 0
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@main
+        with:
+          cosign-release: 'v2.0.2'
+      - name: Login to docker.io registry
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USER }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Build
+        run: |
+          make -f builder/Makefile.release
+        shell: bash
+      - name: Publish to docker.io registry
+        run: |
+          TAG=$(echo ${{ github.event.inputs.ref }} | sed -e "s/v//gI")
+          ARCH=$(uname -m)
+          docker image tag tracker:latest khulnasoft/tracker:${ARCH}-${TAG}
+          docker image push khulnasoft/tracker:${ARCH}-${TAG}
+        shell: bash
+      - name: Sign Docker image
+        run: |
+          TAG=$(echo ${{ github.event.inputs.ref }} | sed -e "s/v//gI")
+          ARCH=$(uname -m)
+          cosign sign -y $(docker inspect --format='{{index .RepoDigests 0}}' khulnasoft/tracker:${ARCH}-${TAG})
+        shell: bash
+  release-aarch64:
+    name: Release (aarch64)
+    env:
+      GH_TOKEN: ${{ github.token }}
+    needs: [ release-x86_64 ]
+    runs-on: [ "github-self-hosted_ami-03217ce7c37572c4d_${{ github.event.number }}-${{ github.run_id }}" ]
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.inputs.ref }}
+          submodules: true
+          fetch-depth: 0
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@main
+        with:
+          cosign-release: 'v2.0.2'
+      - name: Login to docker.io registry
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USER }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Build
+        run: |
+          make -f builder/Makefile.release
+        shell: bash
+      - name: Publish to docker.io registry
+        run: |
+          TAG=$(echo ${{ github.event.inputs.ref }} | sed -e "s/v//gI")
+          ARCH=$(uname -m)
+          docker image tag tracker:latest khulnasoft/tracker:${ARCH}-${TAG}
+          docker image push khulnasoft/tracker:${ARCH}-${TAG}
+        shell: bash
+      - name: Sign Docker image
+        run: |
+          TAG=$(echo ${{ github.event.inputs.ref }} | sed -e "s/v//gI")
+          ARCH=$(uname -m)
+          cosign sign -y $(docker inspect --format='{{index .RepoDigests 0}}' khulnasoft/tracker:${ARCH}-${TAG})
+        shell: bash
   release:
-    name: Release X64 (Default)
-    env:
-      GH_TOKEN: ${{ github.token }}
+    name: Release
+    needs: [release-x86_64, release-aarch64]
+    runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
       packages: write
       id-token: write
     steps:
@@ -28,91 +113,27 @@ jobs:
         uses: sigstore/cosign-installer@main
         with:
           cosign-release: 'v2.0.2'
-      - name: AWS Environment
-        run: |
-          dmidecode
       - name: Login to docker.io registry
         uses: docker/login-action@v2
         with:
           username: ${{ secrets.DOCKERHUB_USER }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-      - name: Build
-        run: |
-          make -f builder/Makefile.release
-        # tracker:latest for historical reasons
-        # use :x86_64 as tag for the latest image
-        # use :x86_64-v0.xx.0 for versioned image
       - name: Publish to docker.io registry
         run: |
           TAG=$(echo ${{ github.event.inputs.ref }} | sed -e "s/v//gI")
-          ARCH=$(uname -m)
-          docker image tag tracker:latest khulnasoft/tracker:latest
-          docker image tag tracker:latest khulnasoft/tracker:${ARCH}
-          docker image tag tracker:latest khulnasoft/tracker:${TAG}
-          docker image tag tracker:latest khulnasoft/tracker:${ARCH}-${TAG}
-          docker image push khulnasoft/tracker:latest
-          docker image push khulnasoft/tracker:${ARCH}
-          docker image push khulnasoft/tracker:${TAG}
-          docker image push khulnasoft/tracker:${ARCH}-${TAG}
-      - name: Sign Docker image
+          export DOCKER_CLI_EXPERIMENTAL=enabled
+          docker manifest create khulnasoft/tracker:latest \
+            khulnasoft/tracker:x86_64-${TAG} \
+            khulnasoft/tracker:aarch64-${TAG}
+          docker manifest create khulnasoft/tracker:${TAG} \
+            khulnasoft/tracker:x86_64-${TAG} \
+            khulnasoft/tracker:aarch64-${TAG}
+          docker manifest push khulnasoft/tracker:latest
+          docker manifest push khulnasoft/tracker:${TAG}
+        shell: bash
+      - name: Sign the latest manifest with Cosign
         run: |
           TAG=$(echo ${{ github.event.inputs.ref }} | sed -e "s/v//gI")
-          ARCH=$(uname -m)
-          cosign sign -y $(docker inspect --format='{{index .RepoDigests 0}}' khulnasoft/tracker:latest)
-          cosign sign -y $(docker inspect --format='{{index .RepoDigests 0}}' khulnasoft/tracker:${ARCH})
-          cosign sign -y $(docker inspect --format='{{index .RepoDigests 0}}' khulnasoft/tracker:${TAG})
-          cosign sign -y $(docker inspect --format='{{index .RepoDigests 0}}' khulnasoft/tracker:${ARCH}-${TAG})
-  release-arm64:
-    name: Release ARM64
-    env:
-      GH_TOKEN: ${{ github.token }}
-    # only runs after x64 released (x64 is still the "default" arch)
-    needs:
-      - release
-    runs-on:
-      [
-        "github-self-hosted_ami-03217ce7c37572c4d_${{ github.event.number }}-${{ github.run_id }}",
-      ]
-    permissions:
-      contents: write
-      packages: write
-      id-token: write
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v3
-        with:
-          ref: ${{ github.event.inputs.ref }}
-          submodules: true
-          fetch-depth: 0
-      - name: Install Cosign
-        uses: sigstore/cosign-installer@main
-        with:
-          cosign-release: 'v2.0.2'
-      - name: AWS Environment
-        run: |
-          dmidecode
-      - name: Login to docker.io registry
-        uses: docker/login-action@v2
-        with:
-          username: ${{ secrets.DOCKERHUB_USER }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-      - name: Build
-        run: |
-          make -f builder/Makefile.release
-        # NO tracker:latest (historical reason: amd64 only)
-        # use :aarch64 as tag for the latest image
-        # use :aarch64-v0.xx.0 for versioned image
-      - name: Publish to docker.io registry
-        run: |
-          TAG=$(echo ${{ github.event.inputs.ref }} | sed -e "s/v//gI")
-          ARCH=$(uname -m)
-          docker image tag tracker:latest khulnasoft/tracker:${ARCH}
-          docker image tag tracker:latest khulnasoft/tracker:${ARCH}-${TAG}
-          docker image push khulnasoft/tracker:${ARCH}
-          docker image push khulnasoft/tracker:${ARCH}-${TAG}
-      - name: Sign Docker image
-        run: |
-          TAG=$(echo ${{ github.event.inputs.ref }} | sed -e "s/v//gI")
-          ARCH=$(uname -m)
-          cosign sign -y $(docker inspect --format='{{index .RepoDigests 0}}' khulnasoft/tracker:${ARCH})
-          cosign sign -y $(docker inspect --format='{{index .RepoDigests 0}}' khulnasoft/tracker:${ARCH}-${TAG})
+          cosign sign -y khulnasoft/tracker:latest
+          cosign sign -y khulnasoft/tracker:${TAG}
+        shell: bash

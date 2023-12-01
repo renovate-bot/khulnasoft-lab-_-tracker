@@ -7,14 +7,19 @@ import (
 	"gotest.tools/assert"
 
 	"github.com/khulnasoft-lab/tracker/pkg/events"
+	k8s "github.com/khulnasoft-lab/tracker/pkg/k8s/apis/tracker.khulnasoft.com/v1beta1"
 	"github.com/khulnasoft-lab/tracker/types/trace"
 )
 
 func TestPolicyValidate(t *testing.T) {
+	t.Parallel()
+
 	fakeSigEventDefinition := events.NewDefinition(
 		0,
 		events.Sys32Undefined,
 		"fake_signature",
+		events.NewVersion(1, 0, 0), // Version
+		"fake_description",
 		"",
 		false,
 		false,
@@ -57,7 +62,7 @@ func TestPolicyValidate(t *testing.T) {
 		{
 			testName: "empty Kind",
 			policy: PolicyFile{
-				APIVersion: "khulnasoft-lab.github.io/v1beta1",
+				APIVersion: "tracker.khulnasoft.com/v1beta1",
 				Metadata:   Metadata{Name: "empty-kind"},
 			},
 			expectedError: errors.New("policy empty-kind, kind not supported"),
@@ -65,8 +70,8 @@ func TestPolicyValidate(t *testing.T) {
 		{
 			testName: "invalid Kind",
 			policy: PolicyFile{
-				APIVersion: "khulnasoft-lab.github.io/v1beta1",
-				Kind:       "Policy",
+				APIVersion: "tracker.khulnasoft.com/v1beta1",
+				Kind:       "Policies",
 				Metadata:   Metadata{Name: "invalid-kind"},
 			},
 			expectedError: errors.New("policy invalid-kind, kind not supported"),
@@ -74,12 +79,12 @@ func TestPolicyValidate(t *testing.T) {
 		{
 			testName: "empty scope",
 			policy: PolicyFile{
-				APIVersion: "khulnasoft-lab.github.io/v1beta1",
-				Kind:       "TrackerPolicy",
+				APIVersion: "tracker.khulnasoft.com/v1beta1",
+				Kind:       "Policy",
 				Metadata: Metadata{
 					Name: "empty-scope",
 				},
-				Spec: PolicySpec{
+				Spec: k8s.PolicySpec{
 					Scope:          []string{},
 					DefaultActions: []string{"log"},
 				},
@@ -89,15 +94,15 @@ func TestPolicyValidate(t *testing.T) {
 		{
 			testName: "empty rules",
 			policy: PolicyFile{
-				APIVersion: "khulnasoft-lab.github.io/v1beta1",
-				Kind:       "TrackerPolicy",
+				APIVersion: "tracker.khulnasoft.com/v1beta1",
+				Kind:       "Policy",
 				Metadata: Metadata{
 					Name: "empty-rules",
 				},
-				Spec: PolicySpec{
+				Spec: k8s.PolicySpec{
 					Scope:          []string{"global"},
 					DefaultActions: []string{"log"},
-					Rules:          []Rule{},
+					Rules:          []k8s.Rule{},
 				},
 			},
 			expectedError: errors.New("policy empty-rules, rules cannot be empty"),
@@ -105,15 +110,15 @@ func TestPolicyValidate(t *testing.T) {
 		{
 			testName: "empty event name",
 			policy: PolicyFile{
-				APIVersion: "khulnasoft-lab.github.io/v1beta1",
-				Kind:       "TrackerPolicy",
+				APIVersion: "tracker.khulnasoft.com/v1beta1",
+				Kind:       "Policy",
 				Metadata: Metadata{
 					Name: "empty-event-name",
 				},
-				Spec: PolicySpec{
+				Spec: k8s.PolicySpec{
 					Scope:          []string{"global"},
 					DefaultActions: []string{"log"},
-					Rules: []Rule{
+					Rules: []k8s.Rule{
 						{Event: ""},
 					},
 				},
@@ -123,15 +128,15 @@ func TestPolicyValidate(t *testing.T) {
 		{
 			testName: "invalid event name",
 			policy: PolicyFile{
-				APIVersion: "khulnasoft-lab.github.io/v1beta1",
-				Kind:       "TrackerPolicy",
+				APIVersion: "tracker.khulnasoft.com/v1beta1",
+				Kind:       "Policy",
 				Metadata: Metadata{
 					Name: "invalid-event-name",
 				},
-				Spec: PolicySpec{
+				Spec: k8s.PolicySpec{
 					Scope:          []string{"global"},
 					DefaultActions: []string{"log"},
-					Rules: []Rule{
+					Rules: []k8s.Rule{
 						{Event: "non_existing_event"},
 					},
 				},
@@ -141,15 +146,15 @@ func TestPolicyValidate(t *testing.T) {
 		{
 			testName: "invalid_scope_operator",
 			policy: PolicyFile{
-				APIVersion: "khulnasoft-lab.github.io/v1beta1",
-				Kind:       "TrackerPolicy",
+				APIVersion: "tracker.khulnasoft.com/v1beta1",
+				Kind:       "Policy",
 				Metadata: Metadata{
 					Name: "invalid-scope-operator",
 				},
-				Spec: PolicySpec{
+				Spec: k8s.PolicySpec{
 					Scope:          []string{"random"},
 					DefaultActions: []string{"log"},
-					Rules: []Rule{
+					Rules: []k8s.Rule{
 						{Event: "write"},
 					},
 				},
@@ -159,15 +164,15 @@ func TestPolicyValidate(t *testing.T) {
 		{
 			testName: "invalid_scope",
 			policy: PolicyFile{
-				APIVersion: "khulnasoft-lab.github.io/v1beta1",
-				Kind:       "TrackerPolicy",
+				APIVersion: "tracker.khulnasoft.com/v1beta1",
+				Kind:       "Policy",
 				Metadata: Metadata{
 					Name: "invalid-scope",
 				},
-				Spec: PolicySpec{
+				Spec: k8s.PolicySpec{
 					Scope:          []string{"random!=0"},
 					DefaultActions: []string{"log"},
-					Rules: []Rule{
+					Rules: []k8s.Rule{
 						{Event: "write"},
 					},
 				},
@@ -177,15 +182,15 @@ func TestPolicyValidate(t *testing.T) {
 		{
 			testName: "global scope must be unique",
 			policy: PolicyFile{
-				APIVersion: "khulnasoft-lab.github.io/v1beta1",
-				Kind:       "TrackerPolicy",
+				APIVersion: "tracker.khulnasoft.com/v1beta1",
+				Kind:       "Policy",
 				Metadata: Metadata{
 					Name: "global-scope-must-be-unique",
 				},
-				Spec: PolicySpec{
+				Spec: k8s.PolicySpec{
 					Scope:          []string{"global", "uid=1000"},
 					DefaultActions: []string{"log"},
-					Rules: []Rule{
+					Rules: []k8s.Rule{
 						{Event: "write"},
 					},
 				},
@@ -195,15 +200,15 @@ func TestPolicyValidate(t *testing.T) {
 		{
 			testName: "duplicated event",
 			policy: PolicyFile{
-				APIVersion: "khulnasoft-lab.github.io/v1beta1",
-				Kind:       "TrackerPolicy",
+				APIVersion: "tracker.khulnasoft.com/v1beta1",
+				Kind:       "Policy",
 				Metadata: Metadata{
 					Name: "duplicated-event",
 				},
-				Spec: PolicySpec{
+				Spec: k8s.PolicySpec{
 					Scope:          []string{"global"},
 					DefaultActions: []string{"log"},
-					Rules: []Rule{
+					Rules: []k8s.Rule{
 						{Event: "write"},
 						{Event: "write"},
 					},
@@ -214,15 +219,15 @@ func TestPolicyValidate(t *testing.T) {
 		{
 			testName: "invalid filter operator",
 			policy: PolicyFile{
-				APIVersion: "khulnasoft-lab.github.io/v1beta1",
-				Kind:       "TrackerPolicy",
+				APIVersion: "tracker.khulnasoft.com/v1beta1",
+				Kind:       "Policy",
 				Metadata: Metadata{
 					Name: "invalid-filter-operator",
 				},
-				Spec: PolicySpec{
+				Spec: k8s.PolicySpec{
 					Scope:          []string{"global"},
 					DefaultActions: []string{"log"},
-					Rules: []Rule{
+					Rules: []k8s.Rule{
 						{
 							Event: "write",
 							Filters: []string{
@@ -237,15 +242,15 @@ func TestPolicyValidate(t *testing.T) {
 		{
 			testName: "invalid policy action",
 			policy: PolicyFile{
-				APIVersion: "khulnasoft-lab.github.io/v1beta1",
-				Kind:       "TrackerPolicy",
+				APIVersion: "tracker.khulnasoft.com/v1beta1",
+				Kind:       "Policy",
 				Metadata: Metadata{
 					Name: "invalid-policy-action",
 				},
-				Spec: PolicySpec{
+				Spec: k8s.PolicySpec{
 					Scope:          []string{"global"},
 					DefaultActions: []string{"audit"},
-					Rules: []Rule{
+					Rules: []k8s.Rule{
 						{Event: "write"},
 					},
 				},
@@ -255,15 +260,15 @@ func TestPolicyValidate(t *testing.T) {
 		{
 			testName: "invalid retval",
 			policy: PolicyFile{
-				APIVersion: "khulnasoft-lab.github.io/v1beta1",
-				Kind:       "TrackerPolicy",
+				APIVersion: "tracker.khulnasoft.com/v1beta1",
+				Kind:       "Policy",
 				Metadata: Metadata{
 					Name: "invalid-retval",
 				},
-				Spec: PolicySpec{
+				Spec: k8s.PolicySpec{
 					Scope:          []string{"global"},
 					DefaultActions: []string{"log"},
-					Rules: []Rule{
+					Rules: []k8s.Rule{
 						{
 							Event: "write",
 							Filters: []string{
@@ -278,15 +283,15 @@ func TestPolicyValidate(t *testing.T) {
 		{
 			testName: "empty retval",
 			policy: PolicyFile{
-				APIVersion: "khulnasoft-lab.github.io/v1beta1",
-				Kind:       "TrackerPolicy",
+				APIVersion: "tracker.khulnasoft.com/v1beta1",
+				Kind:       "Policy",
 				Metadata: Metadata{
 					Name: "empty-retval",
 				},
-				Spec: PolicySpec{
+				Spec: k8s.PolicySpec{
 					Scope:          []string{"global"},
 					DefaultActions: []string{"log"},
-					Rules: []Rule{
+					Rules: []k8s.Rule{
 						{
 							Event: "write",
 							Filters: []string{
@@ -301,15 +306,15 @@ func TestPolicyValidate(t *testing.T) {
 		{
 			testName: "retval not an integer",
 			policy: PolicyFile{
-				APIVersion: "khulnasoft-lab.github.io/v1beta1",
-				Kind:       "TrackerPolicy",
+				APIVersion: "tracker.khulnasoft.com/v1beta1",
+				Kind:       "Policy",
 				Metadata: Metadata{
 					Name: "retval-not-an-integer",
 				},
-				Spec: PolicySpec{
+				Spec: k8s.PolicySpec{
 					Scope:          []string{"global"},
 					DefaultActions: []string{"log"},
-					Rules: []Rule{
+					Rules: []k8s.Rule{
 						{
 							Event: "write",
 							Filters: []string{
@@ -324,15 +329,15 @@ func TestPolicyValidate(t *testing.T) {
 		{
 			testName: "empty arg name 1",
 			policy: PolicyFile{
-				APIVersion: "khulnasoft-lab.github.io/v1beta1",
-				Kind:       "TrackerPolicy",
+				APIVersion: "tracker.khulnasoft.com/v1beta1",
+				Kind:       "Policy",
 				Metadata: Metadata{
 					Name: "empty-filter-arg-1",
 				},
-				Spec: PolicySpec{
+				Spec: k8s.PolicySpec{
 					Scope:          []string{"global"},
 					DefaultActions: []string{"log"},
-					Rules: []Rule{
+					Rules: []k8s.Rule{
 						{
 							Event: "write",
 							Filters: []string{
@@ -347,15 +352,15 @@ func TestPolicyValidate(t *testing.T) {
 		{
 			testName: "empty arg name 3",
 			policy: PolicyFile{
-				APIVersion: "khulnasoft-lab.github.io/v1beta1",
-				Kind:       "TrackerPolicy",
+				APIVersion: "tracker.khulnasoft.com/v1beta1",
+				Kind:       "Policy",
 				Metadata: Metadata{
 					Name: "empty-filter-arg-3",
 				},
-				Spec: PolicySpec{
+				Spec: k8s.PolicySpec{
 					Scope:          []string{"global"},
 					DefaultActions: []string{"log"},
-					Rules: []Rule{
+					Rules: []k8s.Rule{
 						{
 							Event: "write",
 							Filters: []string{
@@ -370,15 +375,15 @@ func TestPolicyValidate(t *testing.T) {
 		{
 			testName: "empty arg name 4",
 			policy: PolicyFile{
-				APIVersion: "khulnasoft-lab.github.io/v1beta1",
-				Kind:       "TrackerPolicy",
+				APIVersion: "tracker.khulnasoft.com/v1beta1",
+				Kind:       "Policy",
 				Metadata: Metadata{
 					Name: "empty-filter-arg-4",
 				},
-				Spec: PolicySpec{
+				Spec: k8s.PolicySpec{
 					Scope:          []string{"global"},
 					DefaultActions: []string{"log"},
-					Rules: []Rule{
+					Rules: []k8s.Rule{
 						{
 							Event: "write",
 							Filters: []string{
@@ -393,15 +398,15 @@ func TestPolicyValidate(t *testing.T) {
 		{
 			testName: "invalid arg",
 			policy: PolicyFile{
-				APIVersion: "khulnasoft-lab.github.io/v1beta1",
-				Kind:       "TrackerPolicy",
+				APIVersion: "tracker.khulnasoft.com/v1beta1",
+				Kind:       "Policy",
 				Metadata: Metadata{
 					Name: "invalid-arg",
 				},
-				Spec: PolicySpec{
+				Spec: k8s.PolicySpec{
 					Scope:          []string{"global"},
 					DefaultActions: []string{"log"},
-					Rules: []Rule{
+					Rules: []k8s.Rule{
 						{
 							Event: "openat",
 							Filters: []string{
@@ -416,15 +421,15 @@ func TestPolicyValidate(t *testing.T) {
 		{
 			testName: "empty arg value",
 			policy: PolicyFile{
-				APIVersion: "khulnasoft-lab.github.io/v1beta1",
-				Kind:       "TrackerPolicy",
+				APIVersion: "tracker.khulnasoft.com/v1beta1",
+				Kind:       "Policy",
 				Metadata: Metadata{
 					Name: "empty-arg-value",
 				},
-				Spec: PolicySpec{
+				Spec: k8s.PolicySpec{
 					Scope:          []string{"global"},
 					DefaultActions: []string{"log"},
-					Rules: []Rule{
+					Rules: []k8s.Rule{
 						{
 							Event: "openat",
 							Filters: []string{
@@ -439,15 +444,15 @@ func TestPolicyValidate(t *testing.T) {
 		{
 			testName: "empty arg value",
 			policy: PolicyFile{
-				APIVersion: "khulnasoft-lab.github.io/v1beta1",
-				Kind:       "TrackerPolicy",
+				APIVersion: "tracker.khulnasoft.com/v1beta1",
+				Kind:       "Policy",
 				Metadata: Metadata{
 					Name: "empty-arg-value",
 				},
-				Spec: PolicySpec{
+				Spec: k8s.PolicySpec{
 					Scope:          []string{"global"},
 					DefaultActions: []string{"log"},
-					Rules: []Rule{
+					Rules: []k8s.Rule{
 						{
 							Event: "openat",
 							Filters: []string{
@@ -462,15 +467,15 @@ func TestPolicyValidate(t *testing.T) {
 		{
 			testName: "signature filter arg",
 			policy: PolicyFile{
-				APIVersion: "khulnasoft-lab.github.io/v1beta1",
-				Kind:       "TrackerPolicy",
+				APIVersion: "tracker.khulnasoft.com/v1beta1",
+				Kind:       "Policy",
 				Metadata: Metadata{
 					Name: "signature-filter-arg",
 				},
-				Spec: PolicySpec{
+				Spec: k8s.PolicySpec{
 					Scope:          []string{"global"},
 					DefaultActions: []string{"log"},
-					Rules: []Rule{
+					Rules: []k8s.Rule{
 						{
 							Event: "fake_signature",
 							Filters: []string{
@@ -486,7 +491,11 @@ func TestPolicyValidate(t *testing.T) {
 	}
 
 	for _, test := range tests {
+		test := test
+
 		t.Run(test.testName, func(t *testing.T) {
+			t.Parallel()
+
 			err := test.policy.Validate()
 			if test.expectedError != nil {
 				assert.ErrorContains(t, err, test.expectedError.Error())

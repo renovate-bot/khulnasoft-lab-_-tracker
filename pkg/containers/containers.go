@@ -20,6 +20,7 @@ import (
 	"github.com/khulnasoft-lab/tracker/pkg/cgroup"
 	cruntime "github.com/khulnasoft-lab/tracker/pkg/containers/runtime"
 	"github.com/khulnasoft-lab/tracker/pkg/errfmt"
+	"github.com/khulnasoft-lab/tracker/pkg/k8s"
 	"github.com/khulnasoft-lab/tracker/pkg/logger"
 )
 
@@ -44,9 +45,10 @@ type CgroupInfo struct {
 	expiresAt     time.Time
 }
 
-// New initializes a Containers object and returns a pointer to it.
-// User should further call "Populate" and iterate with Containers data.
+// New initializes a Containers object and returns a pointer to it. User should further
+// call "Populate" and iterate with Containers data.
 func New(
+	noContainersEnrich bool,
 	cgroups *cgroup.Cgroups,
 	sockets cruntime.Sockets,
 	mapName string,
@@ -61,34 +63,36 @@ func New(
 		bpfMapName:   mapName,
 	}
 
-	runtimeService := RuntimeInfoService(sockets)
+	// Attempt to register enrichers for all supported runtimes.
 
-	// attempt to register for all supported runtimes
-	err := runtimeService.Register(cruntime.Containerd, cruntime.ContainerdEnricher)
-	if err != nil {
-		logger.Debugw("Enricher", "error", err)
-	}
-	err = runtimeService.Register(cruntime.Crio, cruntime.CrioEnricher)
-	if err != nil {
-		logger.Debugw("Enricher", "error", err)
-	}
-	err = runtimeService.Register(cruntime.Docker, cruntime.DockerEnricher)
-	if err != nil {
-		logger.Debugw("Enricher", "error", err)
-	}
-	// podman and docker use compatible http apis, therefore the docker enricher
-	// works for podman.
-	err = runtimeService.Register(cruntime.Podman, cruntime.DockerEnricher)
-	if err != nil {
-		logger.Debugw("Enricher", "error", err)
-	}
+	if !noContainersEnrich {
+		runtimeService := RuntimeInfoService(sockets)
 
-	containers.enricher = runtimeService
+		err := runtimeService.Register(cruntime.Containerd, cruntime.ContainerdEnricher)
+		if err != nil {
+			logger.Debugw("Enricher", "error", err)
+		}
+		err = runtimeService.Register(cruntime.Crio, cruntime.CrioEnricher)
+		if err != nil {
+			logger.Debugw("Enricher", "error", err)
+		}
+		err = runtimeService.Register(cruntime.Docker, cruntime.DockerEnricher)
+		if err != nil {
+			logger.Debugw("Enricher", "error", err)
+		}
+		// Docker enricher also works for podman (compatible HTTP apis)
+		err = runtimeService.Register(cruntime.Podman, cruntime.DockerEnricher)
+		if err != nil {
+			logger.Debugw("Enricher", "error", err)
+		}
+
+		containers.enricher = runtimeService
+	}
 
 	return containers, nil
 }
 
-// Close executes cleanup logic for Containers object
+// Close executes cleanup logic for Containers object.
 func (c *Containers) Close() error {
 	return nil
 }
@@ -109,7 +113,7 @@ func (c *Containers) Populate() error {
 }
 
 // GetContainerIdFromTaskDir gets a containerID from a given task or process
-// directory path
+// directory path.
 func GetContainerIdFromTaskDir(taskPath string) (string, error) {
 	containerId := ""
 	taskPath = fmt.Sprintf("%s/cgroup", taskPath)
@@ -159,14 +163,15 @@ func (c *Containers) populate() error {
 	return filepath.WalkDir(c.cgroups.GetDefaultCgroup().GetMountPoint(), fn)
 }
 
-// cgroupUpdate checks if given path belongs to a known container runtime,
-// saving container information in Containers CgroupInfo map.
-// NOTE: ALL given cgroup dir paths are stored in CgroupInfo map.
-// NOTE: not thread-safe, lock should be placed in the external calling function, depending
-// on the transaction length.
-func (c *Containers) cgroupUpdate(cgroupId uint64, path string, ctime time.Time, dead bool) (CgroupInfo, error) {
-	// Cgroup paths should be stored and evaluated relative to the mountpoint,
-	// trim it from the path.
+// cgroupUpdate checks if given path belongs to a known container runtime, saving
+// container information in Containers CgroupInfo map.
+func (c *Containers) cgroupUpdate(
+	cgroupId uint64, path string, ctime time.Time, dead bool,
+) (CgroupInfo, error) {
+	// NOTE: ALL given cgroup dir paths are stored in CgroupInfo map.
+	// NOTE: not thread-safe, lock handled by external calling function
+
+	// Cgroup paths should be stored and evaluated relative to the mountpoint.
 	path = strings.TrimPrefix(path, c.cgroups.GetDefaultCgroup().GetMountPoint())
 	containerId, containerRuntime, isRoot := getContainerIdFromCgroup(path)
 	container := cruntime.ContainerMetadata{
@@ -187,10 +192,10 @@ func (c *Containers) cgroupUpdate(cgroupId uint64, path string, ctime time.Time,
 	return info, nil
 }
 
-// EnrichCgroupInfo checks for a given cgroupId if it is relevant to some running container
-// it then calls the runtime info service to gather additional data from the container's runtime
-// it returns the retrieved metadata and a relevant error
-// this function shouldn't be called twice for the same cgroupId unless attempting a retry
+// EnrichCgroupInfo checks for a given cgroupId if it is relevant to some running
+// container. It then calls the runtime info service to gather additional data from the
+// container's runtime. It returns the retrieved metadata and a relevant error. It should
+// not be called twice for the same cgroupId unless attempting a retry.
 func (c *Containers) EnrichCgroupInfo(cgroupId uint64) (cruntime.ContainerMetadata, error) {
 	c.cgroupsMutex.Lock()
 	defer c.cgroupsMutex.Unlock()
@@ -210,7 +215,8 @@ func (c *Containers) EnrichCgroupInfo(cgroupId uint64) (cruntime.ContainerMetada
 		return metadata, errfmt.Errorf("no containerId")
 	}
 
-	if info.Dead {
+	isMikubeOrKind := k8s.IsMinkube() || k8s.IsKind()
+	if info.Dead && !isMikubeOrKind {
 		return metadata, errfmt.Errorf("container already deleted")
 	}
 
@@ -241,20 +247,21 @@ func (c *Containers) EnrichCgroupInfo(cgroupId uint64) (cruntime.ContainerMetada
 }
 
 var (
-	containerIdFromCgroupRegex = regexp.MustCompile(`^[A-Fa-f0-9]{64}$`)
+	containerIdFromCgroupRegex       = regexp.MustCompile(`^[A-Fa-f0-9]{64}$`)
+	gardenContainerIdFromCgroupRegex = regexp.MustCompile(`^[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){4}$`)
 )
 
-// getContainerIdFromCgroup extracts container id and its runtime from path.
-// It returns (containerId, runtime string).
+// getContainerIdFromCgroup extracts container id and its runtime from path. It returns
+// the container id, the runtime string and a bool telling if the container is the root of
+// its cgroupfs hierarchy.
 func getContainerIdFromCgroup(cgroupPath string) (string, cruntime.RuntimeId, bool) {
 	cgroupParts := strings.Split(cgroupPath, "/")
 
 	// search from the end to get the most inner container id
 	for i := len(cgroupParts) - 1; i >= 0; i = i - 1 {
 		pc := cgroupParts[i]
-		// container id is at least 64 characters long
-		if len(pc) < 64 {
-			continue
+		if len(pc) < 28 {
+			continue // container id is at least 28 characters long
 		}
 
 		runtime := cruntime.Unknown
@@ -283,25 +290,32 @@ func getContainerIdFromCgroup(cgroupPath string) (string, cruntime.RuntimeId, bo
 				// non-systemd docker with format: .../docker/01adbf...f26db7f/
 				runtime = cruntime.Docker
 			}
-
 			if runtime == cruntime.Unknown && i > 0 && cgroupParts[i-1] == "actions_job" {
 				// non-systemd docker with format in GitHub Actions: .../actions_job/01adbf...f26db7f/
 				runtime = cruntime.Docker
 			}
 
-			// return first match: closest to root dir path component
-			// (to have container id of the outer container)
-			// container root determined by being matched on the last path part
+			// Return the first match, closest to the root dir path component, so that the
+			// container id of the outer container is returned. The container root is
+			// determined by being matched on the last path part.
+			return id, runtime, i == len(cgroupParts)-1
+		}
+
+		// Special case: Garden. Garden doesn't have a container enricher implemented,
+		// but, still, tracker needs to identify garden containers ids in the events.
+		if matched := gardenContainerIdFromCgroupRegex.MatchString(id); matched {
+			runtime = cruntime.Garden
 			return id, runtime, i == len(cgroupParts)-1
 		}
 	}
+
 	// cgroup dirs unrelated to containers provides empty (containerId, runtime)
 	return "", cruntime.Unknown, false
 }
 
-// CgroupRemove removes cgroupInfo of deleted cgroup dir from Containers struct.
-// NOTE: Expiration logic of 30 seconds to avoid race conditions (if cgroup dir
-// event arrives too fast and its cgroupInfo data is still needed).
+// CgroupRemove removes cgroupInfo of deleted cgroup dir from Containers struct. There is
+// an expiration logic of 30 seconds to avoid race conditions (if cgroup dir event arrives
+// too fast and its cgroupInfo data is still needed).
 func (c *Containers) CgroupRemove(cgroupId uint64, hierarchyID uint32) {
 	const expiryTime = 30 * time.Second
 	// cgroupv1: no need to check other controllers than the default
@@ -362,7 +376,7 @@ func (c *Containers) CgroupMkdir(cgroupId uint64, subPath string, hierarchyID ui
 	return c.cgroupUpdate(cgroupId, subPath, curTime, true)
 }
 
-// FindContainerCgroupID32LSB returns the 32 LSB of the Cgroup ID for a given container ID
+// FindContainerCgroupID32LSB returns the 32 LSB of the Cgroup ID for a given container ID.
 func (c *Containers) FindContainerCgroupID32LSB(containerID string) []uint32 {
 	var cgroupIDs []uint32
 	c.cgroupsMutex.RLock()
@@ -375,17 +389,16 @@ func (c *Containers) FindContainerCgroupID32LSB(containerID string) []uint32 {
 	return cgroupIDs
 }
 
-// GetCgroupInfo returns the Containers struct cgroupInfo data of a given cgroupId.
+// GetCgroupInfo returns the contents of the Containers struct cgroupInfo data of a given cgroupId.
 func (c *Containers) GetCgroupInfo(cgroupId uint64) CgroupInfo {
 	if !c.CgroupExists(cgroupId) {
-		// There should be a cgroupInfo for the given cgroupId but there isn't.
-		// Tracker might be processing an event for an already created container
-		// before the CgroupMkdirEventID logic was executed, for example.
+		// There should be a cgroupInfo for the given cgroupId but there isn't. Tracker
+		// might be processing an event for an already created container before the
+		// CgroupMkdirEventID logic was executed, for example.
 
-		// Get the path for given cgroupId from cgroupfs and update its
-		// cgroupInfo in the Containers struct. An empty subPath will make
-		// getCgroupPath() to walk all cgroupfs directories until it finds the
-		// directory of given cgroupId.
+		// Get the path for given cgroupId from cgroupfs and update its cgroupInfo in the
+		// Containers struct. An empty subPath will make getCgroupPath() to WALK ALL THE
+		// cgroupfs directories, until it finds the directory of given cgroupId.
 		var cgroupInfo CgroupInfo
 
 		c.cgroupsMutex.Lock()
@@ -446,6 +459,8 @@ const (
 	containerStarted
 )
 
+// PopulateBpfMap populates the map with all the existing containers so eBPF programs can
+// orchestrate new ones with the correct state.
 func (c *Containers) PopulateBpfMap(bpfModule *libbpfgo.Module) error {
 	containersMap, err := bpfModule.GetMap(c.bpfMapName)
 	if err != nil {
@@ -464,6 +479,7 @@ func (c *Containers) PopulateBpfMap(bpfModule *libbpfgo.Module) error {
 	return errfmt.WrapError(err)
 }
 
+// RemoveFromBPFMap removes a container from the map so eBPF programs can stop tracking it.
 func (c *Containers) RemoveFromBPFMap(bpfModule *libbpfgo.Module, cgroupId uint64, hierarchyID uint32) error {
 	// cgroupv1: no need to check other controllers than the default
 	switch c.cgroups.GetDefaultCgroup().(type) {
@@ -479,5 +495,13 @@ func (c *Containers) RemoveFromBPFMap(bpfModule *libbpfgo.Module, cgroupId uint6
 	}
 
 	cgroupIdLsb := uint32(cgroupId)
-	return containersMap.DeleteKey(unsafe.Pointer(&cgroupIdLsb))
+	err = containersMap.DeleteKey(unsafe.Pointer(&cgroupIdLsb))
+
+	// ignores the error if the cgroup was already deleted
+	if errors.Is(err, syscall.ENOENT) {
+		logger.Debugw("cgroup already deleted", "error", err)
+		return nil
+	}
+
+	return err
 }

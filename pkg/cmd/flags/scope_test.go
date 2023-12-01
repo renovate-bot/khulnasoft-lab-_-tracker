@@ -8,6 +8,8 @@ import (
 )
 
 func Test_parseScopeFlag(t *testing.T) {
+	t.Parallel()
+
 	testCases := []struct {
 		name           string
 		flag           string
@@ -21,17 +23,31 @@ func Test_parseScopeFlag(t *testing.T) {
 			expectedResult: scopeFlag{
 				full:              "filterName",
 				scopeName:         "filterName",
+				operator:          "",
+				values:            "",
 				operatorAndValues: "",
 			},
 			expectedError: nil,
 		},
 		{
 			name: "Valid flag without operatorAndValues",
-			flag: "!filterName",
+			flag: "not-f",
 			expectedResult: scopeFlag{
-				full:              "!filterName",
-				scopeName:         "!filterName",
-				operator:          "", // negation is not saved as operator
+				full:              "not-f",
+				scopeName:         "f",
+				operator:          "not",
+				values:            "",
+				operatorAndValues: "",
+			},
+			expectedError: nil,
+		},
+		{
+			name: "Valid flag without operatorAndValues",
+			flag: "not-filterName",
+			expectedResult: scopeFlag{
+				full:              "not-filterName",
+				scopeName:         "filterName",
+				operator:          "not",
 				values:            "",
 				operatorAndValues: "",
 			},
@@ -193,6 +209,12 @@ func Test_parseScopeFlag(t *testing.T) {
 		// InvalidFilterFlagFormat
 		{
 			name:           "InvalidFilterFlagFormat",
+			flag:           "not-",
+			expectedResult: scopeFlag{},
+			expectedError:  InvalidFilterFlagFormat("not-"),
+		},
+		{
+			name:           "InvalidFilterFlagFormat",
 			flag:           "filterName=",
 			expectedResult: scopeFlag{},
 			expectedError:  InvalidFilterFlagFormat("filterName="),
@@ -298,7 +320,11 @@ func Test_parseScopeFlag(t *testing.T) {
 	}
 
 	for _, tt := range testCases {
+		tt := tt
+
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			result, err := parseScopeFlag(tt.flag)
 			if err != nil {
 				require.Contains(t, err.Error(), tt.expectedError.Error())

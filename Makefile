@@ -36,6 +36,9 @@ CMD_STATICCHECK ?= staticcheck
 CMD_STRIP ?= llvm-strip
 CMD_TOUCH ?= touch
 CMD_TR ?= tr
+CMD_PROTOC ?= protoc
+CMD_PANDOC ?= pandoc
+CMD_CONTROLLER_GEN ?= controller-gen
 
 .check_%:
 #
@@ -165,6 +168,7 @@ env:
 	@echo "CMD_STRIP                $(CMD_STRIP)"
 	@echo "CMD_TOUCH                $(CMD_TOUCH)"
 	@echo "CMD_TR                   $(CMD_TR)"
+	@echo "CMD_PROTOC               $(CMD_PROTOC)"
 	@echo ---------------------------------------
 	@echo "LIB_ELF                  $(LIB_ELF)"
 	@echo "LIB_ZLIB                 $(LIB_ZLIB)"
@@ -227,6 +231,8 @@ env:
 	@echo "E2E_INST_DIR             $(E2E_INST_DIR)"
 	@echo "E2E_INST_SRC             $(E2E_INST_SRC)"
 	@echo ---------------------------------------
+	@echo "TRACKER_PROTOS            $(TRACKER_PROTOS)"
+	@echo ---------------------------------------
 
 #
 # usage
@@ -251,6 +257,7 @@ help:
 	@echo "    $$ make e2e-net-signatures       # build ./dist/e2e-net-signatures"
 	@echo "    $$ make e2e-inst-signatures      # build ./dist/e2e-inst-signatures"
 	@echo "    $$ make tracker                   # build ./dist/tracker"
+	@echo "    $$ make tracker-operator          # build ./dist/tracker-operator"
 	@echo ""
 	@echo "# clean"
 	@echo ""
@@ -261,6 +268,7 @@ help:
 	@echo "    $$ make clean-tracker-bench       # wipe ./dist/tracker-bench"
 	@echo "    $$ make clean-signatures         # wipe ./dist/signatures"
 	@echo "    $$ make clean-tracker             # wipe ./dist/tracker"
+	@echo "    $$ make clean-tracker-operator    # wipe ./dist/tracker-operator"
 	@echo ""
 	@echo "# test"
 	@echo ""
@@ -393,6 +401,8 @@ GO_ENV_EBPF += GOARCH=$(GO_ARCH)
 GO_ENV_EBPF += CGO_CFLAGS=$(CUSTOM_CGO_CFLAGS)
 GO_ENV_EBPF += CGO_LDFLAGS=$(CUSTOM_CGO_LDFLAGS)
 
+TRACKER_PROTOS = ./api/v1beta1/*.proto
+
 #
 # btfhub (expensive: only run if ebpf obj changed)
 #
@@ -438,7 +448,7 @@ $(OUTPUT_DIR)/tracker: \
 		-tags $(GO_TAGS_EBPF) \
 		-ldflags="$(GO_DEBUG_FLAG) \
 			-extldflags \"$(CGO_EXT_LDFLAGS_EBPF)\" \
-			-X github.com/khulnasoft-lab/tracker/cmd/tracker/cmd.version=\"$(VERSION)\" \
+			-X github.com/khulnasoft-lab/tracker/pkg/version.version=\"$(VERSION)\" \
 			" \
 		-v -o $@ \
 		./cmd/tracker
@@ -709,6 +719,7 @@ test-unit: \
 		-tags ebpf \
 		-short \
 		-race \
+		-shuffle on \
 		-v \
 		-coverprofile=coverage.txt \
 		./cmd/... \
@@ -723,6 +734,7 @@ test-types: \
 	@cd ./types && $(CMD_GO) test \
 		-short \
 		-race \
+		-shuffle on \
 		-v \
 		-coverprofile=coverage.txt \
 		./...
@@ -752,6 +764,7 @@ test-integration: \
 			-extldflags \"$(CGO_EXT_LDFLAGS_EBPF)\" \
 			-X main.version=\"$(VERSION)\" \
 			" \
+		-shuffle on \
 		-race \
 		-v \
 		-p 1 \
@@ -788,6 +801,7 @@ test-performance: \
 			-X main.version=\"$(VERSION)\" \
 			" \
 		-race \
+		-shuffle on \
 		-v \
 		-p 1 \
 		-count=1 \
@@ -892,6 +906,51 @@ check-pr: \
 	@echo
 
 #
+# tracker.proto
+#
+
+.PHONY: protoc
+protoc:
+#
+	$(CMD_PROTOC) \
+		--go_out=. \
+		--go_opt=paths=source_relative \
+		--go-grpc_out=. \
+		--go-grpc_opt=paths=source_relative $(TRACKER_PROTOS) 
+
+#
+# man pages
+#
+
+MARKDOWN_DIR ?= ./docs/docs/flags
+MAN_DIR ?= ./docs/man
+MARKDOW_FILES := $(shell find $(MARKDOWN_DIR) \
+					-type f \
+					-name '*.md' \
+				)
+MAN_FILES := $(patsubst $(MARKDOWN_DIR)/%.md,$(MAN_DIR)/%,$(MARKDOW_FILES))
+
+$(MAN_DIR)/%: $(MARKDOWN_DIR)/%.md \
+	| .check_$(CMD_PANDOC) \
+#
+	@echo Generating $@
+	@$(CMD_PANDOC) \
+		--verbose \
+		--standalone \
+		--to man \
+		$< \
+		-o $@
+
+.PHONY: clean-man
+clean-man:
+	@echo Cleaning $(MAN_DIR)
+	@rm -f $(MAN_DIR)/*
+
+.PHONY: man
+man: clean-man $(MAN_FILES)
+
+
+#
 # clean
 #
 
@@ -902,3 +961,31 @@ clean:
 	$(CMD_RM) -f .*.md5
 	$(CMD_RM) -f .check*
 	$(CMD_RM) -f .*-pkgs*
+
+# tracker-operator
+
+.PHONY: tracker-operator
+tracker-operator: $(OUTPUT_DIR)/tracker-operator
+
+$(OUTPUT_DIR)/tracker-operator: \
+	.checkver_$(CMD_GO) \
+	| $(OUTPUT_DIR)
+#
+	$(CMD_GO) build \
+		-v -o $@ \
+		./cmd/tracker-operator
+
+.PHONY: clean-tracker-operator
+clean-tracker-operator:
+#
+	$(CMD_RM) -rf $(OUTPUT_DIR)/tracker-operator
+
+# kubernetes operator
+
+.PHONY: k8s-manifests
+k8s-manifests: ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
+	$(CMD_CONTROLLER_GEN) rbac:roleName=tracker crd webhook paths="./pkg/k8s/..." output:crd:artifacts:config=deploy/helm/tracker/crds output:rbac:artifacts:config=deploy/helm/tracker/templates/
+
+.PHONY: k8s-generate
+k8s-generate: ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
+	$(CMD_CONTROLLER_GEN) object:headerFile="deploy/boilerplate.go.txt" paths="./pkg/k8s/..."

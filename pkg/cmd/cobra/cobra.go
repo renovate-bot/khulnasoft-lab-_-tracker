@@ -16,12 +16,13 @@ import (
 	"github.com/khulnasoft-lab/tracker/pkg/config"
 	"github.com/khulnasoft-lab/tracker/pkg/errfmt"
 	"github.com/khulnasoft-lab/tracker/pkg/events"
+	"github.com/khulnasoft-lab/tracker/pkg/k8s"
+	"github.com/khulnasoft-lab/tracker/pkg/k8s/apis/tracker.khulnasoft.com/v1beta1"
 	"github.com/khulnasoft-lab/tracker/pkg/logger"
 	"github.com/khulnasoft-lab/tracker/pkg/policy"
 	"github.com/khulnasoft-lab/tracker/pkg/signatures/engine"
 	"github.com/khulnasoft-lab/tracker/pkg/signatures/signature"
 	"github.com/khulnasoft-lab/tracker/types/detect"
-	"github.com/khulnasoft-lab/tracker/types/trace"
 )
 
 func GetTrackerRunner(c *cobra.Command, version string) (cmd.Runner, error) {
@@ -30,8 +31,14 @@ func GetTrackerRunner(c *cobra.Command, version string) (cmd.Runner, error) {
 	// Log command line flags
 
 	// Logger initialization must be the first thing to be done,
-	// so all other packages can use it
-	logCfg, err := flags.PrepareLogger(viper.GetStringSlice("log"), true)
+	// so all other packages can use
+
+	logFlags, err := GetFlagsFromViper("log")
+	if err != nil {
+		return runner, err
+	}
+
+	logCfg, err := flags.PrepareLogger(logFlags, true)
 	if err != nil {
 		return runner, err
 	}
@@ -39,7 +46,12 @@ func GetTrackerRunner(c *cobra.Command, version string) (cmd.Runner, error) {
 
 	// Rego command line flags
 
-	rego, err := flags.PrepareRego(viper.GetStringSlice("rego"))
+	regoFlags, err := GetFlagsFromViper("rego")
+	if err != nil {
+		return runner, err
+	}
+
+	rego, err := flags.PrepareRego(regoFlags)
 	if err != nil {
 		return runner, err
 	}
@@ -64,7 +76,7 @@ func GetTrackerRunner(c *cobra.Command, version string) (cmd.Runner, error) {
 	cfg := config.Config{
 		PerfBufferSize:     viper.GetInt("perf-buffer-size"),
 		BlobPerfBufferSize: viper.GetInt("blob-perf-buffer-size"),
-		ContainersEnrich:   viper.GetBool("containers"),
+		NoContainersEnrich: viper.GetBool("no-containers"),
 	}
 
 	// OS release information
@@ -85,15 +97,27 @@ func GetTrackerRunner(c *cobra.Command, version string) (cmd.Runner, error) {
 
 	// Container Runtime command line flags
 
-	sockets, err := flags.PrepareContainers(viper.GetStringSlice("crs"))
-	if err != nil {
-		return runner, err
+	if !cfg.NoContainersEnrich {
+		criFlags, err := GetFlagsFromViper("cri")
+		if err != nil {
+			return runner, err
+		}
+
+		sockets, err := flags.PrepareContainers(criFlags)
+		if err != nil {
+			return runner, err
+		}
+		cfg.Sockets = sockets
 	}
-	cfg.Sockets = sockets
 
 	// Cache command line flags
 
-	cache, err := flags.PrepareCache(viper.GetStringSlice("cache"))
+	cacheFlags, err := GetFlagsFromViper("cache")
+	if err != nil {
+		return runner, err
+	}
+
+	cache, err := flags.PrepareCache(cacheFlags)
 	if err != nil {
 		return runner, err
 	}
@@ -101,6 +125,33 @@ func GetTrackerRunner(c *cobra.Command, version string) (cmd.Runner, error) {
 	if cfg.Cache != nil {
 		logger.Debugw("Cache", "type", cfg.Cache.String())
 	}
+
+	// Process Tree command line flags
+
+	procTreeFlags, err := GetFlagsFromViper("proctree")
+	if err != nil {
+		return runner, err
+	}
+
+	procTree, err := flags.PrepareProcTree(procTreeFlags)
+	if err != nil {
+		return runner, err
+	}
+	cfg.ProcTree = procTree
+
+	// DNS Cache command line flags
+
+	dnsCacheFlags, err := GetFlagsFromViper("dnscache")
+	if err != nil {
+		return runner, err
+	}
+
+	dnsCache, err := flags.PrepareDnsCache(dnsCacheFlags)
+	if err != nil {
+		return runner, err
+	}
+
+	cfg.DNSCacheConfig = dnsCache
 
 	// Capture command line flags - via cobra flag
 
@@ -117,7 +168,12 @@ func GetTrackerRunner(c *cobra.Command, version string) (cmd.Runner, error) {
 
 	// Capabilities command line flags
 
-	capsCfg, err := flags.PrepareCapabilities(viper.GetStringSlice("capabilities"))
+	capFlags, err := GetFlagsFromViper("capabilities")
+	if err != nil {
+		return runner, err
+	}
+
+	capsCfg, err := flags.PrepareCapabilities(capFlags)
 	if err != nil {
 		return runner, err
 	}
@@ -130,47 +186,74 @@ func GetTrackerRunner(c *cobra.Command, version string) (cmd.Runner, error) {
 		return runner, err
 	}
 
+	// Scope command line flags - via cobra flag
+
 	scopeFlags, err := c.Flags().GetStringArray("scope")
 	if err != nil {
 		return runner, err
 	}
+	if len(policyFlags) > 0 && len(scopeFlags) > 0 {
+		return runner, errors.New("policy and scope flags cannot be used together")
+	}
+
+	// Events command line flags - via cobra flag
 
 	eventFlags, err := c.Flags().GetStringArray("events")
 	if err != nil {
 		return runner, err
 	}
-
-	if len(policyFlags) > 0 && len(scopeFlags) > 0 {
-		return runner, errors.New("policy and scope flags cannot be used together")
-	}
 	if len(policyFlags) > 0 && len(eventFlags) > 0 {
 		return runner, errors.New("policy and event flags cannot be used together")
 	}
 
+	// Try to get policies from kubernetes CRD, policy files and CLI in that order
+
+	var k8sPolicies []v1beta1.PolicyInterface
 	var policies *policy.Policies
 
-	if len(policyFlags) > 0 {
+	k8sClient, err := k8s.New()
+	if err == nil {
+		k8sPolicies, err = k8sClient.GetPolicy(c.Context())
+	}
+	if err != nil {
+		logger.Debugw("kubernetes cluster", "error", err)
+	}
+	if len(k8sPolicies) > 0 {
+		logger.Debugw("using policies from kubernetes crd")
+		policies, err = createPoliciesFromK8SPolicy(k8sPolicies)
+	} else if len(policyFlags) > 0 {
+		logger.Debugw("using policies from --policy flag")
 		policies, err = createPoliciesFromPolicyFiles(policyFlags)
-		if err != nil {
-			return runner, err
-		}
 	} else {
+		logger.Debugw("using policies from --scope and --events flag")
 		policies, err = createPoliciesFromCLIFlags(scopeFlags, eventFlags)
-		if err != nil {
-			return runner, err
-		}
+	}
+	if err != nil {
+		return runner, err
 	}
 
 	cfg.Policies = policies
 
 	// Output command line flags
-	output, err := flags.PrepareOutput(viper.GetStringSlice("output"), true)
+
+	outputFlags, err := GetFlagsFromViper("output")
+	if err != nil {
+		return runner, err
+	}
+
+	output, err := flags.PrepareOutput(outputFlags, true)
+	if err != nil {
+		return runner, err
+	}
+	cfg.Output = output.TrackerConfig
+
 	if err != nil {
 		return runner, err
 	}
 	cfg.Output = output.TrackerConfig
 
 	// Create printer
+
 	p, err := printer.NewBroadcast(output.PrinterConfigs, cmd.GetContainerMode(cfg))
 	if err != nil {
 		return runner, err
@@ -212,23 +295,26 @@ func GetTrackerRunner(c *cobra.Command, version string) (cmd.Runner, error) {
 		return runner, errfmt.Errorf("failed preparing BPF object: %v", err)
 	}
 
-	cfg.ChanEvents = make(chan trace.Event, 1000)
-
 	// Prepare the server
 
-	httpServer, err := server.PrepareServer(
-		viper.GetString(server.ListenEndpointFlag),
+	httpServer, err := server.PrepareHTTPServer(
+		viper.GetString(server.HTTPListenEndpointFlag),
 		viper.GetBool(server.MetricsEndpointFlag),
 		viper.GetBool(server.HealthzEndpointFlag),
 		viper.GetBool(server.PProfEndpointFlag),
 		viper.GetBool(server.PyroscopeAgentFlag),
 	)
-
 	if err != nil {
 		return runner, err
 	}
 
-	runner.Server = httpServer
+	grpcServer, err := flags.PrepareGRPCServer(viper.GetString(server.GRPCListenEndpointFlag))
+	if err != nil {
+		return runner, err
+	}
+
+	runner.HTTPServer = httpServer
+	runner.GRPCServer = grpcServer
 	runner.TrackerConfig = cfg
 	runner.Printer = p
 

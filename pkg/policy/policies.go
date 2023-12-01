@@ -3,9 +3,14 @@ package policy
 import (
 	"sync/atomic"
 
+	"github.com/khulnasoft-lab/tracker/pkg/events"
 	"github.com/khulnasoft-lab/tracker/pkg/filters"
 	"github.com/khulnasoft-lab/tracker/pkg/utils"
 )
+
+var AlwaysSubmit = events.EventState{
+	Submit: AllPoliciesOn,
+}
 
 // TODO: add locking mechanism as policies will change at runtime
 type Policies struct {
@@ -176,16 +181,27 @@ func (ps *Policies) Delete(id int) error {
 	return nil
 }
 
-func (ps *Policies) Lookup(id int) (*Policy, error) {
+// LookupById returns a policy by ID.
+func (ps *Policies) LookupById(id int) (*Policy, error) {
 	if !isIDInRange(id) {
 		return nil, PoliciesOutOfRangeError(id)
 	}
 
 	p := ps.policiesArray[id]
 	if p == nil {
-		return nil, PolicyNotFoundError(id)
+		return nil, PolicyNotFoundByIDError(id)
 	}
 	return p, nil
+}
+
+// LookupByName returns a policy by name.
+func (ps *Policies) LookupByName(name string) (*Policy, error) {
+	for p := range ps.Map() {
+		if p.Name == name {
+			return p, nil
+		}
+	}
+	return nil, PolicyNotFoundByNameError(name)
 }
 
 // MatchedNames returns a list of matched policies names based on

@@ -6,12 +6,13 @@ import (
 	"github.com/khulnasoft-lab/libbpfgo/helpers"
 
 	"github.com/khulnasoft-lab/tracker/pkg/containers/runtime"
+	"github.com/khulnasoft-lab/tracker/pkg/dnscache"
 	"github.com/khulnasoft-lab/tracker/pkg/errfmt"
 	"github.com/khulnasoft-lab/tracker/pkg/events"
 	"github.com/khulnasoft-lab/tracker/pkg/events/queue"
 	"github.com/khulnasoft-lab/tracker/pkg/policy"
+	"github.com/khulnasoft-lab/tracker/pkg/proctree"
 	"github.com/khulnasoft-lab/tracker/pkg/signatures/engine"
-	"github.com/khulnasoft-lab/tracker/types/trace"
 )
 
 // Config is a struct containing user defined configuration of tracker
@@ -21,18 +22,19 @@ type Config struct {
 	Capabilities       *CapabilitiesConfig
 	Output             *OutputConfig
 	Cache              queue.CacheConfig
+	ProcTree           proctree.ProcTreeConfig
 	PerfBufferSize     int
 	BlobPerfBufferSize int
 	MaxPidsCache       int // maximum number of pids to cache per mnt ns (in Tracker.pidsInMntns)
 	BTFObjPath         string
 	BPFObjBytes        []byte
 	KernelConfig       *helpers.KernelConfig
-	ChanEvents         chan trace.Event
 	OSInfo             *helpers.OSInfo
 	Sockets            runtime.Sockets
-	ContainersEnrich   bool
+	NoContainersEnrich bool
 	EngineConfig       engine.Config
 	MetricsEnabled     bool
+	DNSCacheConfig     dnscache.Config
 }
 
 // Validate does static validation of the configuration
@@ -84,11 +86,6 @@ func (c Config) Validate() error {
 		return errfmt.Errorf("nil bpf object in memory")
 	}
 
-	// Events channel
-	if c.ChanEvents == nil {
-		return errfmt.Errorf("nil events channel")
-	}
-
 	return nil
 }
 
@@ -123,6 +120,7 @@ const (
 	CaptureRegularFiles FileCaptureType = 1 << iota
 	CapturePipeFiles
 	CaptureSocketFiles
+	CaptureELFFiles
 )
 
 // Filters for FDs flags

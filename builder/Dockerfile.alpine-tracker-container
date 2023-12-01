@@ -9,7 +9,7 @@ ARG FLAVOR=tracker-ebpf-core
 # tracker-base
 #
 
-FROM alpine:3.18 as tracker-base
+FROM alpine:3.17 as tracker-base
 LABEL AS=tracker-base
 USER root
 
@@ -53,7 +53,7 @@ RUN apk --no-cache update && \
 # install bpftool from btfhub
 
 RUN cd /tmp && \
-    git clone https://github.com/khulnasoft-lab/btfhub.git && \
+    git clone https://github.com/aquasecurity/btfhub.git && \
     cd ./btfhub && \
     git submodule update --init --recursive 3rdparty/bpftool && \
     cd ./3rdparty/bpftool && \
@@ -79,6 +79,7 @@ RUN make clean && \
     BTFHUB=$BTFHUB make tracker && \
     BTFHUB=$BTFHUB make tracker-ebpf && \
     make tracker-rules && \
+    make tracker-operator && \
     make signatures && \
     rm -rf ./3rdparty/btfhub/ && \
     rm -rf ./3rdparty/btfhub-archive/
@@ -96,6 +97,7 @@ WORKDIR /tracker
 COPY --from=tracker-make /tracker/dist/tracker /tracker
 COPY --from=tracker-make /tracker/dist/tracker-ebpf /tracker
 COPY --from=tracker-make /tracker/dist/tracker-rules /tracker
+COPY --from=tracker-make /tracker/dist/tracker-operator /tracker
 COPY --from=tracker-make /tracker/dist/signatures/ /tracker/signatures/
 COPY --from=tracker-make /tracker/builder/entrypoint.sh /tracker/entrypoint.sh
 COPY --from=tracker-make /tracker/cmd/tracker-rules/templates/ /tracker/templates/

@@ -16,92 +16,98 @@ import (
 	"github.com/khulnasoft-lab/tracker/types/trace"
 )
 
-// Max depth of each stack trace to track
-// Matches 'MAX_STACK_DEPTH' in eBPF code
+// Max depth of each stack trace to track (MAX_STACK_DETPH in eBPF code)
 const maxStackDepth int = 20
 
 // Matches 'NO_SYSCALL' in eBPF code
 const noSyscall int32 = -1
 
-// handleEvents is a high-level function that starts all operations related to events processing
+// handleEvents is the main pipeline of tracker. It receives events from the perf buffer
+// and passes them through a series of stages, each stage is a goroutine that performs a
+// specific task on the event. The pipeline is started in a separate goroutine.
 func (t *Tracker) handleEvents(ctx context.Context) {
 	logger.Debugw("Starting handleEvents goroutine")
 	defer logger.Debugw("Stopped handleEvents goroutine")
 
 	var errcList []<-chan error
 
-	// Source pipeline stage.
+	// Decode stage: events are read from the perf buffer and decoded into trace.Event type.
+
 	eventsChan, errc := t.decodeEvents(ctx, t.eventsChannel)
 	errcList = append(errcList, errc)
+
+	// Cache stage: events go through a caching function.
 
 	if t.config.Cache != nil {
 		eventsChan, errc = t.queueEvents(ctx, eventsChan)
 		errcList = append(errcList, errc)
 	}
 
+	// Sort stage: events go through a sorting function.
+
 	if t.config.Output.EventsSorting {
 		eventsChan, errc = t.eventsSorter.StartPipeline(ctx, eventsChan)
 		errcList = append(errcList, errc)
 	}
 
-	// Process events stage
-	// in this stage we perform event specific logic
+	// Process events stage: events go through a processing functions.
+
 	eventsChan, errc = t.processEvents(ctx, eventsChan)
 	errcList = append(errcList, errc)
 
-	// Enrichment stage
-	// In this stage container events are enriched with additional runtime data
-	// Events may be enriched in the initial decode state if the enrichment data has been stored in the Containers structure
-	// In that case, this pipeline stage will be quickly skipped
-	// This is done in a separate stage to ensure enrichment is non blocking (since container runtime calls may timeout and block the pipeline otherwise)
-	if t.config.ContainersEnrich {
+	// Enrichment stage: container events are enriched with additional runtime data.
+
+	if !t.config.NoContainersEnrich { // TODO: remove safe-guard soon.
 		eventsChan, errc = t.enrichContainerEvents(ctx, eventsChan)
 		errcList = append(errcList, errc)
 	}
 
 	// Derive events stage: events go through a derivation function.
+
 	eventsChan, errc = t.deriveEvents(ctx, eventsChan)
 	errcList = append(errcList, errc)
 
-	// Engine events stage: events go through a signatures match.
+	// Engine events stage: events go through the signatures engine for detection.
+
 	if t.config.EngineConfig.Enabled {
 		eventsChan, errc = t.engineEvents(ctx, eventsChan)
 		errcList = append(errcList, errc)
 	}
 
 	// Sink pipeline stage: events go through printers.
+
 	errc = t.sinkEvents(ctx, eventsChan)
 	errcList = append(errcList, errc)
 
 	// Pipeline started. Waiting for pipeline to complete
+
 	if err := t.WaitForPipeline(errcList...); err != nil {
 		logger.Errorw("Pipeline", "error", err)
 	}
 }
 
-// Under some circumstances, tracker-rules might be slower to consume events
-// than tracker-ebpf is capable of generating them. This requires
-// tracker-ebpf to deal with this possible lag, but, at the same,
-// perf-buffer consumption can't be left behind (or important events coming
-// from the kernel might be loss, causing detection misses).
+// Under some circumstances, tracker-rules might be slower to consume events than
+// tracker-ebpf is capable of generating them. This requires tracker-ebpf to deal with this
+// possible lag, but, at the same, perf-buffer consumption can't be left behind (or
+// important events coming from the kernel might be loss, causing detection misses).
 //
 // There are 3 variables connected to this issue:
 //
-// 1) perf buffer could be increased to hold very big amount of memory
-//    pages: The problem with this approach is that the requested space,
-//    to perf-buffer, through libbpf, has to be contiguous and it is almost
-//    impossible to get very big contiguous allocations through mmap after
-//    a node is running for some time.
+// 1) perf buffer could be increased to hold very big amount of memory pages: The problem
+// with this approach is that the requested space, to perf-buffer, through libbpf, has to
+// be contiguous and it is almost impossible to get very big contiguous allocations
+// through mmap after a node is running for some time.
 //
-// 2) raising the events channel buffer to hold a very big amount of
-//    events: The problem with this approach is that the overhead of
-//    dealing with that amount of buffers, in a golang channel, causes
-//    event losses as well. It means this is not enough to relief the
-//    pressure from kernel events into perf-buffer.
+// 2) raising the events channel buffer to hold a very big amount of events: The problem
+// with this approach is that the overhead of dealing with that amount of buffers, in a
+// golang channel, causes event losses as well. It means this is not enough to relief the
+// pressure from kernel events into perf-buffer.
 //
 // 3) create an internal, to tracker-ebpf, buffer based on the node size.
 
-// queueEvents implements an internal FIFO queue for caching events
+// queueEvents is the cache pipeline stage. For each received event, it goes through a
+// caching function that will enqueue the event into a queue. The queue is then de-queued
+// by a different goroutine that will send the event down the pipeline.
 func (t *Tracker) queueEvents(ctx context.Context, in <-chan *trace.Event) (chan *trace.Event, chan error) {
 	out := make(chan *trace.Event, 10000)
 	errc := make(chan error, 1)
@@ -143,8 +149,10 @@ func (t *Tracker) queueEvents(ctx context.Context, in <-chan *trace.Event) (chan
 	return out, errc
 }
 
-// decodeEvents read the events received from the BPF programs and parse it into trace.Event type
-func (t *Tracker) decodeEvents(outerCtx context.Context, sourceChan chan []byte) (<-chan *trace.Event, <-chan error) {
+// decodeEvents is the event decoding pipeline stage. For each received event, it goes
+// through a decoding function that will decode the event from its raw format into a
+// trace.Event type.
+func (t *Tracker) decodeEvents(ctx context.Context, sourceChan chan []byte) (<-chan *trace.Event, <-chan error) {
 	out := make(chan *trace.Event, 10000)
 	errc := make(chan error, 1)
 	sysCompatTranslation := events.Core.IDs32ToIDs()
@@ -153,8 +161,8 @@ func (t *Tracker) decodeEvents(outerCtx context.Context, sourceChan chan []byte)
 		defer close(errc)
 		for dataRaw := range sourceChan {
 			ebpfMsgDecoder := bufferdecoder.New(dataRaw)
-			var ctx bufferdecoder.Context
-			if err := ebpfMsgDecoder.DecodeContext(&ctx); err != nil {
+			var eCtx bufferdecoder.EventContext
+			if err := ebpfMsgDecoder.DecodeContext(&eCtx); err != nil {
 				t.handleError(err)
 				continue
 			}
@@ -163,7 +171,7 @@ func (t *Tracker) decodeEvents(outerCtx context.Context, sourceChan chan []byte)
 				t.handleError(err)
 				continue
 			}
-			eventId := events.ID(ctx.EventID)
+			eventId := events.ID(eCtx.EventID)
 			if !events.Core.IsDefined(eventId) {
 				t.handleError(errfmt.Errorf("failed to get configuration of event %d", eventId))
 				continue
@@ -179,23 +187,10 @@ func (t *Tracker) decodeEvents(outerCtx context.Context, sourceChan chan []byte)
 			// Add stack trace if needed
 			var stackAddresses []uint64
 			if t.config.Output.StackAddresses {
-				stackAddresses, _ = t.getStackAddresses(ctx.StackID)
+				stackAddresses = t.getStackAddresses(eCtx.StackID)
 			}
 
-			// Currently, the timestamp received from the bpf code is of the monotonic clock.
-			// Todo: The monotonic clock doesn't take into account system sleep time.
-			// Starting from kernel 5.7, we can get the timestamp relative to the system boot time instead which is preferable.
-			if t.config.Output.RelativeTime {
-				// To get the monotonic time since tracker was started, we have to subtract the start time from the timestamp.
-				ctx.Ts -= t.startTime
-				ctx.StartTime -= t.startTime
-			} else {
-				// To get the current ("wall") time, we add the boot time into it.
-				ctx.Ts += t.bootTime
-				ctx.StartTime += t.bootTime
-			}
-
-			containerInfo := t.containers.GetCgroupInfo(ctx.CgroupID).Container
+			containerInfo := t.containers.GetCgroupInfo(eCtx.CgroupID).Container
 			containerData := trace.Container{
 				ID:          containerInfo.ContainerId,
 				ImageName:   containerInfo.Image,
@@ -208,11 +203,11 @@ func (t *Tracker) decodeEvents(outerCtx context.Context, sourceChan chan []byte)
 				PodUID:       containerInfo.Pod.UID,
 			}
 
-			flags := parseContextFlags(containerData.ID, ctx.Flags)
+			flags := parseContextFlags(containerData.ID, eCtx.Flags)
 			syscall := ""
-			if ctx.Syscall != noSyscall {
+			if eCtx.Syscall != noSyscall {
 				var err error
-				syscall, err = parseSyscallID(int(ctx.Syscall), flags.IsCompat, sysCompatTranslation)
+				syscall, err = parseSyscallID(int(eCtx.Syscall), flags.IsCompat, sysCompatTranslation)
 				if err != nil {
 					logger.Debugw("Originated syscall parsing", "error", err)
 				}
@@ -220,37 +215,42 @@ func (t *Tracker) decodeEvents(outerCtx context.Context, sourceChan chan []byte)
 
 			// get an event pointer from the pool
 			evt := t.eventsPool.Get().(*trace.Event)
+
 			// populate all the fields of the event used in this stage, and reset the rest
-			evt.Timestamp = int(ctx.Ts)
-			evt.ThreadStartTime = int(ctx.StartTime)
-			evt.ProcessorID = int(ctx.ProcessorId)
-			evt.ProcessID = int(ctx.Pid)
-			evt.ThreadID = int(ctx.Tid)
-			evt.ParentProcessID = int(ctx.Ppid)
-			evt.HostProcessID = int(ctx.HostPid)
-			evt.HostThreadID = int(ctx.HostTid)
-			evt.HostParentProcessID = int(ctx.HostPpid)
-			evt.UserID = int(ctx.Uid)
-			evt.MountNS = int(ctx.MntID)
-			evt.PIDNS = int(ctx.PidID)
-			evt.ProcessName = string(bytes.TrimRight(ctx.Comm[:], "\x00"))
-			evt.HostName = string(bytes.TrimRight(ctx.UtsName[:], "\x00"))
-			evt.CgroupID = uint(ctx.CgroupID)
+
+			evt.Timestamp = int(eCtx.Ts)
+			evt.ThreadStartTime = int(eCtx.StartTime)
+			evt.ProcessorID = int(eCtx.ProcessorId)
+			evt.ProcessID = int(eCtx.Pid)
+			evt.ThreadID = int(eCtx.Tid)
+			evt.ParentProcessID = int(eCtx.Ppid)
+			evt.HostProcessID = int(eCtx.HostPid)
+			evt.HostThreadID = int(eCtx.HostTid)
+			evt.HostParentProcessID = int(eCtx.HostPpid)
+			evt.UserID = int(eCtx.Uid)
+			evt.MountNS = int(eCtx.MntID)
+			evt.PIDNS = int(eCtx.PidID)
+			evt.ProcessName = string(bytes.TrimRight(eCtx.Comm[:], "\x00"))
+			evt.HostName = string(bytes.TrimRight(eCtx.UtsName[:], "\x00"))
+			evt.CgroupID = uint(eCtx.CgroupID)
 			evt.ContainerID = containerData.ID
 			evt.Container = containerData
 			evt.Kubernetes = kubernetesData
-			evt.EventID = int(ctx.EventID)
+			evt.EventID = int(eCtx.EventID)
 			evt.EventName = eventDefinition.GetName()
-			evt.MatchedPoliciesKernel = ctx.MatchedPolicies
+			evt.MatchedPoliciesKernel = eCtx.MatchedPolicies
 			evt.MatchedPoliciesUser = 0
 			evt.MatchedPolicies = []string{}
 			evt.ArgsNum = int(argnum)
-			evt.ReturnValue = int(ctx.Retval)
+			evt.ReturnValue = int(eCtx.Retval)
 			evt.Args = args
 			evt.StackAddresses = stackAddresses
 			evt.ContextFlags = flags
 			evt.Syscall = syscall
 			evt.Metadata = nil
+			evt.ThreadEntityId = utils.HashTaskID(eCtx.HostTid, eCtx.StartTime)
+			evt.ProcessEntityId = utils.HashTaskID(eCtx.HostPid, eCtx.LeaderStartTime)
+			evt.ParentEntityId = utils.HashTaskID(eCtx.HostPpid, eCtx.ParentStartTime)
 
 			// If there aren't any policies that need filtering in userland, tracker **may** skip
 			// this event, as long as there aren't any derivatives or signatures that depend on it.
@@ -269,7 +269,7 @@ func (t *Tracker) decodeEvents(outerCtx context.Context, sourceChan chan []byte)
 
 			select {
 			case out <- evt:
-			case <-outerCtx.Done():
+			case <-ctx.Done():
 				return
 			}
 		}
@@ -280,8 +280,8 @@ func (t *Tracker) decodeEvents(outerCtx context.Context, sourceChan chan []byte)
 // matchPolicies does the userland filtering (policy matching) for events. It iterates through all
 // existing policies, that were set by the kernel in the event bitmap. Some of those policies might
 // not match the event after userland filters are applied. In those cases, the policy bit is cleared
-// (so the event is "filtered" for that policy).
-// This may be called in different stages of the pipeline (decode, derive, engine).
+// (so the event is "filtered" for that policy). This may be called in different stages of the
+// pipeline (decode, derive, engine).
 func (t *Tracker) matchPolicies(event *trace.Event) uint64 {
 	eventID := events.ID(event.EventID)
 	bitmap := event.MatchedPoliciesKernel
@@ -300,10 +300,10 @@ func (t *Tracker) matchPolicies(event *trace.Event) uint64 {
 			continue
 		}
 
-		// The event might have this policy bit set, but the policy might not have this event ID.
-		// This happens whenever the event submitted by the kernel is going to derive an event that
-		// this policy is interested in. In this case, don't do anything and let the derivation
-		// stage handle this event.
+		// The event might have this policy bit set, but the policy might not have this
+		// event ID. This happens whenever the event submitted by the kernel is going to
+		// derive an event that this policy is interested in. In this case, don't do
+		// anything and let the derivation stage handle this event.
 		_, ok := p.EventsToTrace[eventID]
 		if !ok {
 			continue
@@ -383,15 +383,17 @@ func parseContextFlags(containerId string, flags uint32) trace.ContextFlags {
 	)
 
 	var cflags trace.ContextFlags
-	// Handle the edge case where containerStarted flag remains true despite an empty containerId.
-	// See #3251 for more details.
+	// Handle the edge case where containerStarted flag remains true despite an empty
+	// containerId. See #3251 for more details.
 	cflags.ContainerStarted = (containerId != "") && (flags&contStartFlag) != 0
 	cflags.IsCompat = (flags & IsCompatFlag) != 0
 
 	return cflags
 }
 
-// Get the syscall name from its ID, taking into account architecture and 32bit/64bit modes
+// parseSyscallID returns the syscall name from its ID, taking into account architecture
+// and 32bit/64bit modes. It also returns an error if the syscall ID is not found in the
+// events definition.
 func parseSyscallID(syscallID int, isCompat bool, compatTranslationMap map[events.ID]events.ID) (string, error) {
 	id := events.ID(syscallID)
 	if !isCompat {
@@ -412,10 +414,11 @@ func parseSyscallID(syscallID int, isCompat bool, compatTranslationMap map[event
 	return "", errfmt.Errorf("no syscall event with compat syscall id %d", syscallID)
 }
 
-// processEvents is the event processing pipeline stage. For each received event, it goes through
-// all event processors and check if there is any internal processing needed for that event type.
-// It also clears policy bits for out-of-order container related events (after the processing
-// logic).
+// processEvents is the event processing pipeline stage. For each received event, it goes
+// through all event processors and check if there is any internal processing needed for
+// that event type.  It also clears policy bits for out-of-order container related events
+// (after the processing logic). This stage also starts some logic that will be used by
+// the processing logic in subsequent events.
 func (t *Tracker) processEvents(ctx context.Context, in <-chan *trace.Event) (
 	<-chan *trace.Event, <-chan error,
 ) {
@@ -447,13 +450,14 @@ func (t *Tracker) processEvents(ctx context.Context, in <-chan *trace.Event) (
 			// Get a bitmap with all policies containing container filters
 			policiesWithContainerFilter := t.config.Policies.ContainerFilterEnabled()
 
-			// Filter out events that don't have a container ID from all the policies that have
-			// container filters. This will guarantee that any of those policies won't get matched
-			// by this event. This situation might happen if the events from a recently created
-			// container appear BEFORE the initial cgroup_mkdir of that container root directory.
-			// This could be solved by sorting the events by a monotonic timestamp, for example,
-			// but sorting might not always be enabled, so, in those cases, ignore the event IF
-			// the event is not a cgroup_mkdir or cgroup_rmdir.
+			// Filter out events that don't have a container ID from all the policies that
+			// have container filters. This will guarantee that any of those policies
+			// won't get matched by this event. This situation might happen if the events
+			// from a recently created container appear BEFORE the initial cgroup_mkdir of
+			// that container root directory.  This could be solved by sorting the events
+			// by a monotonic timestamp, for example, but sorting might not always be
+			// enabled, so, in those cases, ignore the event IF the event is not a
+			// cgroup_mkdir or cgroup_rmdir.
 
 			if policiesWithContainerFilter > 0 && event.Container.ID == "" {
 				eventId := events.ID(event.EventID)
@@ -487,9 +491,9 @@ func (t *Tracker) processEvents(ctx context.Context, in <-chan *trace.Event) (
 	return out, errc
 }
 
-// deriveEvents is the event derivation pipeline stage. For each received event, it runs the event
-// derivation logic, described in the derivation table, and send the derived events down the
-// pipeline.
+// deriveEVents is the event derivation pipeline stage. For each received event, it runs
+// the event derivation logic, described in the derivation table, and send the derived
+// events down the pipeline.
 func (t *Tracker) deriveEvents(ctx context.Context, in <-chan *trace.Event) (
 	<-chan *trace.Event, <-chan error,
 ) {
@@ -507,9 +511,10 @@ func (t *Tracker) deriveEvents(ctx context.Context, in <-chan *trace.Event) (
 					continue // might happen during initialization (ctrl+c seg faults)
 				}
 
-				// Get a copy of our event before sending it down the pipeline. This is needed
-				// because later modification of the event (in particular of the matched policies)
-				// can affect the derivation and later pipeline logic acting on the derived event.
+				// Get a copy of our event before sending it down the pipeline. This is
+				// needed because later modification of the event (in particular of the
+				// matched policies) can affect the derivation and later pipeline logic
+				// acting on the derived event.
 
 				eventCopy := *event
 				out <- event
@@ -522,24 +527,32 @@ func (t *Tracker) deriveEvents(ctx context.Context, in <-chan *trace.Event) (
 				}
 
 				for i := range derivatives {
-					// Skip events that dont work with filtering due to missing types being handled.
-					// https://github.com/khulnasoft-lab/tracker/issues/2486
+					// Passing "derivative" variable here will make the ptr address always
+					// be the same as the last item. This makes the printer to print 2 or
+					// 3 times the last event, instead of printing all derived events
+					// (when there are more than one).
+					//
+					// Nadav: Likely related to https://github.com/golang/go/issues/57969 (GOEXPERIMENT=loopvar).
+					//        Let's keep an eye on that moving from experimental for these and similar cases in tracker.
+					event := &derivatives[i]
+
+					// Skip events that dont work with filtering due to missing types
+					// being handled (https://github.com/khulnasoft-lab/tracker/issues/2486)
 					switch events.ID(derivatives[i].EventID) {
 					case events.SymbolsLoaded:
 					case events.SharedObjectLoaded:
 					case events.PrintMemDump:
 					default:
 						// Derived events might need filtering as well
-						if t.matchPolicies(&derivatives[i]) == 0 {
+						if t.matchPolicies(event) == 0 {
 							_ = t.stats.EventsFiltered.Increment()
 							continue
 						}
 					}
 
-					// Passing "derivative" variable here will make the ptr address always be the
-					// same as the last item. This makes the printer to print 2 or 3 times the last
-					// event, instead of printing all derived events (when there are more than one).
-					out <- &derivatives[i]
+					// Process derived events
+					t.processEvent(event)
+					out <- event
 				}
 			case <-ctx.Done():
 				return
@@ -550,6 +563,9 @@ func (t *Tracker) deriveEvents(ctx context.Context, in <-chan *trace.Event) (
 	return out, errc
 }
 
+// sinkEvents is the event sink pipeline stage. For each received event, it goes through a
+// series of printers that will print the event to the desired output. It also handles the
+// event pool, returning the event to the pool after it is processed.
 func (t *Tracker) sinkEvents(ctx context.Context, in <-chan *trace.Event) <-chan error {
 	errc := make(chan error, 1)
 
@@ -559,6 +575,13 @@ func (t *Tracker) sinkEvents(ctx context.Context, in <-chan *trace.Event) <-chan
 		for event := range in {
 			if event == nil {
 				continue // might happen during initialization (ctrl+c seg faults)
+			}
+
+			// Is the event enabled for the policies or globally?
+			if !t.policyManager.IsEnabled(event.MatchedPoliciesUser, events.ID(event.EventID)) {
+				// TODO: create metrics from dropped events
+				t.eventsPool.Put(event)
+				continue
 			}
 
 			// Only emit events requested by the user and matched by at least one policy.
@@ -580,13 +603,14 @@ func (t *Tracker) sinkEvents(ctx context.Context, in <-chan *trace.Event) <-chan
 				}
 			}
 
-			// Send the event to the printers.
+			// Send the event to the streams.
 			select {
-			case t.config.ChanEvents <- *event:
-				_ = t.stats.EventCount.Increment()
-				t.eventsPool.Put(event)
 			case <-ctx.Done():
 				return
+			default:
+				t.streamsManager.Publish(ctx, *event)
+				_ = t.stats.EventCount.Increment()
+				t.eventsPool.Put(event)
 			}
 		}
 	}()
@@ -594,7 +618,8 @@ func (t *Tracker) sinkEvents(ctx context.Context, in <-chan *trace.Event) <-chan
 	return errc
 }
 
-func (t *Tracker) getStackAddresses(stackID uint32) ([]uint64, error) {
+// getStackAddresses returns the stack addresses for a given StackID
+func (t *Tracker) getStackAddresses(stackID uint32) []uint64 {
 	stackAddresses := make([]uint64, maxStackDepth)
 	stackFrameSize := (strconv.IntSize / 8)
 
@@ -603,7 +628,8 @@ func (t *Tracker) getStackAddresses(stackID uint32) ([]uint64, error) {
 	// Stack IDs in it's Map
 	stackBytes, err := t.StackAddressesMap.GetValue(unsafe.Pointer(&stackID))
 	if err != nil {
-		return stackAddresses[0:0], nil
+		logger.Debugw("failed to get StackAddress", "error", err)
+		return stackAddresses[0:0]
 	}
 
 	stackCounter := 0
@@ -621,7 +647,7 @@ func (t *Tracker) getStackAddresses(stackID uint32) ([]uint64, error) {
 	// But if this fails continue on
 	_ = t.StackAddressesMap.DeleteKey(unsafe.Pointer(&stackID))
 
-	return stackAddresses[0:stackCounter], nil
+	return stackAddresses[0:stackCounter]
 }
 
 // WaitForPipeline waits for results from all error channels.
@@ -633,17 +659,14 @@ func (t *Tracker) WaitForPipeline(errs ...<-chan error) error {
 	return nil
 }
 
-// MergeErrors merges multiple channels of errors.
-// Based on https://blog.golang.org/pipelines.
+// MergeErrors merges multiple channels of errors (https://blog.golang.org/pipelines)
 func MergeErrors(cs ...<-chan error) <-chan error {
 	var wg sync.WaitGroup
-	// We must ensure that the output channel has the capacity to hold as many errors
-	// as there are error channels. This will ensure that it never blocks, even
-	// if WaitForPipeline returns early.
+	// We must ensure that the output channel has the capacity to hold as many errors as
+	// there are error channels. This will ensure that it never blocks, even if
+	// WaitForPipeline returns early.
 	out := make(chan error, len(cs))
 
-	// Start an output goroutine for each input channel in cs.  output
-	// copies values from c to out until c is closed, then calls wg.Done.
 	output := func(c <-chan error) {
 		for n := range c {
 			out <- n
@@ -655,8 +678,6 @@ func MergeErrors(cs ...<-chan error) <-chan error {
 		go output(c)
 	}
 
-	// Start a goroutine to close out once all the output goroutines are
-	// done.  This must start after the wg.Add call.
 	go func() {
 		wg.Wait()
 		close(out)
@@ -669,18 +690,20 @@ func (t *Tracker) handleError(err error) {
 	logger.Errorw("Tracker encountered an error", "error", err)
 }
 
-// parseArguments parses the arguments of the event. It must happen before the signatures are
-// evaluated. For the new experience (cmd/tracker), it needs to happen in the the "events_engine"
-// stage of the pipeline. For the old experience (cmd/tracker-ebpf && cmd/tracker-rules), it happens
-// on the "sink" stage of the pipeline (close to the printers).
+// parseArguments parses the arguments of the event. It must happen before the signatures
+// are evaluated. For the new experience (cmd/tracker), it needs to happen in the the
+// "events_engine" stage of the pipeline. For the old experience (cmd/tracker-ebpf &&
+// cmd/tracker-rules), it happens on the "sink" stage of the pipeline (close to the
+// printers).
 func (t *Tracker) parseArguments(e *trace.Event) error {
 	if t.config.Output.ParseArguments {
 		err := events.ParseArgs(e)
 		if err != nil {
 			return errfmt.WrapError(err)
 		}
+
 		if t.config.Output.ParseArgumentsFDs {
-			return events.ParseArgsFDs(e, t.FDArgPathMap)
+			return events.ParseArgsFDs(e, uint64(t.getOrigEvtTimestamp(e)), t.FDArgPathMap)
 		}
 	}
 

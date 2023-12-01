@@ -3,9 +3,11 @@
     "cache": [
         "none"
     ],
+    "proctree": [
+        "none"
+    ],
     "capabilities": [],
-    "containers": false,
-    "crs": [],
+    "cri": [],
     "healthz": false,
     "install-path": "/tmp/tracker",
     "listen-addr": ":3366",

@@ -92,8 +92,19 @@ func main() {
 				Usage:   "control event caching queues. run '--cache help' for more info.",
 			},
 			&cli.StringSliceFlag{
-				Name:  "crs",
-				Usage: "define connected container runtimes. run '--crs help' for more info.",
+				Name:    "proctree",
+				Aliases: []string{"t"},
+				Value:   cli.NewStringSlice("none"),
+				Usage:   "process tree options. run '--proctree help' for more info.",
+			},
+			&cli.StringSliceFlag{
+				Name:  "dnscache",
+				Value: cli.NewStringSlice("none"),
+				Usage: "dns cache options. run '--dnscache help' for more info",
+			},
+			&cli.StringSliceFlag{
+				Name:  "cri",
+				Usage: "define connected container runtimes. run '--cri help' for more info.",
 				Value: cli.NewStringSlice(),
 			},
 			&cli.IntFlag{
@@ -133,13 +144,13 @@ func main() {
 				Value: false,
 			},
 			&cli.StringFlag{
-				Name:  server.ListenEndpointFlag,
+				Name:  server.HTTPListenEndpointFlag,
 				Usage: "listening address of the metrics endpoint server",
 				Value: ":3366",
 			},
 			&cli.BoolFlag{
-				Name:  "containers",
-				Usage: "enable container info enrichment to events. this feature is experimental and may cause unexpected behavior in the pipeline",
+				Name:  "no-containers",
+				Usage: "disable container info enrichment to events. safeguard option.",
 			},
 			&cli.StringSliceFlag{
 				Name:  "log",

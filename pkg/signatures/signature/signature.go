@@ -3,7 +3,6 @@ package signature
 import (
 	"bytes"
 	"debug/elf"
-	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -12,7 +11,6 @@ import (
 
 	embedded "github.com/khulnasoft-lab/tracker"
 	"github.com/khulnasoft-lab/tracker/pkg/logger"
-	"github.com/khulnasoft-lab/tracker/pkg/signatures/celsig"
 	"github.com/khulnasoft-lab/tracker/pkg/signatures/regosig"
 	"github.com/khulnasoft-lab/tracker/types/detect"
 )
@@ -44,12 +42,6 @@ func Find(target string, partialEval bool, signaturesDir []string, signatures []
 			return nil, err
 		}
 		sigs = append(sigs, opasigs...)
-
-		celsigs, err := celsig.NewSignaturesFromDir(dir)
-		if err != nil {
-			return nil, fmt.Errorf("failed loading CEL signatures: %w", err)
-		}
-		sigs = append(sigs, celsigs...)
 	}
 
 	var res []detect.Signature

@@ -20,24 +20,17 @@ release):
      latest daily built container images (based on the version currently being
      developed).
 
-     - **khulnasoft/tracker:dev** (arch: amd64)
-
-     Multiple architecture tags:
-
-     - **khulnasoft/tracker:x86_64-dev**
-     - **khulnasoft/tracker:aarch64-dev**
+     - **khulnasoft/tracker:dev**
 
 2. **RELEASE (official versions) container images:**
 
-     Preferable aliases for latest released images (per arch)):
+     Preferable alias for latest released image:
 
-     - **khulnasoft/tracker:x86_64**
-     - **khulnasoft/tracker:aarch64**
+     - **khulnasoft/tracker:latest**
 
-     And the container images for each released version of Tracker (per arch):
+     And the container images for each released version of Tracker:
 
-     - **khulnasoft/tracker:x86_64-VERSION**
-     - **khulnasoft/tracker:aarch64-VERSION**
+     - **khulnasoft/tracker:VERSION**
 
 ## Generating Tracker Container Images
 
@@ -51,7 +44,7 @@ release):
     ```
 
     !!! Note
-        `BTFHUB=1` adds support to some [older kernels](https://github.com/khulnasoft-lab/btfhub/blob/main/docs/supported-distros.md).
+        `BTFHUB=1` adds support to some [older kernels](https://github.com/aquasecurity/btfhub/blob/main/docs/supported-distros.md).
 
         ```console
         BTFHUB=1 make -f builder/Makefile.tracker-container build-tracker

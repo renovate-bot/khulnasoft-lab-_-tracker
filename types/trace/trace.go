@@ -28,12 +28,14 @@ type Event struct {
 	MountNS               int          `json:"mountNamespace"`
 	PIDNS                 int          `json:"pidNamespace"`
 	ProcessName           string       `json:"processName"`
+	Executable            File         `json:"executable"`
 	HostName              string       `json:"hostName"`
 	ContainerID           string       `json:"containerId"`
 	Container             Container    `json:"container,omitempty"`
 	Kubernetes            Kubernetes   `json:"kubernetes,omitempty"`
 	EventID               int          `json:"eventId,string"`
 	EventName             string       `json:"eventName"`
+	PoliciesVersion       uint16       `json:"-"`
 	MatchedPoliciesKernel uint64       `json:"-"`
 	MatchedPoliciesUser   uint64       `json:"-"`
 	MatchedPolicies       []string     `json:"matchedPolicies,omitempty"`
@@ -42,9 +44,19 @@ type Event struct {
 	Syscall               string       `json:"syscall"`
 	StackAddresses        []uint64     `json:"stackAddresses"`
 	ContextFlags          ContextFlags `json:"contextFlags"`
-	Args                  []Argument   `json:"args"` // Arguments are ordered according their appearance in the original event
+	ThreadEntityId        uint32       `json:"threadEntityId"`  // thread task unique identifier (*)
+	ProcessEntityId       uint32       `json:"processEntityId"` // process unique identifier (*)
+	ParentEntityId        uint32       `json:"parentEntityId"`  // parent process unique identifier (*)
+	Args                  []Argument   `json:"args"`            // args are ordered according their appearance in the original event
 	Metadata              *Metadata    `json:"metadata,omitempty"`
 }
+
+// (*) For an OS task to be uniquely identified, tracker builds a hash consisting of:
+//
+// u64: task start time (from event context)
+// u32: task thread id (from event context)
+//
+// murmur([]byte) where slice of bytes is a concatenation (not a sum) of the 2 values above.
 
 type Container struct {
 	ID          string `json:"id,omitempty"`
@@ -72,6 +84,10 @@ type Metadata struct {
 type ContextFlags struct {
 	ContainerStarted bool `json:"containerStarted"`
 	IsCompat         bool `json:"isCompat"`
+}
+
+type File struct {
+	Path string `json:"path"`
 }
 
 // EventOrigin is where a trace.Event occured, it can either be from the host machine or from a container
@@ -410,6 +426,23 @@ func (arg *Argument) UnmarshalJSON(b []byte) error {
 		}
 
 		arg.Value = argProtoHTTPResponse
+	case "trace.PacketMetadata":
+		var argPacketMetadata PacketMetadata
+		if arg.Value != nil {
+			argPacketMetadataMap, ok := arg.Value.(map[string]interface{})
+			if !ok {
+				return fmt.Errorf("packet metadata: type error")
+			}
+			if err != nil {
+				return err
+			}
+			argPacketMetadata, err = jsonConvertToPacketMetadata(argPacketMetadataMap)
+			if err != nil {
+				return err
+			}
+		}
+
+		arg.Value = argPacketMetadata
 	}
 
 	return nil
@@ -1447,6 +1480,16 @@ func jsonConvertToProtoHTTPResponseArg(argMap map[string]interface{}) (ProtoHTTP
 	}, nil
 }
 
+func jsonConvertToPacketMetadata(argMap map[string]interface{}) (PacketMetadata, error) {
+	uint8Types := map[string]uint8{
+		"direction": 0,
+	}
+	jsonConvertToUint8Types(argMap, uint8Types)
+	return PacketMetadata{
+		Direction: PacketDirection(uint8Types["direction"]),
+	}, nil
+}
+
 func jsonConvertToStringTypes(argMap map[string]interface{}, stringTypes map[string]string) (map[string]string, error) {
 	for key := range stringTypes {
 		val, ok := argMap[key]
@@ -1582,6 +1625,33 @@ func jsonConvertToUint32Types(argMap map[string]interface{}, uint32Types map[str
 	}
 
 	return uint32Types, nil
+}
+
+func jsonConvertToUintTypes(argMap map[string]interface{}, uintTypes map[string]uint) (map[string]uint, error) {
+	for key := range uintTypes {
+		val, ok := argMap[key]
+		if !ok {
+			return uintTypes, fmt.Errorf("key not found in argMap %s", key)
+		}
+
+		var int64Val int64
+		if val != nil {
+			valJsonNum, ok := val.(json.Number)
+			if !ok {
+				return uintTypes, fmt.Errorf("couldn't convert key to uint8 %s", key)
+			}
+
+			var err error
+			int64Val, err = valJsonNum.Int64()
+			if err != nil {
+				return uintTypes, err
+			}
+		}
+
+		uintTypes[key] = uint(int64Val)
+	}
+
+	return uintTypes, nil
 }
 
 func jsonConvertToInt64Types(argMap map[string]interface{}, int64Types map[string]int64) (map[string]int64, error) {

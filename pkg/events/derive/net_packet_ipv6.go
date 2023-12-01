@@ -14,26 +14,15 @@ func NetPacketIPv6() DeriveFunction {
 
 func deriveNetPacketIPv6Args() deriveArgsFunction {
 	return func(event trace.Event) ([]interface{}, error) {
-		var ok bool
-		var payload []byte
-
 		// event retval encodes layer 3 protocol type
 
 		if event.ReturnValue&familyIpv6 != familyIpv6 {
 			return nil, nil
 		}
-		// sanity checks
 
-		payloadArg := events.GetArg(&event, "payload")
-		if payloadArg == nil {
-			return nil, noPayloadError()
-		}
-		if payload, ok = payloadArg.Value.([]byte); !ok {
-			return nil, nonByteArgError()
-		}
-		payloadSize := len(payload)
-		if payloadSize < 1 {
-			return nil, emptyPayloadError()
+		payload, err := parsePayloadArg(&event)
+		if err != nil {
+			return nil, err
 		}
 
 		// parse packet
@@ -53,10 +42,14 @@ func deriveNetPacketIPv6Args() deriveArgsFunction {
 		case (*layers.IPv6):
 			var ipv6 trace.ProtoIPv6
 			copyIPv6ToProtoIPv6(l3, &ipv6)
+			md := trace.PacketMetadata{
+				Direction: getPacketDirection(&event),
+			}
 
 			return []interface{}{
 				l3.SrcIP.String(),
 				l3.DstIP.String(),
+				md,
 				ipv6,
 			}, nil
 		}

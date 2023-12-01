@@ -1,13 +1,19 @@
 package policy
 
-import "fmt"
+import (
+	"fmt"
+)
 
 func PolicyNilError() error {
 	return fmt.Errorf("policy cannot be nil")
 }
 
-func PolicyNotFoundError(idx int) error {
+func PolicyNotFoundByIDError(idx int) error {
 	return fmt.Errorf("policy not found at index [%d]", idx)
+}
+
+func PolicyNotFoundByNameError(name string) error {
+	return fmt.Errorf("policy [%s] not found", name)
 }
 
 func PoliciesMaxExceededError() error {

@@ -1,0 +1,2 @@
+# TODO: move this to k8s docker and makefile
+helm template tracker ./helm/tracker/ > ./kubernetes/tracker/tracker.yaml

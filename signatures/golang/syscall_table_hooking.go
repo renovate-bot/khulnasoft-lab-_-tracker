@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 
-	"github.com/khulnasoft-lab/tracker/signatures/helpers"
 	"github.com/khulnasoft-lab/tracker/types/detect"
 	"github.com/khulnasoft-lab/tracker/types/protocol"
 	"github.com/khulnasoft-lab/tracker/types/trace"
@@ -38,7 +37,7 @@ func (sig *SyscallTableHooking) GetMetadata() (detect.SignatureMetadata, error) 
 
 func (sig *SyscallTableHooking) GetSelectedEvents() ([]detect.SignatureEventSelector, error) {
 	return []detect.SignatureEventSelector{
-		{Source: "tracker", Name: "hooked_syscalls", Origin: "*"},
+		{Source: "tracker", Name: "hooked_syscall", Origin: "*"},
 	}, nil
 }
 
@@ -49,23 +48,15 @@ func (sig *SyscallTableHooking) OnEvent(event protocol.Event) error {
 	}
 
 	switch eventObj.EventName {
-	case "hooked_syscalls":
-		hookedSymbolSlice, err := helpers.GetTrackerHookedSymbolDataArgumentByName(eventObj, "hooked_syscalls")
+	case "hooked_syscall":
+		metadata, err := sig.GetMetadata()
 		if err != nil {
 			return err
 		}
-
-		if len(hookedSymbolSlice) > 0 {
-			metadata, err := sig.GetMetadata()
-			if err != nil {
-				return err
-			}
-			sig.cb(detect.Finding{
-				SigMetadata: metadata,
-				Event:       event,
-				Data:        map[string]interface{}{"Hooked syscalls": hookedSymbolSlice},
-			})
-		}
+		sig.cb(detect.Finding{
+			SigMetadata: metadata,
+			Event:       event,
+		})
 	}
 
 	return nil

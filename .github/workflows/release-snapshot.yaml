@@ -1,10 +1,9 @@
 #
-# On cron schedule or on demand: Release snapshot (amd64 and arm64)
+# On cron schedule or on demand: Release snapshot
 #
 # This workflow ensures that the main branch is ready for release and that all
 # build configuration files are valid. Also scans tracker container images for
-# vulnerabilities, and publishes to DockerHub as khulnasoft/tracker:dev and
-# khulnasoft/tracker:dev-full.
+# vulnerabilities, and publishes to DockerHub as khulnasoft/tracker:dev.
 #
 name: Release Snapshot
 on:
@@ -13,29 +12,23 @@ on:
     # Daily at 05:00
     - cron: "0 5 * * *"
 jobs:
-  release-snapshot:
-    name: Release Snapshot X64 (Default)
-    runs-on:
-      [
-        "github-self-hosted_ami-0f4881c8d69684001_${{ github.event.number }}-${{ github.run_id }}",
-      ]
+  release-snapshot-x86_64:
+    name: Release Snapshot (x86_64)
+    runs-on: [ "github-self-hosted_ami-0f4881c8d69684001_${{ github.event.number }}-${{ github.run_id }}" ]
     permissions:
       contents: read
       packages: write
       id-token: write
     steps:
-      - name: Install Cosign
-        uses: sigstore/cosign-installer@main
-        with:
-          cosign-release: 'v2.0.2'
       - name: Checkout Code
         uses: actions/checkout@v3
         with:
           submodules: true
           fetch-depth: 0
-      - name: AWS Environment
-        run: |
-          dmidecode
+      # - name: Install Cosign
+      #   uses: sigstore/cosign-installer@main
+      #   with:
+      #     cosign-release: 'v2.0.2'
       - name: Login to docker.io registry
         uses: docker/login-action@v2
         with:
@@ -45,40 +38,39 @@ jobs:
         run: |
           make -f builder/Makefile.release SNAPSHOT=1
       - name: Scan Docker Image for Vulnerabilities
-        uses: khulnasoft-lab/vul-action@master
+        uses: aquasecurity/trivy-action@master
         with:
           image-ref: "tracker:latest"
           severity: "CRITICAL"
           exit-code: "1"
       - name: Publish to docker.io registry
         run: |
-          docker image tag tracker:latest khulnasoft/tracker:dev
           docker image tag tracker:latest khulnasoft/tracker:x86_64-dev
-          docker image push khulnasoft/tracker:dev
           docker image push khulnasoft/tracker:x86_64-dev
-  release-snapshot-arm64:
-    name: Release Snapshot ARM64
-    runs-on:
-      [
-        "github-self-hosted_ami-03217ce7c37572c4d_${{ github.event.number }}-${{ github.run_id }}",
-      ]
+        shell: bash
+      # Disabled to avoid generating too many sigstore cosign signatures
+      # - name: Sign Docker image
+      #   run: |
+      #     cosign sign -y $(docker inspect --format='{{index .RepoDigests 0}}' khulnasoft/tracker:x86_64-dev)
+      #   shell: bash
+  release-snapshot-aarch64:
+    name: Release Snapshot (aarch64)
+    needs: [ release-snapshot-x86_64 ]
+    runs-on: [ "github-self-hosted_ami-03217ce7c37572c4d_${{ github.event.number }}-${{ github.run_id }}" ]
     permissions:
       contents: read
       packages: write
       id-token: write
     steps:
-      - name: Install Cosign
-        uses: sigstore/cosign-installer@main
-        with:
-          cosign-release: 'v2.0.2'
       - name: Checkout Code
         uses: actions/checkout@v3
         with:
           submodules: true
           fetch-depth: 0
-      - name: AWS Environment
-        run: |
-          dmidecode
+      # - name: Install Cosign
+      #   uses: sigstore/cosign-installer@main
+      #   with:
+      #     cosign-release: 'v2.0.2'
       - name: Login to docker.io registry
         uses: docker/login-action@v2
         with:
@@ -88,7 +80,7 @@ jobs:
         run: |
           make -f builder/Makefile.release SNAPSHOT=1
       - name: Scan Docker Image for Vulnerabilities
-        uses: khulnasoft-lab/vul-action@master
+        uses: aquasecurity/trivy-action@master
         with:
           image-ref: "tracker:latest"
           severity: "CRITICAL"
@@ -97,3 +89,45 @@ jobs:
         run: |
           docker image tag tracker:latest khulnasoft/tracker:aarch64-dev
           docker image push khulnasoft/tracker:aarch64-dev
+        shell: bash
+      # Disabled to avoid generating too many sigstore cosign signatures
+      # - name: Sign Docker image
+      #   run: |
+      #     cosign sign -y $(docker inspect --format='{{index .RepoDigests 0}}' khulnasoft/tracker:aarch64-dev)
+      #   shell: bash
+  release-snapshot:
+    name: Release Snapshot
+    needs: [release-snapshot-x86_64, release-snapshot-aarch64]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+        with:
+          submodules: true
+          fetch-depth: 0
+      # - name: Install Cosign
+      #   uses: sigstore/cosign-installer@main
+      #   with:
+      #     cosign-release: 'v2.0.2'
+      - name: Login to docker.io registry
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USER }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Publish to docker.io registry
+        run: |
+          export DOCKER_CLI_EXPERIMENTAL=enabled
+          docker manifest create khulnasoft/tracker:dev \
+            khulnasoft/tracker:x86_64-dev \
+            khulnasoft/tracker:aarch64-dev
+          docker manifest push khulnasoft/tracker:dev
+        shell: bash
+      # Disabled to avoid generating too many sigstore cosign signatures
+      # - name: Sign Docker image
+      #   run: |
+      #     cosign sign -y khulnasoft/tracker:dev
+      #   shell: bash

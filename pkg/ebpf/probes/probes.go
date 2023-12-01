@@ -82,7 +82,7 @@ const (
 	Filldir64
 	SecurityFilePermission
 	TaskRename
-	PrintSyscallTable
+	SyscallTableCheck
 	PrintNetSeqOps
 	SecurityInodeRename
 	DoSigaction
@@ -127,4 +127,9 @@ const (
 	ModuleLoad
 	ModuleFree
 	LayoutAndAllocate
+	SignalCgroupMkdir
+	SignalCgroupRmdir
+	SignalSchedProcessFork
+	SignalSchedProcessExec
+	SignalSchedProcessExit
 )
