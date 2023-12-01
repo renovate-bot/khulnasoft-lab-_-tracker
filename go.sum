@@ -283,6 +283,8 @@ github.com/khulnasoft-lab/libbpfgo/helpers v0.0.0-20231130211317-43c2546a4d5b h1
 github.com/khulnasoft-lab/libbpfgo/helpers v0.0.0-20231130211317-43c2546a4d5b/go.mod h1:IqoQ9w60VYlJeHuUx4MnfoKO5Ng1jfSko1tz85e6X3E=
 github.com/khulnasoft-lab/tracker/api v0.0.0-20231201053426-c9149557194d h1:7j7OwdDiT5GXTTBUgrrXfVnmsiBanOooyzc0BrP8GZ8=
 github.com/khulnasoft-lab/tracker/api v0.0.0-20231201053426-c9149557194d/go.mod h1:JjjX+OeNVlAtqJ4qwvutjPoi+PXryI+KChz0qUCBRII=
+github.com/khulnasoft-lab/tracker/api v0.0.0-20231201062514-3154a2eb24e8 h1:Q1yuvA9eM9fqrXy2LrPHr3XOQD91a0YxWsVDAalZhwU=
+github.com/khulnasoft-lab/tracker/api v0.0.0-20231201062514-3154a2eb24e8/go.mod h1:JjjX+OeNVlAtqJ4qwvutjPoi+PXryI+KChz0qUCBRII=
 github.com/khulnasoft-lab/tracker/types v0.0.0-20231201031803-c595a6721eea h1:wRT1FRbdNiQ7kpKeYFenpMt8jDtzRZRbVNp5+EmvXJM=
 github.com/khulnasoft-lab/tracker/types v0.0.0-20231201031803-c595a6721eea/go.mod h1:/Vy1+uQEdGUYGqSpCHPN8jnSUAvmTWm9lRyDnxtyydo=
 github.com/kisielk/errcheck v1.5.0/go.mod h1:pFxgyoBC7bSaBwPgfKdkLd5X25qrDl4LWUI2bnpBCr8=
