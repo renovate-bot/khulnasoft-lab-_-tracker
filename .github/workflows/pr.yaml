@@ -139,7 +139,7 @@ jobs:
           fi
       - name: Lint (Revive)
         run: |
-          make check-lint --fix
+          make check-lint
       - name: Check Code Style
         run: |
           make check-fmt
