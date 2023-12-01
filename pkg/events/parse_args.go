@@ -13,12 +13,6 @@ import (
 	"github.com/khulnasoft-lab/tracker/types/trace"
 )
 
-type fdArgTask struct {
-	PID uint32
-	TID uint32
-	FD  int32
-}
-
 func ParseArgs(event *trace.Event) error {
 	for i := range event.Args {
 		if ptr, isUintptr := event.Args[i].Value.(uintptr); isUintptr {
@@ -70,12 +64,11 @@ func ParseArgs(event *trace.Event) error {
 				}
 			}
 		}
-		if ID(event.EventID) == CapCapable {
-			if capArg := GetArg(event, "cap"); capArg != nil {
-				if capability, isInt32 := capArg.Value.(int32); isInt32 {
-					capabilityFlagArgument, err := helpers.ParseCapability(uint64(capability))
-					parseOrEmptyString(capArg, capabilityFlagArgument, err)
-				}
+	case CapCapable:
+		if capArg := GetArg(event, "cap"); capArg != nil {
+			if capability, isInt32 := capArg.Value.(int32); isInt32 {
+				capabilityFlagArgument, err := helpers.ParseCapability(uint64(capability))
+				parseOrEmptyString(capArg, capabilityFlagArgument, err)
 			}
 		}
 	case SecurityMmapFile, DoMmap:
@@ -117,6 +110,13 @@ func ParseArgs(event *trace.Event) error {
 			if opt, isInt32 := optArg.Value.(int32); isInt32 {
 				prctlOptionArgument, err := helpers.ParsePrctlOption(uint64(opt))
 				parseOrEmptyString(optArg, prctlOptionArgument, err)
+			}
+		}
+	case Socketcall:
+		if callArg := GetArg(event, "call"); callArg != nil {
+			if call, isInt32 := callArg.Value.(int32); isInt32 {
+				socketcallArgument, err := helpers.ParseSocketcallCall(uint64(call))
+				parseOrEmptyString(callArg, socketcallArgument, err)
 			}
 		}
 	case Socket:
@@ -282,15 +282,11 @@ func ParseArgs(event *trace.Event) error {
 	return nil
 }
 
-func ParseArgsFDs(event *trace.Event, fdArgPathMap *bpf.BPFMap) error {
+func ParseArgsFDs(event *trace.Event, origTimestamp uint64, fdArgPathMap *bpf.BPFMap) error {
 	if fdArg := GetArg(event, "fd"); fdArg != nil {
 		if fd, isInt32 := fdArg.Value.(int32); isInt32 {
-			fdArgTask := &fdArgTask{
-				PID: uint32(event.ProcessID),
-				TID: uint32(event.ThreadID),
-				FD:  fd,
-			}
-			bs, err := fdArgPathMap.GetValue(unsafe.Pointer(fdArgTask))
+			ts := origTimestamp
+			bs, err := fdArgPathMap.GetValue(unsafe.Pointer(&ts))
 			if err != nil {
 				return errfmt.WrapError(err)
 			}

@@ -7,13 +7,13 @@ import (
 	"github.com/khulnasoft-lab/tracker/pkg/errfmt"
 	"github.com/khulnasoft-lab/tracker/pkg/events"
 	"github.com/khulnasoft-lab/tracker/pkg/filters"
+	k8s "github.com/khulnasoft-lab/tracker/pkg/k8s/apis/tracker.khulnasoft.com/v1beta1"
 	"github.com/khulnasoft-lab/tracker/pkg/logger"
 	"github.com/khulnasoft-lab/tracker/pkg/policy"
-	"github.com/khulnasoft-lab/tracker/pkg/policy/v1beta1"
 )
 
 // PrepareFilterMapsForPolicies prepares the scope and events PolicyFilterMap for the policies
-func PrepareFilterMapsFromPolicies(policies []v1beta1.PolicyFile) (PolicyScopeMap, PolicyEventMap, error) {
+func PrepareFilterMapsFromPolicies(policies []k8s.PolicyInterface) (PolicyScopeMap, PolicyEventMap, error) {
 	policyScopeMap := make(PolicyScopeMap)
 	policyEventsMap := make(PolicyEventMap)
 
@@ -28,19 +28,19 @@ func PrepareFilterMapsFromPolicies(policies []v1beta1.PolicyFile) (PolicyScopeMa
 	policyNames := make(map[string]bool)
 
 	for pIdx, p := range policies {
-		if _, ok := policyNames[p.Name()]; ok {
-			return nil, nil, errfmt.Errorf("policy %s already exist", p.Name())
+		if _, ok := policyNames[p.GetName()]; ok {
+			return nil, nil, errfmt.Errorf("policy %s already exist", p.GetName())
 		}
-		policyNames[p.Name()] = true
+		policyNames[p.GetName()] = true
 
 		scopeFlags := make([]scopeFlag, 0)
 
 		// scope
-		for _, s := range p.Scope() {
+		for _, s := range p.GetScope() {
 			s = strings.ReplaceAll(s, " ", "")
 
-			if s == "global" && len(p.Scope()) > 1 {
-				return nil, nil, errfmt.Errorf("policy %s, global scope must be unique", p.Name())
+			if s == "global" && len(p.GetScope()) > 1 {
+				return nil, nil, errfmt.Errorf("policy %s, global scope must be unique", p.GetName())
 			}
 
 			if s == "global" {
@@ -56,13 +56,13 @@ func PrepareFilterMapsFromPolicies(policies []v1beta1.PolicyFile) (PolicyScopeMa
 		}
 
 		policyScopeMap[pIdx] = policyScopes{
-			policyName: p.Name(),
+			policyName: p.GetName(),
 			scopeFlags: scopeFlags,
 		}
 
 		eventFlags := make([]eventFlag, 0)
 
-		for _, r := range p.Rules() {
+		for _, r := range p.GetRules() {
 			evtFlags, err := parseEventFlag(r.Event)
 			if err != nil {
 				return nil, nil, errfmt.WrapError(err)
@@ -92,7 +92,7 @@ func PrepareFilterMapsFromPolicies(policies []v1beta1.PolicyFile) (PolicyScopeMa
 		}
 
 		policyEventsMap[pIdx] = policyEvents{
-			policyName: p.Name(),
+			policyName: p.GetName(),
 			eventFlags: eventFlags,
 		}
 	}
@@ -128,7 +128,9 @@ func CreatePolicies(policyScopeMap PolicyScopeMap, policyEventsMap PolicyEventMa
 				continue
 			}
 
-			if scopeFlag.scopeName == "binary" || scopeFlag.scopeName == "bin" {
+			if scopeFlag.scopeName == "exec" || scopeFlag.scopeName == "executable" ||
+				scopeFlag.scopeName == "bin" || scopeFlag.scopeName == "binary" {
+				// TODO: Rename BinaryFilter to ExecutableFilter
 				err := p.BinaryFilter.Parse(scopeFlag.operatorAndValues)
 				if err != nil {
 					return nil, err
@@ -137,8 +139,8 @@ func CreatePolicies(policyScopeMap PolicyScopeMap, policyEventsMap PolicyEventMa
 			}
 
 			if scopeFlag.scopeName == "container" {
-				if scopeFlag.operator == "!" {
-					err := p.ContFilter.Parse(scopeFlag.full) // !container
+				if scopeFlag.operator == "not" {
+					err := p.ContFilter.Parse(scopeFlag.full)
 					if err != nil {
 						return nil, err
 					}
@@ -315,26 +317,6 @@ func CreatePolicies(policyScopeMap PolicyScopeMap, policyEventsMap PolicyEventMa
 		err = policies.Set(p)
 		if err != nil {
 			logger.Warnw("Setting policy", "error", err)
-		}
-	}
-
-	if len(policies.Map()) == 0 {
-		// if nothing was set, let us consider it as a single default policy
-		eventFilter := eventFilter{
-			Equal:    []string{},
-			NotEqual: []string{},
-		}
-
-		var err error
-		newPolicy := policy.NewPolicy()
-		newPolicy.EventsToTrace, err = prepareEventsToTrace(eventFilter, eventsNameToID)
-		if err != nil {
-			return nil, err
-		}
-
-		err = policies.Add(newPolicy)
-		if err != nil {
-			return nil, err
 		}
 	}
 

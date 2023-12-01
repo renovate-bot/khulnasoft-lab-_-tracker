@@ -3,6 +3,7 @@ package derive
 import (
 	"bufio"
 	"bytes"
+	"io"
 	"net/http"
 
 	"github.com/khulnasoft-lab/tracker/pkg/errfmt"
@@ -36,11 +37,16 @@ func deriveHTTPEvents(event trace.Event) ([]interface{}, error) {
 		return nil, parsePacketError()
 	}
 
+	md := trace.PacketMetadata{
+		Direction: getPacketDirection(&event),
+	}
+
 	return []interface{}{
 		net.srcIP,
 		net.dstIP,
 		net.srcPort,
 		net.dstPort,
+		md,
 		h,
 	}, nil
 }
@@ -139,6 +145,9 @@ func eventToProtoHTTP(event *trace.Event) (*netPair, *trace.ProtoHTTP, error) {
 		} else if event.ReturnValue&protoHttpResponse == protoHttpResponse {
 			httpRes, err = http.ReadResponse(reader, nil)
 			if err != nil {
+				if err == io.ErrUnexpectedEOF {
+					return nil, nil, nil // 200 OK response without body, for example
+				}
 				return nil, nil, errfmt.WrapError(err)
 			}
 
@@ -210,6 +219,9 @@ func eventToProtoHTTPResponse(event *trace.Event) (*netPair, *trace.ProtoHTTPRes
 
 		httpRes, err := http.ReadResponse(reader, nil)
 		if err != nil {
+			if err == io.ErrUnexpectedEOF {
+				return nil, nil, nil // 200 OK response without body, for example
+			}
 			return nil, nil, errfmt.WrapError(err)
 		}
 

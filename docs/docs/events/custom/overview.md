@@ -13,7 +13,7 @@ tracker --signatures-dir=/tmp/myevents
 
 !!! Tip
     Tracker also uses the custom events to add a few events, if you pass your own directory
-    for `signatures-dir` you will not load the tracker [Behaviour events](../builtin/signatures.md), 
+    for `signatures-dir` you will not load the tracker [signatures](../builtin/signatures/index.md),
     to avoid such problems, you can either place your own events under the same directory of the tracker custom events,
     or pass multiple directories for example:
     ```

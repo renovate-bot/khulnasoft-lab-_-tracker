@@ -10,10 +10,12 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
-	pb "github.com/khulnasoft-lab/tracker/types/api/v1beta1"
+	pb "github.com/khulnasoft-lab/tracker/api/v1beta1"
 )
 
 func TestServer(t *testing.T) {
+	t.Parallel()
+
 	tempDir, err := os.MkdirTemp("", "tracker-tests")
 	if err != nil {
 		t.Fatal(err)

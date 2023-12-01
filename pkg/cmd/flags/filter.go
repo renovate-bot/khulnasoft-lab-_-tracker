@@ -16,7 +16,7 @@ Available numerical expressions: uid, pid, mntns, pidns.
 NOTE: Expressions containing '<' or '>' token must be escaped! This is also shown in the examples below.
 
 String expressions which compares text and allow the following operators: '=', '!='.
-Available string expressions: uts, comm, container, binary.
+Available string expressions: uts, comm, container, executable.
 
 Boolean expressions that check if a boolean is true and allow the following operator: '!'.
 Available boolean expressions: container.
@@ -54,7 +54,7 @@ Scope examples:
   --scope container=ab356bc4dd554                              | only trace events from container id ab356bc4dd554
   --scope container                                            | only trace events from containers
   --scope c                                                    | only trace events from containers (same as above)
-  --scope '!container'                                         | only trace events from the host
+  --scope not-container                                        | only trace events from the host
   --scope uid=0                                                | only trace events from uid 0
   --scope mntns=4026531840                                     | only trace events from mntns id 4026531840
   --scope pidns!=4026531836                                    | only trace events from pidns id not equal to 4026531840
@@ -66,9 +66,9 @@ Scope examples:
   --scope 'u>0' --scope u!=1000                                | only trace events from uids greater than 0 but not 1000
   --scope uts!=ab356bc4dd554                                   | don't trace events from uts name ab356bc4dd554
   --scope comm=ls                                              | only trace events from ls command
-  --scope binary=/usr/bin/ls                                   | only trace events from /usr/bin/ls binary
-  --scope binary=host:/usr/bin/ls                              | only trace events from /usr/bin/ls binary in the host mount namespace
-  --scope binary=4026532448:/usr/bin/ls                        | only trace events from /usr/bin/ls binary in 4026532448 mount namespace
+  --scope executable=/usr/bin/ls                               | only trace events from /usr/bin/ls executable
+  --scope executable=host:/usr/bin/ls                          | only trace events from /usr/bin/ls executable in the host mount namespace
+  --scope executable=4026532448:/usr/bin/ls                    | only trace events from /usr/bin/ls executable in 4026532448 mount namespace
   --scope comm=bash --scope follow                             | trace all events that originated from bash or from one of the processes spawned by bash
 
 Event examples:

@@ -97,6 +97,7 @@ BPF_ARRAY(file_write_path_filter, path_filter_t, 3);               // filter fil
 BPF_ARRAY(file_read_path_filter, path_filter_t, 3);                // filter file read captures
 BPF_ARRAY(file_type_filter, file_type_filter_t, 2);                // filter file types
 BPF_ARRAY(netconfig_map, netconfig_entry_t, 1);                    // network related configurations
+BPF_ARRAY(expected_sys_call_table, syscall_table_entry_t, MAX_SYS_CALL_TABLE_SIZE);    // expected addresses of sys call table
 BPF_PERCPU_ARRAY(bufs, buf_t, MAX_BUFFERS);                        // percpu global buffer variables
 BPF_PROG_ARRAY(prog_array, MAX_TAIL_CALL);                         // store programs for tail calls
 BPF_PROG_ARRAY(prog_array_tp, MAX_TAIL_CALL);                      // store programs for tail calls
@@ -107,7 +108,7 @@ BPF_PROG_ARRAY(sys_exit_submit_tail, MAX_EVENT_ID);                // store prog
 BPF_PROG_ARRAY(sys_enter_init_tail, MAX_EVENT_ID);                 // store program for performing syscall tracking logic in sys_enter
 BPF_PROG_ARRAY(sys_exit_init_tail, MAX_EVENT_ID);                  // store program for performing syscall tracking logic in sys_exits
 BPF_STACK_TRACE(stack_addresses, MAX_STACK_ADDRESSES);             // store stack traces
-BPF_LRU_HASH(fd_arg_path_map, fd_arg_task_t, fd_arg_path_t, 1024); // store fds paths by task
+BPF_LRU_HASH(fd_arg_path_map, u64, fd_arg_path_t, 1024);           // store fds paths by timestamp
 BPF_LRU_HASH(bpf_attach_map, u32, bpf_used_helpers_t, 1024);       // holds bpf prog info
 BPF_LRU_HASH(bpf_attach_tmp_map, u32, bpf_used_helpers_t, 1024);   // temporarily hold bpf_used_helpers_t
 BPF_LRU_HASH(bpf_prog_load_map, u32, void *, 1024);                // store bpf prog aux pointer between bpf_check and security_bpf_prog

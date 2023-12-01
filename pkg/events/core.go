@@ -10,8 +10,10 @@ import (
 )
 
 const (
-	Sys32Undefined ID = 0xfffffff - 1 // u32 overflows are compiler implementation dependent.
-	Undefined      ID = 0xfffffff
+	// use (0xfffffff - x) as most overflows behavior is undefined
+	All            ID = 0xfffffff - 1
+	Undefined      ID = 0xfffffff - 2
+	Sys32Undefined ID = 0xfffffff - 3
 	Unsupported    ID = 10000
 )
 
@@ -76,7 +78,7 @@ const (
 	CallUsermodeHelper
 	DirtyPipeSplice
 	DebugfsCreateFile
-	PrintSyscallTable
+	SyscallTableCheck
 	DebugfsCreateDir
 	DeviceAdd
 	RegisterChrdev
@@ -124,11 +126,12 @@ const (
 	ContainerCreate
 	ContainerRemove
 	ExistingContainer
-	HookedSyscalls
+	HookedSyscall
 	HookedSeqOps
 	SymbolsLoaded
 	SymbolsCollision
 	HiddenKernelModule
+	FtraceHook
 	MaxUserSpace
 )
 
@@ -142,6 +145,16 @@ const (
 	CaptureNetPacket
 	CaptureBpf
 	CaptureFileRead
+)
+
+// Signal meta-events
+
+const (
+	SignalCgroupMkdir ID = iota + 5000
+	SignalCgroupRmdir
+	SignalSchedProcessFork
+	SignalSchedProcessExec
+	SignalSchedProcessExit
 )
 
 // Signature events
@@ -172,6 +185,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Read,
 		id32Bit: Sys32read,
 		name:    "read",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_read_write"},
 		params: []trace.ArgMeta{
@@ -192,6 +206,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Write,
 		id32Bit: Sys32write,
 		name:    "write",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_read_write"},
 		params: []trace.ArgMeta{
@@ -212,6 +227,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Open,
 		id32Bit: Sys32open,
 		name:    "open",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_file_ops"},
 		params: []trace.ArgMeta{
@@ -232,6 +248,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Close,
 		id32Bit: Sys32close,
 		name:    "close",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_file_ops"},
 		params: []trace.ArgMeta{
@@ -250,6 +267,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Stat,
 		id32Bit: Sys32stat,
 		name:    "stat",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_file_attr"},
 		params: []trace.ArgMeta{
@@ -269,6 +287,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Fstat,
 		id32Bit: Sys32fstat,
 		name:    "fstat",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_file_attr"},
 		params: []trace.ArgMeta{
@@ -288,6 +307,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Lstat,
 		id32Bit: Sys32lstat,
 		name:    "lstat",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_file_attr"},
 		params: []trace.ArgMeta{
@@ -307,6 +327,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Poll,
 		id32Bit: Sys32poll,
 		name:    "poll",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_mux_io"},
 		params: []trace.ArgMeta{
@@ -327,6 +348,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Lseek,
 		id32Bit: Sys32lseek,
 		name:    "lseek",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_read_write"},
 		params: []trace.ArgMeta{
@@ -347,6 +369,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Mmap,
 		id32Bit: Sys32mmap,
 		name:    "mmap",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "proc", "proc_mem"},
 		params: []trace.ArgMeta{
@@ -370,6 +393,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Mprotect,
 		id32Bit: Sys32mprotect,
 		name:    "mprotect",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "proc", "proc_mem"},
 		params: []trace.ArgMeta{
@@ -390,6 +414,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Munmap,
 		id32Bit: Sys32munmap,
 		name:    "munmap",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "proc", "proc_mem"},
 		params: []trace.ArgMeta{
@@ -409,6 +434,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Brk,
 		id32Bit: Sys32brk,
 		name:    "brk",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "proc", "proc_mem"},
 		params: []trace.ArgMeta{
@@ -427,6 +453,7 @@ var CoreEvents = map[ID]Definition{
 		id:      RtSigaction,
 		id32Bit: Sys32rt_sigaction,
 		name:    "rt_sigaction",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "signals"},
 		params: []trace.ArgMeta{
@@ -448,6 +475,7 @@ var CoreEvents = map[ID]Definition{
 		id:      RtSigprocmask,
 		id32Bit: Sys32rt_sigprocmask,
 		name:    "rt_sigprocmask",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "signals"},
 		params: []trace.ArgMeta{
@@ -469,6 +497,7 @@ var CoreEvents = map[ID]Definition{
 		id:      RtSigreturn,
 		id32Bit: Sys32rt_sigreturn,
 		name:    "rt_sigreturn",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "signals"},
 		params:  []trace.ArgMeta{},
@@ -485,6 +514,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Ioctl,
 		id32Bit: Sys32ioctl,
 		name:    "ioctl",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_fd_ops"},
 		params: []trace.ArgMeta{
@@ -505,6 +535,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Pread64,
 		id32Bit: Sys32pread64,
 		name:    "pread64",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_read_write"},
 		params: []trace.ArgMeta{
@@ -526,6 +557,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Pwrite64,
 		id32Bit: Sys32pwrite64,
 		name:    "pwrite64",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_read_write"},
 		params: []trace.ArgMeta{
@@ -547,6 +579,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Readv,
 		id32Bit: Sys32readv,
 		name:    "readv",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_read_write"},
 		params: []trace.ArgMeta{
@@ -567,6 +600,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Writev,
 		id32Bit: Sys32writev,
 		name:    "writev",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_read_write"},
 		params: []trace.ArgMeta{
@@ -587,6 +621,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Access,
 		id32Bit: Sys32access,
 		name:    "access",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_file_attr"},
 		params: []trace.ArgMeta{
@@ -606,6 +641,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Pipe,
 		id32Bit: Sys32pipe,
 		name:    "pipe",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "ipc", "ipc_pipe"},
 		params: []trace.ArgMeta{
@@ -624,6 +660,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Select,
 		id32Bit: Sys32_newselect,
 		name:    "select",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_mux_io"},
 		params: []trace.ArgMeta{
@@ -646,6 +683,7 @@ var CoreEvents = map[ID]Definition{
 		id:      SchedYield,
 		id32Bit: Sys32sched_yield,
 		name:    "sched_yield",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "proc", "proc_sched"},
 		params:  []trace.ArgMeta{},
@@ -662,6 +700,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Mremap,
 		id32Bit: Sys32mremap,
 		name:    "mremap",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "proc", "proc_mem"},
 		params: []trace.ArgMeta{
@@ -684,6 +723,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Msync,
 		id32Bit: Sys32msync,
 		name:    "msync",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_sync"},
 		params: []trace.ArgMeta{
@@ -704,6 +744,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Mincore,
 		id32Bit: Sys32mincore,
 		name:    "mincore",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "proc", "proc_mem"},
 		params: []trace.ArgMeta{
@@ -724,6 +765,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Madvise,
 		id32Bit: Sys32madvise,
 		name:    "madvise",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "proc", "proc_mem"},
 		params: []trace.ArgMeta{
@@ -744,6 +786,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Shmget,
 		id32Bit: Sys32shmget,
 		name:    "shmget",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "ipc", "ipc_shm"},
 		params: []trace.ArgMeta{
@@ -764,6 +807,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Shmat,
 		id32Bit: Sys32shmat,
 		name:    "shmat",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "ipc", "ipc_shm"},
 		params: []trace.ArgMeta{
@@ -784,6 +828,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Shmctl,
 		id32Bit: Sys32shmctl,
 		name:    "shmctl",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "ipc", "ipc_shm"},
 		params: []trace.ArgMeta{
@@ -804,6 +849,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Dup,
 		id32Bit: Sys32dup,
 		name:    "dup",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_fd_ops"},
 		params: []trace.ArgMeta{
@@ -822,6 +868,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Dup2,
 		id32Bit: Sys32dup2,
 		name:    "dup2",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_fd_ops"},
 		params: []trace.ArgMeta{
@@ -841,6 +888,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Pause,
 		id32Bit: Sys32pause,
 		name:    "pause",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "signals"},
 		params:  []trace.ArgMeta{},
@@ -857,6 +905,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Nanosleep,
 		id32Bit: Sys32nanosleep,
 		name:    "nanosleep",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "time", "time_timer"},
 		params: []trace.ArgMeta{
@@ -876,6 +925,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Getitimer,
 		id32Bit: Sys32getitimer,
 		name:    "getitimer",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "time", "time_timer"},
 		params: []trace.ArgMeta{
@@ -895,6 +945,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Alarm,
 		id32Bit: Sys32alarm,
 		name:    "alarm",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "time", "time_timer"},
 		params: []trace.ArgMeta{
@@ -913,6 +964,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Setitimer,
 		id32Bit: Sys32setitimer,
 		name:    "setitimer",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "time", "time_timer"},
 		params: []trace.ArgMeta{
@@ -933,6 +985,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Getpid,
 		id32Bit: Sys32getpid,
 		name:    "getpid",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "proc", "proc_ids"},
 		params:  []trace.ArgMeta{},
@@ -949,6 +1002,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Sendfile,
 		id32Bit: Sys32sendfile64,
 		name:    "sendfile",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_read_write"},
 		params: []trace.ArgMeta{
@@ -970,6 +1024,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Socket,
 		id32Bit: Sys32socket,
 		name:    "socket",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "net", "net_sock"},
 		params: []trace.ArgMeta{
@@ -990,6 +1045,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Connect,
 		id32Bit: Sys32connect,
 		name:    "connect",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "net", "net_sock"},
 		params: []trace.ArgMeta{
@@ -1010,6 +1066,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Accept,
 		id32Bit: Sys32Undefined,
 		name:    "accept",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "net", "net_sock"},
 		params: []trace.ArgMeta{
@@ -1030,6 +1087,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Sendto,
 		id32Bit: Sys32sendto,
 		name:    "sendto",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "net", "net_snd_rcv"},
 		params: []trace.ArgMeta{
@@ -1053,6 +1111,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Recvfrom,
 		id32Bit: Sys32recvfrom,
 		name:    "recvfrom",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "net", "net_snd_rcv"},
 		params: []trace.ArgMeta{
@@ -1076,6 +1135,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Sendmsg,
 		id32Bit: Sys32sendmsg,
 		name:    "sendmsg",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "net", "net_snd_rcv"},
 		params: []trace.ArgMeta{
@@ -1096,6 +1156,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Recvmsg,
 		id32Bit: Sys32recvmsg,
 		name:    "recvmsg",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "net", "net_snd_rcv"},
 		params: []trace.ArgMeta{
@@ -1116,6 +1177,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Shutdown,
 		id32Bit: Sys32shutdown,
 		name:    "shutdown",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "net", "net_sock"},
 		params: []trace.ArgMeta{
@@ -1135,6 +1197,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Bind,
 		id32Bit: Sys32bind,
 		name:    "bind",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "net", "net_sock"},
 		params: []trace.ArgMeta{
@@ -1155,6 +1218,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Listen,
 		id32Bit: Sys32listen,
 		name:    "listen",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "net", "net_sock"},
 		params: []trace.ArgMeta{
@@ -1174,6 +1238,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Getsockname,
 		id32Bit: Sys32getsockname,
 		name:    "getsockname",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "net", "net_sock"},
 		params: []trace.ArgMeta{
@@ -1194,6 +1259,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Getpeername,
 		id32Bit: Sys32getpeername,
 		name:    "getpeername",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "net", "net_sock"},
 		params: []trace.ArgMeta{
@@ -1214,6 +1280,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Socketpair,
 		id32Bit: Sys32socketpair,
 		name:    "socketpair",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "net", "net_sock"},
 		params: []trace.ArgMeta{
@@ -1235,6 +1302,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Setsockopt,
 		id32Bit: Sys32setsockopt,
 		name:    "setsockopt",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "net", "net_sock"},
 		params: []trace.ArgMeta{
@@ -1257,6 +1325,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Getsockopt,
 		id32Bit: Sys32getsockopt,
 		name:    "getsockopt",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "net", "net_sock"},
 		params: []trace.ArgMeta{
@@ -1279,6 +1348,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Clone,
 		id32Bit: Sys32clone,
 		name:    "clone",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "proc", "proc_life"},
 		params: []trace.ArgMeta{
@@ -1301,6 +1371,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Fork,
 		id32Bit: Sys32fork,
 		name:    "fork",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "proc", "proc_life"},
 		params:  []trace.ArgMeta{},
@@ -1317,6 +1388,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Vfork,
 		id32Bit: Sys32vfork,
 		name:    "vfork",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "proc", "proc_life"},
 		params:  []trace.ArgMeta{},
@@ -1333,6 +1405,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Execve,
 		id32Bit: Sys32execve,
 		name:    "execve",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "proc", "proc_life"},
 		params: []trace.ArgMeta{
@@ -1354,6 +1427,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Exit,
 		id32Bit: Sys32exit,
 		name:    "exit",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "proc", "proc_life"},
 		params: []trace.ArgMeta{
@@ -1372,6 +1446,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Wait4,
 		id32Bit: Sys32wait4,
 		name:    "wait4",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "proc", "proc_life"},
 		params: []trace.ArgMeta{
@@ -1393,6 +1468,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Kill,
 		id32Bit: Sys32kill,
 		name:    "kill",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "signals"},
 		params: []trace.ArgMeta{
@@ -1412,6 +1488,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Uname,
 		id32Bit: Sys32uname,
 		name:    "uname",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "system"},
 		params: []trace.ArgMeta{
@@ -1430,6 +1507,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Semget,
 		id32Bit: Sys32semget,
 		name:    "semget",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "ipc", "ipc_sem"},
 		params: []trace.ArgMeta{
@@ -1450,6 +1528,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Semop,
 		id32Bit: Sys32Undefined,
 		name:    "semop",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "ipc", "ipc_sem"},
 		params: []trace.ArgMeta{
@@ -1470,6 +1549,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Semctl,
 		id32Bit: Sys32semctl,
 		name:    "semctl",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "ipc", "ipc_sem"},
 		params: []trace.ArgMeta{
@@ -1491,6 +1571,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Shmdt,
 		id32Bit: Sys32shmdt,
 		name:    "shmdt",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "ipc", "ipc_shm"},
 		params: []trace.ArgMeta{
@@ -1509,6 +1590,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Msgget,
 		id32Bit: Sys32msgget,
 		name:    "msgget",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "ipc", "ipc_msgq"},
 		params: []trace.ArgMeta{
@@ -1528,6 +1610,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Msgsnd,
 		id32Bit: Sys32msgsnd,
 		name:    "msgsnd",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "ipc", "ipc_msgq"},
 		params: []trace.ArgMeta{
@@ -1549,6 +1632,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Msgrcv,
 		id32Bit: Sys32msgrcv,
 		name:    "msgrcv",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "ipc", "ipc_msgq"},
 		params: []trace.ArgMeta{
@@ -1571,6 +1655,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Msgctl,
 		id32Bit: Sys32msgctl,
 		name:    "msgctl",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "ipc", "ipc_msgq"},
 		params: []trace.ArgMeta{
@@ -1591,6 +1676,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Fcntl,
 		id32Bit: Sys32fcntl,
 		name:    "fcntl",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_fd_ops"},
 		params: []trace.ArgMeta{
@@ -1611,6 +1697,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Flock,
 		id32Bit: Sys32flock,
 		name:    "flock",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_fd_ops"},
 		params: []trace.ArgMeta{
@@ -1630,6 +1717,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Fsync,
 		id32Bit: Sys32fsync,
 		name:    "fsync",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_sync"},
 		params: []trace.ArgMeta{
@@ -1648,6 +1736,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Fdatasync,
 		id32Bit: Sys32fdatasync,
 		name:    "fdatasync",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_sync"},
 		params: []trace.ArgMeta{
@@ -1666,6 +1755,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Truncate,
 		id32Bit: Sys32truncate,
 		name:    "truncate",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_file_ops"},
 		params: []trace.ArgMeta{
@@ -1685,6 +1775,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Ftruncate,
 		id32Bit: Sys32ftruncate,
 		name:    "ftruncate",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_file_ops"},
 		params: []trace.ArgMeta{
@@ -1704,6 +1795,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Getdents,
 		id32Bit: Sys32getdents,
 		name:    "getdents",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_dir_ops"},
 		params: []trace.ArgMeta{
@@ -1724,6 +1816,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Getcwd,
 		id32Bit: Sys32getcwd,
 		name:    "getcwd",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_dir_ops"},
 		params: []trace.ArgMeta{
@@ -1743,6 +1836,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Chdir,
 		id32Bit: Sys32chdir,
 		name:    "chdir",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_dir_ops"},
 		params: []trace.ArgMeta{
@@ -1761,6 +1855,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Fchdir,
 		id32Bit: Sys32fchdir,
 		name:    "fchdir",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_dir_ops"},
 		params: []trace.ArgMeta{
@@ -1779,6 +1874,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Rename,
 		id32Bit: Sys32rename,
 		name:    "rename",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_file_ops"},
 		params: []trace.ArgMeta{
@@ -1798,6 +1894,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Mkdir,
 		id32Bit: Sys32mkdir,
 		name:    "mkdir",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_dir_ops"},
 		params: []trace.ArgMeta{
@@ -1817,6 +1914,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Rmdir,
 		id32Bit: Sys32rmdir,
 		name:    "rmdir",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_dir_ops"},
 		params: []trace.ArgMeta{
@@ -1835,6 +1933,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Creat,
 		id32Bit: Sys32creat,
 		name:    "creat",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"default", "syscalls", "fs", "fs_file_ops"},
 		params: []trace.ArgMeta{
@@ -1854,6 +1953,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Link,
 		id32Bit: Sys32link,
 		name:    "link",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_link_ops"},
 		params: []trace.ArgMeta{
@@ -1873,6 +1973,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Unlink,
 		id32Bit: Sys32unlink,
 		name:    "unlink",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_link_ops"},
 		params: []trace.ArgMeta{
@@ -1891,6 +1992,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Symlink,
 		id32Bit: Sys32symlink,
 		name:    "symlink",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_link_ops"},
 		params: []trace.ArgMeta{
@@ -1910,6 +2012,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Readlink,
 		id32Bit: Sys32readlink,
 		name:    "readlink",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_link_ops"},
 		params: []trace.ArgMeta{
@@ -1930,6 +2033,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Chmod,
 		id32Bit: Sys32chmod,
 		name:    "chmod",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"default", "syscalls", "fs", "fs_file_attr"},
 		params: []trace.ArgMeta{
@@ -1949,6 +2053,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Fchmod,
 		id32Bit: Sys32fchmod,
 		name:    "fchmod",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"default", "syscalls", "fs", "fs_file_attr"},
 		params: []trace.ArgMeta{
@@ -1968,6 +2073,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Chown,
 		id32Bit: Sys32chown32,
 		name:    "chown",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"default", "syscalls", "fs", "fs_file_attr"},
 		params: []trace.ArgMeta{
@@ -1988,6 +2094,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Fchown,
 		id32Bit: Sys32fchown32,
 		name:    "fchown",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"default", "syscalls", "fs", "fs_file_attr"},
 		params: []trace.ArgMeta{
@@ -2008,6 +2115,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Lchown,
 		id32Bit: Sys32lchown32,
 		name:    "lchown",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"default", "syscalls", "fs", "fs_file_attr"},
 		params: []trace.ArgMeta{
@@ -2028,6 +2136,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Umask,
 		id32Bit: Sys32umask,
 		name:    "umask",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_file_attr"},
 		params: []trace.ArgMeta{
@@ -2046,6 +2155,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Gettimeofday,
 		id32Bit: Sys32gettimeofday,
 		name:    "gettimeofday",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "time", "time_tod"},
 		params: []trace.ArgMeta{
@@ -2065,6 +2175,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Getrlimit,
 		id32Bit: Sys32ugetrlimit,
 		name:    "getrlimit",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "proc"},
 		params: []trace.ArgMeta{
@@ -2084,6 +2195,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Getrusage,
 		id32Bit: Sys32getrusage,
 		name:    "getrusage",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "proc"},
 		params: []trace.ArgMeta{
@@ -2103,6 +2215,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Sysinfo,
 		id32Bit: Sys32sysinfo,
 		name:    "sysinfo",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "system"},
 		params: []trace.ArgMeta{
@@ -2121,6 +2234,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Times,
 		id32Bit: Sys32times,
 		name:    "times",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "proc"},
 		params: []trace.ArgMeta{
@@ -2139,6 +2253,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Ptrace,
 		id32Bit: Sys32ptrace,
 		name:    "ptrace",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"default", "syscalls", "proc"},
 		params: []trace.ArgMeta{
@@ -2160,6 +2275,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Getuid,
 		id32Bit: Sys32getuid32,
 		name:    "getuid",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "proc", "proc_ids"},
 		params:  []trace.ArgMeta{},
@@ -2176,6 +2292,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Syslog,
 		id32Bit: Sys32syslog,
 		name:    "syslog",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "system"},
 		params: []trace.ArgMeta{
@@ -2196,6 +2313,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Getgid,
 		id32Bit: Sys32getgid32,
 		name:    "getgid",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "proc", "proc_ids"},
 		params:  []trace.ArgMeta{},
@@ -2212,6 +2330,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Setuid,
 		id32Bit: Sys32setuid32,
 		name:    "setuid",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"default", "syscalls", "proc", "proc_ids"},
 		params: []trace.ArgMeta{
@@ -2230,6 +2349,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Setgid,
 		id32Bit: Sys32setgid32,
 		name:    "setgid",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"default", "syscalls", "proc", "proc_ids"},
 		params: []trace.ArgMeta{
@@ -2248,6 +2368,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Geteuid,
 		id32Bit: Sys32geteuid32,
 		name:    "geteuid",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "proc", "proc_ids"},
 		params:  []trace.ArgMeta{},
@@ -2264,6 +2385,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Getegid,
 		id32Bit: Sys32getegid32,
 		name:    "getegid",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "proc", "proc_ids"},
 		params:  []trace.ArgMeta{},
@@ -2280,6 +2402,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Setpgid,
 		id32Bit: Sys32setpgid,
 		name:    "setpgid",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"default", "syscalls", "proc", "proc_ids"},
 		params: []trace.ArgMeta{
@@ -2299,6 +2422,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Getppid,
 		id32Bit: Sys32getppid,
 		name:    "getppid",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "proc", "proc_ids"},
 		params:  []trace.ArgMeta{},
@@ -2315,6 +2439,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Getpgrp,
 		id32Bit: Sys32getpgrp,
 		name:    "getpgrp",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "proc", "proc_ids"},
 		params:  []trace.ArgMeta{},
@@ -2331,6 +2456,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Setsid,
 		id32Bit: Sys32setsid,
 		name:    "setsid",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"default", "syscalls", "proc", "proc_ids"},
 		params:  []trace.ArgMeta{},
@@ -2347,6 +2473,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Setreuid,
 		id32Bit: Sys32setreuid32,
 		name:    "setreuid",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"default", "syscalls", "proc", "proc_ids"},
 		params: []trace.ArgMeta{
@@ -2366,6 +2493,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Setregid,
 		id32Bit: Sys32setregid32,
 		name:    "setregid",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"default", "syscalls", "proc", "proc_ids"},
 		params: []trace.ArgMeta{
@@ -2385,6 +2513,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Getgroups,
 		id32Bit: Sys32getgroups32,
 		name:    "getgroups",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "proc", "proc_ids"},
 		params: []trace.ArgMeta{
@@ -2404,6 +2533,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Setgroups,
 		id32Bit: Sys32setgroups32,
 		name:    "setgroups",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "proc", "proc_ids"},
 		params: []trace.ArgMeta{
@@ -2423,6 +2553,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Setresuid,
 		id32Bit: Sys32setresuid32,
 		name:    "setresuid",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"default", "syscalls", "proc", "proc_ids"},
 		params: []trace.ArgMeta{
@@ -2443,6 +2574,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Getresuid,
 		id32Bit: Sys32getresuid32,
 		name:    "getresuid",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "proc", "proc_ids"},
 		params: []trace.ArgMeta{
@@ -2463,6 +2595,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Setresgid,
 		id32Bit: Sys32setresgid32,
 		name:    "setresgid",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"default", "syscalls", "proc", "proc_ids"},
 		params: []trace.ArgMeta{
@@ -2483,6 +2616,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Getresgid,
 		id32Bit: Sys32getresgid32,
 		name:    "getresgid",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "proc", "proc_ids"},
 		params: []trace.ArgMeta{
@@ -2503,6 +2637,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Getpgid,
 		id32Bit: Sys32getpgid,
 		name:    "getpgid",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "proc", "proc_ids"},
 		params: []trace.ArgMeta{
@@ -2521,6 +2656,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Setfsuid,
 		id32Bit: Sys32setfsuid32,
 		name:    "setfsuid",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"default", "syscalls", "proc", "proc_ids"},
 		params: []trace.ArgMeta{
@@ -2539,6 +2675,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Setfsgid,
 		id32Bit: Sys32setfsgid32,
 		name:    "setfsgid",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"default", "syscalls", "proc", "proc_ids"},
 		params: []trace.ArgMeta{
@@ -2557,6 +2694,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Getsid,
 		id32Bit: Sys32getsid,
 		name:    "getsid",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "proc", "proc_ids"},
 		params: []trace.ArgMeta{
@@ -2575,6 +2713,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Capget,
 		id32Bit: Sys32capget,
 		name:    "capget",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "proc"},
 		params: []trace.ArgMeta{
@@ -2594,6 +2733,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Capset,
 		id32Bit: Sys32capset,
 		name:    "capset",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "proc"},
 		params: []trace.ArgMeta{
@@ -2613,6 +2753,7 @@ var CoreEvents = map[ID]Definition{
 		id:      RtSigpending,
 		id32Bit: Sys32rt_sigpending,
 		name:    "rt_sigpending",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "signals"},
 		params: []trace.ArgMeta{
@@ -2632,6 +2773,7 @@ var CoreEvents = map[ID]Definition{
 		id:      RtSigtimedwait,
 		id32Bit: Sys32rt_sigtimedwait_time64,
 		name:    "rt_sigtimedwait",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "signals"},
 		params: []trace.ArgMeta{
@@ -2653,6 +2795,7 @@ var CoreEvents = map[ID]Definition{
 		id:      RtSigqueueinfo,
 		id32Bit: Sys32rt_sigqueueinfo,
 		name:    "rt_sigqueueinfo",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "signals"},
 		params: []trace.ArgMeta{
@@ -2673,6 +2816,7 @@ var CoreEvents = map[ID]Definition{
 		id:      RtSigsuspend,
 		id32Bit: Sys32rt_sigsuspend,
 		name:    "rt_sigsuspend",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "signals"},
 		params: []trace.ArgMeta{
@@ -2692,6 +2836,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Sigaltstack,
 		id32Bit: Sys32sigaltstack,
 		name:    "sigaltstack",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "signals"},
 		params: []trace.ArgMeta{
@@ -2711,6 +2856,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Utime,
 		id32Bit: Sys32utime,
 		name:    "utime",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_file_attr"},
 		params: []trace.ArgMeta{
@@ -2730,6 +2876,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Mknod,
 		id32Bit: Sys32mknod,
 		name:    "mknod",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_file_ops"},
 		params: []trace.ArgMeta{
@@ -2750,6 +2897,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Uselib,
 		id32Bit: Sys32uselib,
 		name:    "uselib",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "proc"},
 		params: []trace.ArgMeta{
@@ -2768,6 +2916,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Personality,
 		id32Bit: Sys32personality,
 		name:    "personality",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "system"},
 		params: []trace.ArgMeta{
@@ -2786,6 +2935,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Ustat,
 		id32Bit: Sys32ustat,
 		name:    "ustat",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_info"},
 		params: []trace.ArgMeta{
@@ -2805,6 +2955,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Statfs,
 		id32Bit: Sys32statfs,
 		name:    "statfs",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_info"},
 		params: []trace.ArgMeta{
@@ -2824,6 +2975,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Fstatfs,
 		id32Bit: Sys32fstatfs,
 		name:    "fstatfs",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_info"},
 		params: []trace.ArgMeta{
@@ -2843,6 +2995,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Sysfs,
 		id32Bit: Sys32sysfs,
 		name:    "sysfs",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_info"},
 		params: []trace.ArgMeta{
@@ -2861,6 +3014,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Getpriority,
 		id32Bit: Sys32getpriority,
 		name:    "getpriority",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "proc", "proc_sched"},
 		params: []trace.ArgMeta{
@@ -2880,6 +3034,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Setpriority,
 		id32Bit: Sys32setpriority,
 		name:    "setpriority",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "proc", "proc_sched"},
 		params: []trace.ArgMeta{
@@ -2900,6 +3055,7 @@ var CoreEvents = map[ID]Definition{
 		id:      SchedSetparam,
 		id32Bit: Sys32sched_setparam,
 		name:    "sched_setparam",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "proc", "proc_sched"},
 		params: []trace.ArgMeta{
@@ -2919,6 +3075,7 @@ var CoreEvents = map[ID]Definition{
 		id:      SchedGetparam,
 		id32Bit: Sys32sched_getparam,
 		name:    "sched_getparam",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "proc", "proc_sched"},
 		params: []trace.ArgMeta{
@@ -2938,6 +3095,7 @@ var CoreEvents = map[ID]Definition{
 		id:      SchedSetscheduler,
 		id32Bit: Sys32sched_setscheduler,
 		name:    "sched_setscheduler",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "proc", "proc_sched"},
 		params: []trace.ArgMeta{
@@ -2958,6 +3116,7 @@ var CoreEvents = map[ID]Definition{
 		id:      SchedGetscheduler,
 		id32Bit: Sys32sched_getscheduler,
 		name:    "sched_getscheduler",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "proc", "proc_sched"},
 		params: []trace.ArgMeta{
@@ -2976,6 +3135,7 @@ var CoreEvents = map[ID]Definition{
 		id:      SchedGetPriorityMax,
 		id32Bit: Sys32sched_get_priority_max,
 		name:    "sched_get_priority_max",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "proc", "proc_sched"},
 		params: []trace.ArgMeta{
@@ -2994,6 +3154,7 @@ var CoreEvents = map[ID]Definition{
 		id:      SchedGetPriorityMin,
 		id32Bit: Sys32sched_get_priority_min,
 		name:    "sched_get_priority_min",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "proc", "proc_sched"},
 		params: []trace.ArgMeta{
@@ -3012,6 +3173,7 @@ var CoreEvents = map[ID]Definition{
 		id:      SchedRrGetInterval,
 		id32Bit: Sys32sched_rr_get_interval_time64,
 		name:    "sched_rr_get_interval",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "proc", "proc_sched"},
 		params: []trace.ArgMeta{
@@ -3031,6 +3193,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Mlock,
 		id32Bit: Sys32mlock,
 		name:    "mlock",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "proc", "proc_mem"},
 		params: []trace.ArgMeta{
@@ -3050,6 +3213,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Munlock,
 		id32Bit: Sys32munlock,
 		name:    "munlock",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "proc", "proc_mem"},
 		params: []trace.ArgMeta{
@@ -3069,6 +3233,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Mlockall,
 		id32Bit: Sys32mlockall,
 		name:    "mlockall",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "proc", "proc_mem"},
 		params: []trace.ArgMeta{
@@ -3087,6 +3252,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Munlockall,
 		id32Bit: Sys32munlockall,
 		name:    "munlockall",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "proc", "proc_mem"},
 		params:  []trace.ArgMeta{},
@@ -3103,6 +3269,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Vhangup,
 		id32Bit: Sys32vhangup,
 		name:    "vhangup",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "system"},
 		params:  []trace.ArgMeta{},
@@ -3119,6 +3286,7 @@ var CoreEvents = map[ID]Definition{
 		id:      ModifyLdt,
 		id32Bit: Sys32modify_ldt,
 		name:    "modify_ldt",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "proc", "proc_mem"},
 		params: []trace.ArgMeta{
@@ -3139,6 +3307,7 @@ var CoreEvents = map[ID]Definition{
 		id:      PivotRoot,
 		id32Bit: Sys32pivot_root,
 		name:    "pivot_root",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs"},
 		params: []trace.ArgMeta{
@@ -3158,6 +3327,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Sysctl,
 		id32Bit: Sys32_sysctl,
 		name:    "sysctl",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "system"},
 		params: []trace.ArgMeta{
@@ -3176,6 +3346,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Prctl,
 		id32Bit: Sys32prctl,
 		name:    "prctl",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "proc"},
 		params: []trace.ArgMeta{
@@ -3198,6 +3369,7 @@ var CoreEvents = map[ID]Definition{
 		id:      ArchPrctl,
 		id32Bit: Sys32arch_prctl,
 		name:    "arch_prctl",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "proc"},
 		params: []trace.ArgMeta{
@@ -3217,6 +3389,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Adjtimex,
 		id32Bit: Sys32adjtimex,
 		name:    "adjtimex",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "time", "time_clock"},
 		params: []trace.ArgMeta{
@@ -3235,6 +3408,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Setrlimit,
 		id32Bit: Sys32setrlimit,
 		name:    "setrlimit",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "proc"},
 		params: []trace.ArgMeta{
@@ -3254,6 +3428,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Chroot,
 		id32Bit: Sys32chroot,
 		name:    "chroot",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_dir_ops"},
 		params: []trace.ArgMeta{
@@ -3272,6 +3447,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Sync,
 		id32Bit: Sys32sync,
 		name:    "sync",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_sync"},
 		params:  []trace.ArgMeta{},
@@ -3288,6 +3464,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Acct,
 		id32Bit: Sys32acct,
 		name:    "acct",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "system"},
 		params: []trace.ArgMeta{
@@ -3306,6 +3483,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Settimeofday,
 		id32Bit: Sys32settimeofday,
 		name:    "settimeofday",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "time", "time_tod"},
 		params: []trace.ArgMeta{
@@ -3325,6 +3503,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Mount,
 		id32Bit: Sys32mount,
 		name:    "mount",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs"},
 		params: []trace.ArgMeta{
@@ -3347,6 +3526,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Umount2,
 		id32Bit: Sys32umount2,
 		name:    "umount2",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs"},
 		params: []trace.ArgMeta{
@@ -3366,6 +3546,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Swapon,
 		id32Bit: Sys32swapon,
 		name:    "swapon",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs"},
 		params: []trace.ArgMeta{
@@ -3385,6 +3566,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Swapoff,
 		id32Bit: Sys32swapoff,
 		name:    "swapoff",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs"},
 		params: []trace.ArgMeta{
@@ -3403,6 +3585,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Reboot,
 		id32Bit: Sys32reboot,
 		name:    "reboot",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "system"},
 		params: []trace.ArgMeta{
@@ -3424,6 +3607,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Sethostname,
 		id32Bit: Sys32sethostname,
 		name:    "sethostname",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "net"},
 		params: []trace.ArgMeta{
@@ -3443,6 +3627,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Setdomainname,
 		id32Bit: Sys32setdomainname,
 		name:    "setdomainname",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "net"},
 		params: []trace.ArgMeta{
@@ -3462,6 +3647,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Iopl,
 		id32Bit: Sys32iopl,
 		name:    "iopl",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "system"},
 		params: []trace.ArgMeta{
@@ -3480,6 +3666,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Ioperm,
 		id32Bit: Sys32ioperm,
 		name:    "ioperm",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "system"},
 		params: []trace.ArgMeta{
@@ -3500,6 +3687,7 @@ var CoreEvents = map[ID]Definition{
 		id:      CreateModule,
 		id32Bit: Sys32create_module,
 		name:    "create_module",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "system", "system_module"},
 		params:  []trace.ArgMeta{},
@@ -3516,6 +3704,7 @@ var CoreEvents = map[ID]Definition{
 		id:      InitModule,
 		id32Bit: Sys32init_module,
 		name:    "init_module",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"default", "syscalls", "system", "system_module"},
 		params: []trace.ArgMeta{
@@ -3536,6 +3725,7 @@ var CoreEvents = map[ID]Definition{
 		id:      DeleteModule,
 		id32Bit: Sys32delete_module,
 		name:    "delete_module",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "system", "system_module"},
 		params: []trace.ArgMeta{
@@ -3555,6 +3745,7 @@ var CoreEvents = map[ID]Definition{
 		id:      GetKernelSyms,
 		id32Bit: Sys32get_kernel_syms,
 		name:    "get_kernel_syms",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "system", "system_module"},
 		params:  []trace.ArgMeta{},
@@ -3571,6 +3762,7 @@ var CoreEvents = map[ID]Definition{
 		id:      QueryModule,
 		id32Bit: Sys32query_module,
 		name:    "query_module",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "system", "system_module"},
 		params:  []trace.ArgMeta{},
@@ -3587,6 +3779,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Quotactl,
 		id32Bit: Sys32quotactl,
 		name:    "quotactl",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "system"},
 		params: []trace.ArgMeta{
@@ -3608,6 +3801,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Nfsservctl,
 		id32Bit: Sys32nfsservctl,
 		name:    "nfsservctl",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs"},
 		params:  []trace.ArgMeta{},
@@ -3624,6 +3818,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Getpmsg,
 		id32Bit: Sys32getpmsg,
 		name:    "getpmsg",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls"},
 		params:  []trace.ArgMeta{},
@@ -3640,6 +3835,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Putpmsg,
 		id32Bit: Sys32putpmsg,
 		name:    "putpmsg",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls"},
 		params:  []trace.ArgMeta{},
@@ -3656,6 +3852,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Afs,
 		id32Bit: Sys32Undefined,
 		name:    "afs",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls"},
 		params:  []trace.ArgMeta{},
@@ -3672,6 +3869,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Tuxcall,
 		id32Bit: Sys32Undefined,
 		name:    "tuxcall",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls"},
 		params:  []trace.ArgMeta{},
@@ -3688,6 +3886,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Security,
 		id32Bit: Sys32Undefined,
 		name:    "security",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls"},
 		params:  []trace.ArgMeta{},
@@ -3704,6 +3903,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Gettid,
 		id32Bit: Sys32gettid,
 		name:    "gettid",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "proc", "proc_ids"},
 		params:  []trace.ArgMeta{},
@@ -3720,6 +3920,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Readahead,
 		id32Bit: Sys32readahead,
 		name:    "readahead",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs"},
 		params: []trace.ArgMeta{
@@ -3740,6 +3941,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Setxattr,
 		id32Bit: Sys32setxattr,
 		name:    "setxattr",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_file_attr"},
 		params: []trace.ArgMeta{
@@ -3762,6 +3964,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Lsetxattr,
 		id32Bit: Sys32lsetxattr,
 		name:    "lsetxattr",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_file_attr"},
 		params: []trace.ArgMeta{
@@ -3784,6 +3987,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Fsetxattr,
 		id32Bit: Sys32fsetxattr,
 		name:    "fsetxattr",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_file_attr"},
 		params: []trace.ArgMeta{
@@ -3806,6 +4010,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Getxattr,
 		id32Bit: Sys32getxattr,
 		name:    "getxattr",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_file_attr"},
 		params: []trace.ArgMeta{
@@ -3827,6 +4032,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Lgetxattr,
 		id32Bit: Sys32lgetxattr,
 		name:    "lgetxattr",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_file_attr"},
 		params: []trace.ArgMeta{
@@ -3848,6 +4054,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Fgetxattr,
 		id32Bit: Sys32fgetxattr,
 		name:    "fgetxattr",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_file_attr"},
 		params: []trace.ArgMeta{
@@ -3869,6 +4076,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Listxattr,
 		id32Bit: Sys32listxattr,
 		name:    "listxattr",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_file_attr"},
 		params: []trace.ArgMeta{
@@ -3889,6 +4097,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Llistxattr,
 		id32Bit: Sys32llistxattr,
 		name:    "llistxattr",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_file_attr"},
 		params: []trace.ArgMeta{
@@ -3909,6 +4118,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Flistxattr,
 		id32Bit: Sys32flistxattr,
 		name:    "flistxattr",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_file_attr"},
 		params: []trace.ArgMeta{
@@ -3929,6 +4139,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Removexattr,
 		id32Bit: Sys32removexattr,
 		name:    "removexattr",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_file_attr"},
 		params: []trace.ArgMeta{
@@ -3948,6 +4159,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Lremovexattr,
 		id32Bit: Sys32lremovexattr,
 		name:    "lremovexattr",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_file_attr"},
 		params: []trace.ArgMeta{
@@ -3967,6 +4179,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Fremovexattr,
 		id32Bit: Sys32fremovexattr,
 		name:    "fremovexattr",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_file_attr"},
 		params: []trace.ArgMeta{
@@ -3986,6 +4199,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Tkill,
 		id32Bit: Sys32tkill,
 		name:    "tkill",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "signals"},
 		params: []trace.ArgMeta{
@@ -4005,6 +4219,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Time,
 		id32Bit: Sys32time,
 		name:    "time",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "time", "time_tod"},
 		params: []trace.ArgMeta{
@@ -4023,6 +4238,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Futex,
 		id32Bit: Sys32futex_time64,
 		name:    "futex",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "ipc", "ipc_futex"},
 		params: []trace.ArgMeta{
@@ -4046,6 +4262,7 @@ var CoreEvents = map[ID]Definition{
 		id:      SchedSetaffinity,
 		id32Bit: Sys32sched_setaffinity,
 		name:    "sched_setaffinity",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "proc", "proc_sched"},
 		params: []trace.ArgMeta{
@@ -4066,6 +4283,7 @@ var CoreEvents = map[ID]Definition{
 		id:      SchedGetaffinity,
 		id32Bit: Sys32sched_getaffinity,
 		name:    "sched_getaffinity",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "proc", "proc_sched"},
 		params: []trace.ArgMeta{
@@ -4086,6 +4304,7 @@ var CoreEvents = map[ID]Definition{
 		id:      SetThreadArea,
 		id32Bit: Sys32set_thread_area,
 		name:    "set_thread_area",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "proc"},
 		params: []trace.ArgMeta{
@@ -4104,6 +4323,7 @@ var CoreEvents = map[ID]Definition{
 		id:      IoSetup,
 		id32Bit: Sys32io_setup,
 		name:    "io_setup",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_async_io"},
 		params: []trace.ArgMeta{
@@ -4123,6 +4343,7 @@ var CoreEvents = map[ID]Definition{
 		id:      IoDestroy,
 		id32Bit: Sys32io_destroy,
 		name:    "io_destroy",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_async_io"},
 		params: []trace.ArgMeta{
@@ -4141,6 +4362,7 @@ var CoreEvents = map[ID]Definition{
 		id:      IoGetevents,
 		id32Bit: Sys32io_getevents,
 		name:    "io_getevents",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_async_io"},
 		params: []trace.ArgMeta{
@@ -4163,6 +4385,7 @@ var CoreEvents = map[ID]Definition{
 		id:      IoSubmit,
 		id32Bit: Sys32io_submit,
 		name:    "io_submit",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_async_io"},
 		params: []trace.ArgMeta{
@@ -4183,6 +4406,7 @@ var CoreEvents = map[ID]Definition{
 		id:      IoCancel,
 		id32Bit: Sys32io_cancel,
 		name:    "io_cancel",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_async_io"},
 		params: []trace.ArgMeta{
@@ -4203,6 +4427,7 @@ var CoreEvents = map[ID]Definition{
 		id:      GetThreadArea,
 		id32Bit: Sys32get_thread_area,
 		name:    "get_thread_area",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "proc"},
 		params: []trace.ArgMeta{
@@ -4221,6 +4446,7 @@ var CoreEvents = map[ID]Definition{
 		id:      LookupDcookie,
 		id32Bit: Sys32lookup_dcookie,
 		name:    "lookup_dcookie",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_dir_ops"},
 		params: []trace.ArgMeta{
@@ -4241,6 +4467,7 @@ var CoreEvents = map[ID]Definition{
 		id:      EpollCreate,
 		id32Bit: Sys32epoll_create,
 		name:    "epoll_create",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_mux_io"},
 		params: []trace.ArgMeta{
@@ -4259,6 +4486,7 @@ var CoreEvents = map[ID]Definition{
 		id:      EpollCtlOld,
 		id32Bit: Sys32Undefined,
 		name:    "epoll_ctl_old",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_mux_io"},
 		params:  []trace.ArgMeta{},
@@ -4275,6 +4503,7 @@ var CoreEvents = map[ID]Definition{
 		id:      EpollWaitOld,
 		id32Bit: Sys32Undefined,
 		name:    "epoll_wait_old",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_mux_io"},
 		params:  []trace.ArgMeta{},
@@ -4291,6 +4520,7 @@ var CoreEvents = map[ID]Definition{
 		id:      RemapFilePages,
 		id32Bit: Sys32remap_file_pages,
 		name:    "remap_file_pages",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls"},
 		params: []trace.ArgMeta{
@@ -4313,6 +4543,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Getdents64,
 		id32Bit: Sys32getdents64,
 		name:    "getdents64",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_dir_ops"},
 		params: []trace.ArgMeta{
@@ -4333,6 +4564,7 @@ var CoreEvents = map[ID]Definition{
 		id:      SetTidAddress,
 		id32Bit: Sys32set_tid_address,
 		name:    "set_tid_address",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "proc"},
 		params: []trace.ArgMeta{
@@ -4351,6 +4583,7 @@ var CoreEvents = map[ID]Definition{
 		id:      RestartSyscall,
 		id32Bit: Sys32restart_syscall,
 		name:    "restart_syscall",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "signals"},
 		params:  []trace.ArgMeta{},
@@ -4367,6 +4600,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Semtimedop,
 		id32Bit: Sys32semtimedop_time64,
 		name:    "semtimedop",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "ipc", "ipc_sem"},
 		params: []trace.ArgMeta{
@@ -4388,6 +4622,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Fadvise64,
 		id32Bit: Sys32fadvise64,
 		name:    "fadvise64",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs"},
 		params: []trace.ArgMeta{
@@ -4409,6 +4644,7 @@ var CoreEvents = map[ID]Definition{
 		id:      TimerCreate,
 		id32Bit: Sys32timer_create,
 		name:    "timer_create",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "time", "time_timer"},
 		params: []trace.ArgMeta{
@@ -4429,6 +4665,7 @@ var CoreEvents = map[ID]Definition{
 		id:      TimerSettime,
 		id32Bit: Sys32timer_settime64,
 		name:    "timer_settime",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "time", "time_timer"},
 		params: []trace.ArgMeta{
@@ -4450,6 +4687,7 @@ var CoreEvents = map[ID]Definition{
 		id:      TimerGettime,
 		id32Bit: Sys32timer_gettime64,
 		name:    "timer_gettime",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "time", "time_timer"},
 		params: []trace.ArgMeta{
@@ -4469,6 +4707,7 @@ var CoreEvents = map[ID]Definition{
 		id:      TimerGetoverrun,
 		id32Bit: Sys32timer_getoverrun,
 		name:    "timer_getoverrun",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "time", "time_timer"},
 		params: []trace.ArgMeta{
@@ -4487,6 +4726,7 @@ var CoreEvents = map[ID]Definition{
 		id:      TimerDelete,
 		id32Bit: Sys32timer_delete,
 		name:    "timer_delete",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "time", "time_timer"},
 		params: []trace.ArgMeta{
@@ -4505,6 +4745,7 @@ var CoreEvents = map[ID]Definition{
 		id:      ClockSettime,
 		id32Bit: Sys32clock_settime64,
 		name:    "clock_settime",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "time", "time_clock"},
 		params: []trace.ArgMeta{
@@ -4524,6 +4765,7 @@ var CoreEvents = map[ID]Definition{
 		id:      ClockGettime,
 		id32Bit: Sys32clock_gettime64,
 		name:    "clock_gettime",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "time", "time_clock"},
 		params: []trace.ArgMeta{
@@ -4543,6 +4785,7 @@ var CoreEvents = map[ID]Definition{
 		id:      ClockGetres,
 		id32Bit: Sys32clock_getres_time64,
 		name:    "clock_getres",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "time", "time_clock"},
 		params: []trace.ArgMeta{
@@ -4562,6 +4805,7 @@ var CoreEvents = map[ID]Definition{
 		id:      ClockNanosleep,
 		id32Bit: Sys32clock_nanosleep_time64,
 		name:    "clock_nanosleep",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "time", "time_clock"},
 		params: []trace.ArgMeta{
@@ -4583,6 +4827,7 @@ var CoreEvents = map[ID]Definition{
 		id:      ExitGroup,
 		id32Bit: Sys32exit_group,
 		name:    "exit_group",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "proc", "proc_life"},
 		params: []trace.ArgMeta{
@@ -4601,6 +4846,7 @@ var CoreEvents = map[ID]Definition{
 		id:      EpollWait,
 		id32Bit: Sys32epoll_wait,
 		name:    "epoll_wait",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_mux_io"},
 		params: []trace.ArgMeta{
@@ -4622,6 +4868,7 @@ var CoreEvents = map[ID]Definition{
 		id:      EpollCtl,
 		id32Bit: Sys32epoll_ctl,
 		name:    "epoll_ctl",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_mux_io"},
 		params: []trace.ArgMeta{
@@ -4643,6 +4890,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Tgkill,
 		id32Bit: Sys32tgkill,
 		name:    "tgkill",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "signals"},
 		params: []trace.ArgMeta{
@@ -4663,6 +4911,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Utimes,
 		id32Bit: Sys32utimes,
 		name:    "utimes",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_file_attr"},
 		params: []trace.ArgMeta{
@@ -4682,6 +4931,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Vserver,
 		id32Bit: Sys32vserver,
 		name:    "vserver",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls"},
 		params:  []trace.ArgMeta{},
@@ -4698,6 +4948,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Mbind,
 		id32Bit: Sys32mbind,
 		name:    "mbind",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "system", "system_numa"},
 		params: []trace.ArgMeta{
@@ -4721,6 +4972,7 @@ var CoreEvents = map[ID]Definition{
 		id:      SetMempolicy,
 		id32Bit: Sys32set_mempolicy,
 		name:    "set_mempolicy",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "system", "system_numa"},
 		params: []trace.ArgMeta{
@@ -4741,6 +4993,7 @@ var CoreEvents = map[ID]Definition{
 		id:      GetMempolicy,
 		id32Bit: Sys32get_mempolicy,
 		name:    "get_mempolicy",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "system", "system_numa"},
 		params: []trace.ArgMeta{
@@ -4763,6 +5016,7 @@ var CoreEvents = map[ID]Definition{
 		id:      MqOpen,
 		id32Bit: Sys32mq_open,
 		name:    "mq_open",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "ipc", "ipc_msgq"},
 		params: []trace.ArgMeta{
@@ -4784,6 +5038,7 @@ var CoreEvents = map[ID]Definition{
 		id:      MqUnlink,
 		id32Bit: Sys32mq_unlink,
 		name:    "mq_unlink",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "ipc", "ipc_msgq"},
 		params: []trace.ArgMeta{
@@ -4802,6 +5057,7 @@ var CoreEvents = map[ID]Definition{
 		id:      MqTimedsend,
 		id32Bit: Sys32mq_timedsend_time64,
 		name:    "mq_timedsend",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "ipc", "ipc_msgq"},
 		params: []trace.ArgMeta{
@@ -4824,6 +5080,7 @@ var CoreEvents = map[ID]Definition{
 		id:      MqTimedreceive,
 		id32Bit: Sys32mq_timedreceive_time64,
 		name:    "mq_timedreceive",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "ipc", "ipc_msgq"},
 		params: []trace.ArgMeta{
@@ -4846,6 +5103,7 @@ var CoreEvents = map[ID]Definition{
 		id:      MqNotify,
 		id32Bit: Sys32mq_notify,
 		name:    "mq_notify",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "ipc", "ipc_msgq"},
 		params: []trace.ArgMeta{
@@ -4865,6 +5123,7 @@ var CoreEvents = map[ID]Definition{
 		id:      MqGetsetattr,
 		id32Bit: Sys32mq_getsetattr,
 		name:    "mq_getsetattr",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "ipc", "ipc_msgq"},
 		params: []trace.ArgMeta{
@@ -4885,6 +5144,7 @@ var CoreEvents = map[ID]Definition{
 		id:      KexecLoad,
 		id32Bit: Sys32kexec_load,
 		name:    "kexec_load",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "system"},
 		params: []trace.ArgMeta{
@@ -4906,6 +5166,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Waitid,
 		id32Bit: Sys32waitid,
 		name:    "waitid",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "proc", "proc_life"},
 		params: []trace.ArgMeta{
@@ -4928,6 +5189,7 @@ var CoreEvents = map[ID]Definition{
 		id:      AddKey,
 		id32Bit: Sys32add_key,
 		name:    "add_key",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "system", "system_keys"},
 		params: []trace.ArgMeta{
@@ -4950,6 +5212,7 @@ var CoreEvents = map[ID]Definition{
 		id:      RequestKey,
 		id32Bit: Sys32request_key,
 		name:    "request_key",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "system", "system_keys"},
 		params: []trace.ArgMeta{
@@ -4971,6 +5234,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Keyctl,
 		id32Bit: Sys32keyctl,
 		name:    "keyctl",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "system", "system_keys"},
 		params: []trace.ArgMeta{
@@ -4993,6 +5257,7 @@ var CoreEvents = map[ID]Definition{
 		id:      IoprioSet,
 		id32Bit: Sys32ioprio_set,
 		name:    "ioprio_set",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "proc", "proc_sched"},
 		params: []trace.ArgMeta{
@@ -5013,6 +5278,7 @@ var CoreEvents = map[ID]Definition{
 		id:      IoprioGet,
 		id32Bit: Sys32ioprio_get,
 		name:    "ioprio_get",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "proc", "proc_sched"},
 		params: []trace.ArgMeta{
@@ -5032,6 +5298,7 @@ var CoreEvents = map[ID]Definition{
 		id:      InotifyInit,
 		id32Bit: Sys32inotify_init,
 		name:    "inotify_init",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_monitor"},
 		params:  []trace.ArgMeta{},
@@ -5048,6 +5315,7 @@ var CoreEvents = map[ID]Definition{
 		id:      InotifyAddWatch,
 		id32Bit: Sys32inotify_add_watch,
 		name:    "inotify_add_watch",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_monitor"},
 		params: []trace.ArgMeta{
@@ -5068,6 +5336,7 @@ var CoreEvents = map[ID]Definition{
 		id:      InotifyRmWatch,
 		id32Bit: Sys32inotify_rm_watch,
 		name:    "inotify_rm_watch",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_monitor"},
 		params: []trace.ArgMeta{
@@ -5087,6 +5356,7 @@ var CoreEvents = map[ID]Definition{
 		id:      MigratePages,
 		id32Bit: Sys32migrate_pages,
 		name:    "migrate_pages",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "system", "system_numa"},
 		params: []trace.ArgMeta{
@@ -5108,6 +5378,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Openat,
 		id32Bit: Sys32openat,
 		name:    "openat",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_file_ops"},
 		params: []trace.ArgMeta{
@@ -5129,6 +5400,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Mkdirat,
 		id32Bit: Sys32mkdirat,
 		name:    "mkdirat",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_dir_ops"},
 		params: []trace.ArgMeta{
@@ -5149,6 +5421,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Mknodat,
 		id32Bit: Sys32mknodat,
 		name:    "mknodat",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_file_ops"},
 		params: []trace.ArgMeta{
@@ -5170,6 +5443,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Fchownat,
 		id32Bit: Sys32fchownat,
 		name:    "fchownat",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"default", "syscalls", "fs", "fs_file_attr"},
 		params: []trace.ArgMeta{
@@ -5192,6 +5466,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Futimesat,
 		id32Bit: Sys32futimesat,
 		name:    "futimesat",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_file_attr"},
 		params: []trace.ArgMeta{
@@ -5212,6 +5487,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Newfstatat,
 		id32Bit: Sys32fstatat64,
 		name:    "newfstatat",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_file_attr"},
 		params: []trace.ArgMeta{
@@ -5233,6 +5509,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Unlinkat,
 		id32Bit: Sys32unlinkat,
 		name:    "unlinkat",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_link_ops"},
 		params: []trace.ArgMeta{
@@ -5253,6 +5530,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Renameat,
 		id32Bit: Sys32renameat,
 		name:    "renameat",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_file_ops"},
 		params: []trace.ArgMeta{
@@ -5274,6 +5552,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Linkat,
 		id32Bit: Sys32linkat,
 		name:    "linkat",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_link_ops"},
 		params: []trace.ArgMeta{
@@ -5296,6 +5575,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Symlinkat,
 		id32Bit: Sys32symlinkat,
 		name:    "symlinkat",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_link_ops"},
 		params: []trace.ArgMeta{
@@ -5316,6 +5596,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Readlinkat,
 		id32Bit: Sys32readlinkat,
 		name:    "readlinkat",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_link_ops"},
 		params: []trace.ArgMeta{
@@ -5337,6 +5618,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Fchmodat,
 		id32Bit: Sys32fchmodat,
 		name:    "fchmodat",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"default", "syscalls", "fs", "fs_file_attr"},
 		params: []trace.ArgMeta{
@@ -5358,6 +5640,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Faccessat,
 		id32Bit: Sys32faccessat,
 		name:    "faccessat",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_file_attr"},
 		params: []trace.ArgMeta{
@@ -5379,6 +5662,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Pselect6,
 		id32Bit: Sys32pselect6_time64,
 		name:    "pselect6",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_mux_io"},
 		params: []trace.ArgMeta{
@@ -5402,6 +5686,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Ppoll,
 		id32Bit: Sys32ppoll_time64,
 		name:    "ppoll",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_mux_io"},
 		params: []trace.ArgMeta{
@@ -5424,6 +5709,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Unshare,
 		id32Bit: Sys32unshare,
 		name:    "unshare",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "proc"},
 		params: []trace.ArgMeta{
@@ -5442,6 +5728,7 @@ var CoreEvents = map[ID]Definition{
 		id:      SetRobustList,
 		id32Bit: Sys32set_robust_list,
 		name:    "set_robust_list",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "ipc", "ipc_futex"},
 		params: []trace.ArgMeta{
@@ -5461,6 +5748,7 @@ var CoreEvents = map[ID]Definition{
 		id:      GetRobustList,
 		id32Bit: Sys32get_robust_list,
 		name:    "get_robust_list",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "ipc", "ipc_futex"},
 		params: []trace.ArgMeta{
@@ -5481,6 +5769,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Splice,
 		id32Bit: Sys32splice,
 		name:    "splice",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "ipc", "ipc_pipe"},
 		params: []trace.ArgMeta{
@@ -5504,6 +5793,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Tee,
 		id32Bit: Sys32tee,
 		name:    "tee",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "ipc", "ipc_pipe"},
 		params: []trace.ArgMeta{
@@ -5525,6 +5815,7 @@ var CoreEvents = map[ID]Definition{
 		id:      SyncFileRange,
 		id32Bit: Sys32sync_file_range,
 		name:    "sync_file_range",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_sync"},
 		params: []trace.ArgMeta{
@@ -5546,6 +5837,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Vmsplice,
 		id32Bit: Sys32vmsplice,
 		name:    "vmsplice",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "ipc", "ipc_pipe"},
 		params: []trace.ArgMeta{
@@ -5567,6 +5859,7 @@ var CoreEvents = map[ID]Definition{
 		id:      MovePages,
 		id32Bit: Sys32move_pages,
 		name:    "move_pages",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "system", "system_numa"},
 		params: []trace.ArgMeta{
@@ -5590,6 +5883,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Utimensat,
 		id32Bit: Sys32utimensat_time64,
 		name:    "utimensat",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_file_attr"},
 		params: []trace.ArgMeta{
@@ -5611,6 +5905,7 @@ var CoreEvents = map[ID]Definition{
 		id:      EpollPwait,
 		id32Bit: Sys32epoll_pwait,
 		name:    "epoll_pwait",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_mux_io"},
 		params: []trace.ArgMeta{
@@ -5634,6 +5929,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Signalfd,
 		id32Bit: Sys32signalfd,
 		name:    "signalfd",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "signals"},
 		params: []trace.ArgMeta{
@@ -5654,6 +5950,7 @@ var CoreEvents = map[ID]Definition{
 		id:      TimerfdCreate,
 		id32Bit: Sys32timerfd_create,
 		name:    "timerfd_create",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "time", "time_timer"},
 		params: []trace.ArgMeta{
@@ -5673,6 +5970,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Eventfd,
 		id32Bit: Sys32eventfd,
 		name:    "eventfd",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "signals"},
 		params: []trace.ArgMeta{
@@ -5692,6 +5990,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Fallocate,
 		id32Bit: Sys32fallocate,
 		name:    "fallocate",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_file_ops"},
 		params: []trace.ArgMeta{
@@ -5713,6 +6012,7 @@ var CoreEvents = map[ID]Definition{
 		id:      TimerfdSettime,
 		id32Bit: Sys32timerfd_settime64,
 		name:    "timerfd_settime",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "time", "time_timer"},
 		params: []trace.ArgMeta{
@@ -5734,6 +6034,7 @@ var CoreEvents = map[ID]Definition{
 		id:      TimerfdGettime,
 		id32Bit: Sys32timerfd_gettime64,
 		name:    "timerfd_gettime",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "time", "time_timer"},
 		params: []trace.ArgMeta{
@@ -5753,6 +6054,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Accept4,
 		id32Bit: Sys32accept4,
 		name:    "accept4",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "net", "net_sock"},
 		params: []trace.ArgMeta{
@@ -5774,6 +6076,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Signalfd4,
 		id32Bit: Sys32signalfd4,
 		name:    "signalfd4",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "signals"},
 		params: []trace.ArgMeta{
@@ -5795,6 +6098,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Eventfd2,
 		id32Bit: Sys32eventfd2,
 		name:    "eventfd2",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "signals"},
 		params: []trace.ArgMeta{
@@ -5814,6 +6118,7 @@ var CoreEvents = map[ID]Definition{
 		id:      EpollCreate1,
 		id32Bit: Sys32epoll_create1,
 		name:    "epoll_create1",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_mux_io"},
 		params: []trace.ArgMeta{
@@ -5832,6 +6137,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Dup3,
 		id32Bit: Sys32dup3,
 		name:    "dup3",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_fd_ops"},
 		params: []trace.ArgMeta{
@@ -5852,6 +6158,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Pipe2,
 		id32Bit: Sys32pipe2,
 		name:    "pipe2",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "ipc", "ipc_pipe"},
 		params: []trace.ArgMeta{
@@ -5871,6 +6178,7 @@ var CoreEvents = map[ID]Definition{
 		id:      InotifyInit1,
 		id32Bit: Sys32inotify_init1,
 		name:    "inotify_init1",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_monitor"},
 		params: []trace.ArgMeta{
@@ -5889,6 +6197,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Preadv,
 		id32Bit: Sys32preadv,
 		name:    "preadv",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_read_write"},
 		params: []trace.ArgMeta{
@@ -5911,6 +6220,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Pwritev,
 		id32Bit: Sys32pwritev,
 		name:    "pwritev",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_read_write"},
 		params: []trace.ArgMeta{
@@ -5933,6 +6243,7 @@ var CoreEvents = map[ID]Definition{
 		id:      RtTgsigqueueinfo,
 		id32Bit: Sys32rt_tgsigqueueinfo,
 		name:    "rt_tgsigqueueinfo",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "signals"},
 		params: []trace.ArgMeta{
@@ -5954,6 +6265,7 @@ var CoreEvents = map[ID]Definition{
 		id:      PerfEventOpen,
 		id32Bit: Sys32perf_event_open,
 		name:    "perf_event_open",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "system"},
 		params: []trace.ArgMeta{
@@ -5976,6 +6288,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Recvmmsg,
 		id32Bit: Sys32recvmmsg_time64,
 		name:    "recvmmsg",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "net", "net_snd_rcv"},
 		params: []trace.ArgMeta{
@@ -5998,6 +6311,7 @@ var CoreEvents = map[ID]Definition{
 		id:      FanotifyInit,
 		id32Bit: Sys32fanotify_init,
 		name:    "fanotify_init",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_monitor"},
 		params: []trace.ArgMeta{
@@ -6017,6 +6331,7 @@ var CoreEvents = map[ID]Definition{
 		id:      FanotifyMark,
 		id32Bit: Sys32fanotify_mark,
 		name:    "fanotify_mark",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_monitor"},
 		params: []trace.ArgMeta{
@@ -6039,6 +6354,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Prlimit64,
 		id32Bit: Sys32prlimit64,
 		name:    "prlimit64",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "proc"},
 		params: []trace.ArgMeta{
@@ -6060,6 +6376,7 @@ var CoreEvents = map[ID]Definition{
 		id:      NameToHandleAt,
 		id32Bit: Sys32name_to_handle_at,
 		name:    "name_to_handle_at",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_file_ops"},
 		params: []trace.ArgMeta{
@@ -6082,6 +6399,7 @@ var CoreEvents = map[ID]Definition{
 		id:      OpenByHandleAt,
 		id32Bit: Sys32open_by_handle_at,
 		name:    "open_by_handle_at",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_file_ops"},
 		params: []trace.ArgMeta{
@@ -6102,6 +6420,7 @@ var CoreEvents = map[ID]Definition{
 		id:      ClockAdjtime,
 		id32Bit: Sys32clock_adjtime,
 		name:    "clock_adjtime",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "time", "time_clock"},
 		params: []trace.ArgMeta{
@@ -6121,6 +6440,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Syncfs,
 		id32Bit: Sys32syncfs,
 		name:    "syncfs",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_sync"},
 		params: []trace.ArgMeta{
@@ -6139,6 +6459,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Sendmmsg,
 		id32Bit: Sys32sendmmsg,
 		name:    "sendmmsg",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "net", "net_snd_rcv"},
 		params: []trace.ArgMeta{
@@ -6160,6 +6481,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Setns,
 		id32Bit: Sys32setns,
 		name:    "setns",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"default", "syscalls", "proc"},
 		params: []trace.ArgMeta{
@@ -6179,6 +6501,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Getcpu,
 		id32Bit: Sys32getcpu,
 		name:    "getcpu",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "system", "system_numa"},
 		params: []trace.ArgMeta{
@@ -6199,6 +6522,7 @@ var CoreEvents = map[ID]Definition{
 		id:      ProcessVmReadv,
 		id32Bit: Sys32process_vm_readv,
 		name:    "process_vm_readv",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"default", "syscalls", "proc"},
 		params: []trace.ArgMeta{
@@ -6222,6 +6546,7 @@ var CoreEvents = map[ID]Definition{
 		id:      ProcessVmWritev,
 		id32Bit: Sys32process_vm_writev,
 		name:    "process_vm_writev",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"default", "syscalls", "proc"},
 		params: []trace.ArgMeta{
@@ -6245,6 +6570,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Kcmp,
 		id32Bit: Sys32kcmp,
 		name:    "kcmp",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "proc"},
 		params: []trace.ArgMeta{
@@ -6267,6 +6593,7 @@ var CoreEvents = map[ID]Definition{
 		id:      FinitModule,
 		id32Bit: Sys32finit_module,
 		name:    "finit_module",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"default", "syscalls", "system", "system_module"},
 		params: []trace.ArgMeta{
@@ -6287,6 +6614,7 @@ var CoreEvents = map[ID]Definition{
 		id:      SchedSetattr,
 		id32Bit: Sys32sched_setattr,
 		name:    "sched_setattr",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "proc", "proc_sched"},
 		params: []trace.ArgMeta{
@@ -6307,6 +6635,7 @@ var CoreEvents = map[ID]Definition{
 		id:      SchedGetattr,
 		id32Bit: Sys32sched_getattr,
 		name:    "sched_getattr",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "proc", "proc_sched"},
 		params: []trace.ArgMeta{
@@ -6328,6 +6657,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Renameat2,
 		id32Bit: Sys32renameat2,
 		name:    "renameat2",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_file_ops"},
 		params: []trace.ArgMeta{
@@ -6350,6 +6680,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Seccomp,
 		id32Bit: Sys32seccomp,
 		name:    "seccomp",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "proc"},
 		params: []trace.ArgMeta{
@@ -6370,6 +6701,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Getrandom,
 		id32Bit: Sys32getrandom,
 		name:    "getrandom",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs"},
 		params: []trace.ArgMeta{
@@ -6390,6 +6722,7 @@ var CoreEvents = map[ID]Definition{
 		id:      MemfdCreate,
 		id32Bit: Sys32memfd_create,
 		name:    "memfd_create",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"default", "syscalls", "fs", "fs_file_ops"},
 		params: []trace.ArgMeta{
@@ -6409,6 +6742,7 @@ var CoreEvents = map[ID]Definition{
 		id:      KexecFileLoad,
 		id32Bit: Sys32Undefined,
 		name:    "kexec_file_load",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "system"},
 		params: []trace.ArgMeta{
@@ -6431,6 +6765,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Bpf,
 		id32Bit: Sys32bpf,
 		name:    "bpf",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "system"},
 		params: []trace.ArgMeta{
@@ -6451,6 +6786,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Execveat,
 		id32Bit: Sys32execveat,
 		name:    "execveat",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "proc", "proc_life"},
 		params: []trace.ArgMeta{
@@ -6474,6 +6810,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Userfaultfd,
 		id32Bit: Sys32userfaultfd,
 		name:    "userfaultfd",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "system"},
 		params: []trace.ArgMeta{
@@ -6492,6 +6829,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Membarrier,
 		id32Bit: Sys32membarrier,
 		name:    "membarrier",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "proc", "proc_mem"},
 		params: []trace.ArgMeta{
@@ -6511,6 +6849,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Mlock2,
 		id32Bit: Sys32mlock2,
 		name:    "mlock2",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "proc", "proc_mem"},
 		params: []trace.ArgMeta{
@@ -6531,6 +6870,7 @@ var CoreEvents = map[ID]Definition{
 		id:      CopyFileRange,
 		id32Bit: Sys32copy_file_range,
 		name:    "copy_file_range",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_read_write"},
 		params: []trace.ArgMeta{
@@ -6554,6 +6894,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Preadv2,
 		id32Bit: Sys32preadv2,
 		name:    "preadv2",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_read_write"},
 		params: []trace.ArgMeta{
@@ -6577,6 +6918,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Pwritev2,
 		id32Bit: Sys32pwritev2,
 		name:    "pwritev2",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_read_write"},
 		params: []trace.ArgMeta{
@@ -6600,6 +6942,7 @@ var CoreEvents = map[ID]Definition{
 		id:      PkeyMprotect,
 		id32Bit: Sys32pkey_mprotect,
 		name:    "pkey_mprotect",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "proc", "proc_mem"},
 		params: []trace.ArgMeta{
@@ -6621,6 +6964,7 @@ var CoreEvents = map[ID]Definition{
 		id:      PkeyAlloc,
 		id32Bit: Sys32pkey_alloc,
 		name:    "pkey_alloc",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "proc", "proc_mem"},
 		params: []trace.ArgMeta{
@@ -6640,6 +6984,7 @@ var CoreEvents = map[ID]Definition{
 		id:      PkeyFree,
 		id32Bit: Sys32pkey_free,
 		name:    "pkey_free",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "proc", "proc_mem"},
 		params: []trace.ArgMeta{
@@ -6658,6 +7003,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Statx,
 		id32Bit: Sys32statx,
 		name:    "statx",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_file_attr"},
 		params: []trace.ArgMeta{
@@ -6680,6 +7026,7 @@ var CoreEvents = map[ID]Definition{
 		id:      IoPgetevents,
 		id32Bit: Sys32io_pgetevents_time64,
 		name:    "io_pgetevents",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_async_io"},
 		params: []trace.ArgMeta{
@@ -6703,6 +7050,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Rseq,
 		id32Bit: Sys32rseq,
 		name:    "rseq",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls"},
 		params: []trace.ArgMeta{
@@ -6724,6 +7072,7 @@ var CoreEvents = map[ID]Definition{
 		id:      PidfdSendSignal,
 		id32Bit: Sys32pidfd_send_signal,
 		name:    "pidfd_send_signal",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "signals"},
 		params: []trace.ArgMeta{
@@ -6745,6 +7094,7 @@ var CoreEvents = map[ID]Definition{
 		id:      IoUringSetup,
 		id32Bit: Sys32io_uring_setup,
 		name:    "io_uring_setup",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls"},
 		params: []trace.ArgMeta{
@@ -6764,6 +7114,7 @@ var CoreEvents = map[ID]Definition{
 		id:      IoUringEnter,
 		id32Bit: Sys32io_uring_enter,
 		name:    "io_uring_enter",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls"},
 		params: []trace.ArgMeta{
@@ -6786,6 +7137,7 @@ var CoreEvents = map[ID]Definition{
 		id:      IoUringRegister,
 		id32Bit: Sys32io_uring_register,
 		name:    "io_uring_register",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls"},
 		params: []trace.ArgMeta{
@@ -6807,6 +7159,7 @@ var CoreEvents = map[ID]Definition{
 		id:      OpenTree,
 		id32Bit: Sys32open_tree,
 		name:    "open_tree",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls"},
 		params: []trace.ArgMeta{
@@ -6827,6 +7180,7 @@ var CoreEvents = map[ID]Definition{
 		id:      MoveMount,
 		id32Bit: Sys32move_mount,
 		name:    "move_mount",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"default", "syscalls", "fs"},
 		params: []trace.ArgMeta{
@@ -6849,6 +7203,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Fsopen,
 		id32Bit: Sys32fsopen,
 		name:    "fsopen",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs"},
 		params: []trace.ArgMeta{
@@ -6868,6 +7223,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Fsconfig,
 		id32Bit: Sys32fsconfig,
 		name:    "fsconfig",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs"},
 		params: []trace.ArgMeta{
@@ -6890,6 +7246,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Fsmount,
 		id32Bit: Sys32fsmount,
 		name:    "fsmount",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs"},
 		params: []trace.ArgMeta{
@@ -6910,6 +7267,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Fspick,
 		id32Bit: Sys32fspick,
 		name:    "fspick",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs"},
 		params: []trace.ArgMeta{
@@ -6930,6 +7288,7 @@ var CoreEvents = map[ID]Definition{
 		id:      PidfdOpen,
 		id32Bit: Sys32pidfd_open,
 		name:    "pidfd_open",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls"},
 		params: []trace.ArgMeta{
@@ -6949,6 +7308,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Clone3,
 		id32Bit: Sys32clone3,
 		name:    "clone3",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "proc", "proc_life"},
 		params: []trace.ArgMeta{
@@ -6968,6 +7328,7 @@ var CoreEvents = map[ID]Definition{
 		id:      CloseRange,
 		id32Bit: Sys32close_range,
 		name:    "close_range",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_file_ops"},
 		params: []trace.ArgMeta{
@@ -6987,6 +7348,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Openat2,
 		id32Bit: Sys32openat2,
 		name:    "openat2",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_file_ops"},
 		params: []trace.ArgMeta{
@@ -7008,6 +7370,7 @@ var CoreEvents = map[ID]Definition{
 		id:      PidfdGetfd,
 		id32Bit: Sys32pidfd_getfd,
 		name:    "pidfd_getfd",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls"},
 		params: []trace.ArgMeta{
@@ -7028,6 +7391,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Faccessat2,
 		id32Bit: Sys32faccessat2,
 		name:    "faccessat2",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_file_attr"},
 		params: []trace.ArgMeta{
@@ -7049,6 +7413,7 @@ var CoreEvents = map[ID]Definition{
 		id:      ProcessMadvise,
 		id32Bit: Sys32process_madvise,
 		name:    "process_madvise",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls"},
 		params: []trace.ArgMeta{
@@ -7071,6 +7436,7 @@ var CoreEvents = map[ID]Definition{
 		id:      EpollPwait2,
 		id32Bit: Sys32epoll_pwait2,
 		name:    "epoll_pwait2",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs", "fs_mux_io"},
 		params: []trace.ArgMeta{
@@ -7089,10 +7455,11 @@ var CoreEvents = map[ID]Definition{
 			},
 		},
 	},
-	MountSetatt: {
-		id:      MountSetatt,
+	MountSetattr: {
+		id:      MountSetattr,
 		id32Bit: Sys32mount_setattr,
 		name:    "mount_setattr",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs"},
 		params: []trace.ArgMeta{
@@ -7104,10 +7471,10 @@ var CoreEvents = map[ID]Definition{
 		},
 		dependencies: Dependencies{
 			tailCalls: []TailCall{
-				{"sys_enter_init_tail", "sys_enter_init", []uint32{uint32(MountSetatt)}},
-				{"sys_enter_submit_tail", "sys_enter_submit", []uint32{uint32(MountSetatt)}},
-				{"sys_exit_init_tail", "sys_exit_init", []uint32{uint32(MountSetatt)}},
-				{"sys_exit_submit_tail", "sys_exit_submit", []uint32{uint32(MountSetatt)}},
+				{"sys_enter_init_tail", "sys_enter_init", []uint32{uint32(MountSetattr)}},
+				{"sys_enter_submit_tail", "sys_enter_submit", []uint32{uint32(MountSetattr)}},
+				{"sys_exit_init_tail", "sys_exit_init", []uint32{uint32(MountSetattr)}},
+				{"sys_exit_submit_tail", "sys_exit_submit", []uint32{uint32(MountSetattr)}},
 			},
 		},
 	},
@@ -7115,6 +7482,7 @@ var CoreEvents = map[ID]Definition{
 		id:      QuotactlFd,
 		id32Bit: Sys32quotactl_fd,
 		name:    "quotactl_fd",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "fs"},
 		params: []trace.ArgMeta{
@@ -7136,6 +7504,7 @@ var CoreEvents = map[ID]Definition{
 		id:      LandlockCreateRuleset,
 		id32Bit: Sys32landlock_create_ruleset,
 		name:    "landlock_create_ruleset",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "proc", "fs"},
 		params: []trace.ArgMeta{
@@ -7156,6 +7525,7 @@ var CoreEvents = map[ID]Definition{
 		id:      LandlockAddRule,
 		id32Bit: Sys32landlock_add_rule,
 		name:    "landlock_add_rule",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "proc", "fs"},
 		params: []trace.ArgMeta{
@@ -7173,10 +7543,11 @@ var CoreEvents = map[ID]Definition{
 			},
 		},
 	},
-	LandloclRestrictSet: {
-		id:      LandloclRestrictSet,
+	LandlockRestrictSelf: {
+		id:      LandlockRestrictSelf,
 		id32Bit: Sys32landlock_restrict_self,
 		name:    "landlock_restrict_self",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "proc", "fs"},
 		params: []trace.ArgMeta{
@@ -7185,10 +7556,10 @@ var CoreEvents = map[ID]Definition{
 		},
 		dependencies: Dependencies{
 			tailCalls: []TailCall{
-				{"sys_enter_init_tail", "sys_enter_init", []uint32{uint32(LandloclRestrictSet)}},
-				{"sys_enter_submit_tail", "sys_enter_submit", []uint32{uint32(LandloclRestrictSet)}},
-				{"sys_exit_init_tail", "sys_exit_init", []uint32{uint32(LandloclRestrictSet)}},
-				{"sys_exit_submit_tail", "sys_exit_submit", []uint32{uint32(LandloclRestrictSet)}},
+				{"sys_enter_init_tail", "sys_enter_init", []uint32{uint32(LandlockRestrictSelf)}},
+				{"sys_enter_submit_tail", "sys_enter_submit", []uint32{uint32(LandlockRestrictSelf)}},
+				{"sys_exit_init_tail", "sys_exit_init", []uint32{uint32(LandlockRestrictSelf)}},
+				{"sys_exit_submit_tail", "sys_exit_submit", []uint32{uint32(LandlockRestrictSelf)}},
 			},
 		},
 	},
@@ -7196,6 +7567,7 @@ var CoreEvents = map[ID]Definition{
 		id:      MemfdSecret,
 		id32Bit: Sys32memfd_secret,
 		name:    "memfd_secret",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls"},
 		params: []trace.ArgMeta{
@@ -7214,6 +7586,7 @@ var CoreEvents = map[ID]Definition{
 		id:      ProcessMrelease,
 		id32Bit: Sys32process_mrelease,
 		name:    "process_mrelease",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls"},
 		params: []trace.ArgMeta{
@@ -7233,6 +7606,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Waitpid,
 		id32Bit: Sys32waitpid,
 		name:    "waitpid",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params: []trace.ArgMeta{
@@ -7253,6 +7627,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Oldfstat,
 		id32Bit: Sys32oldfstat,
 		name:    "oldfstat",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params:  []trace.ArgMeta{},
@@ -7269,6 +7644,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Break,
 		id32Bit: Sys32break,
 		name:    "break",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params:  []trace.ArgMeta{},
@@ -7285,6 +7661,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Oldstat,
 		id32Bit: Sys32oldstat,
 		name:    "oldstat",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params: []trace.ArgMeta{
@@ -7304,6 +7681,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Umount,
 		id32Bit: Sys32umount,
 		name:    "umount",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params: []trace.ArgMeta{
@@ -7322,6 +7700,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Stime,
 		id32Bit: Sys32stime,
 		name:    "stime",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params: []trace.ArgMeta{
@@ -7340,6 +7719,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Stty,
 		id32Bit: Sys32stty,
 		name:    "stty",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params:  []trace.ArgMeta{},
@@ -7356,6 +7736,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Gtty,
 		id32Bit: Sys32gtty,
 		name:    "gtty",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params:  []trace.ArgMeta{},
@@ -7372,6 +7753,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Nice,
 		id32Bit: Sys32nice,
 		name:    "nice",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params: []trace.ArgMeta{
@@ -7390,6 +7772,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Ftime,
 		id32Bit: Sys32ftime,
 		name:    "ftime",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params:  []trace.ArgMeta{},
@@ -7406,6 +7789,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Prof,
 		id32Bit: Sys32prof,
 		name:    "prof",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params:  []trace.ArgMeta{},
@@ -7422,6 +7806,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Signal,
 		id32Bit: Sys32signal,
 		name:    "signal",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params: []trace.ArgMeta{
@@ -7441,6 +7826,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Lock,
 		id32Bit: Sys32lock,
 		name:    "lock",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params:  []trace.ArgMeta{},
@@ -7457,6 +7843,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Mpx,
 		id32Bit: Sys32mpx,
 		name:    "mpx",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params:  []trace.ArgMeta{},
@@ -7473,6 +7860,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Ulimit,
 		id32Bit: Sys32ulimit,
 		name:    "ulimit",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params:  []trace.ArgMeta{},
@@ -7489,6 +7877,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Oldolduname,
 		id32Bit: Sys32oldolduname,
 		name:    "oldolduname",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params: []trace.ArgMeta{
@@ -7507,6 +7896,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Sigaction,
 		id32Bit: Sys32sigaction,
 		name:    "sigaction",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params: []trace.ArgMeta{
@@ -7527,6 +7917,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Sgetmask,
 		id32Bit: Sys32sgetmask,
 		name:    "sgetmask",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params:  []trace.ArgMeta{},
@@ -7543,6 +7934,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Ssetmask,
 		id32Bit: Sys32ssetmask,
 		name:    "ssetmask",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params: []trace.ArgMeta{
@@ -7561,6 +7953,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Sigsuspend,
 		id32Bit: Sys32sigsuspend,
 		name:    "sigsuspend",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params: []trace.ArgMeta{
@@ -7579,6 +7972,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Sigpending,
 		id32Bit: Sys32sigpending,
 		name:    "sigpending",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params: []trace.ArgMeta{
@@ -7597,6 +7991,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Oldlstat,
 		id32Bit: Sys32oldlstat,
 		name:    "oldlstat",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params: []trace.ArgMeta{
@@ -7616,6 +8011,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Readdir,
 		id32Bit: Sys32readdir,
 		name:    "readdir",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params: []trace.ArgMeta{
@@ -7636,6 +8032,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Profil,
 		id32Bit: Sys32profil,
 		name:    "profil",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params:  []trace.ArgMeta{},
@@ -7652,6 +8049,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Socketcall,
 		id32Bit: Sys32socketcall,
 		name:    "socketcall",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params: []trace.ArgMeta{
@@ -7671,6 +8069,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Olduname,
 		id32Bit: Sys32olduname,
 		name:    "olduname",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params: []trace.ArgMeta{
@@ -7689,6 +8088,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Idle,
 		id32Bit: Sys32idle,
 		name:    "idle",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params:  []trace.ArgMeta{},
@@ -7705,6 +8105,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Vm86old,
 		id32Bit: Sys32vm86old,
 		name:    "vm86old",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params: []trace.ArgMeta{
@@ -7723,6 +8124,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Ipc,
 		id32Bit: Sys32ipc,
 		name:    "ipc",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params: []trace.ArgMeta{
@@ -7746,6 +8148,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Sigreturn,
 		id32Bit: Sys32sigreturn,
 		name:    "sigreturn",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params:  []trace.ArgMeta{},
@@ -7762,6 +8165,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Sigprocmask,
 		id32Bit: Sys32sigprocmask,
 		name:    "sigprocmask",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params: []trace.ArgMeta{
@@ -7782,6 +8186,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Bdflush,
 		id32Bit: Sys32bdflush,
 		name:    "bdflush",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params:  []trace.ArgMeta{},
@@ -7798,6 +8203,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Afs_syscall,
 		id32Bit: Sys32afs_syscall,
 		name:    "afs_syscall",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params:  []trace.ArgMeta{},
@@ -7814,6 +8220,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Llseek,
 		id32Bit: Sys32_llseek,
 		name:    "llseek",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params: []trace.ArgMeta{
@@ -7836,6 +8243,7 @@ var CoreEvents = map[ID]Definition{
 		id:      OldSelect,
 		id32Bit: Sys32select,
 		name:    "old_select",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params: []trace.ArgMeta{
@@ -7858,6 +8266,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Vm86,
 		id32Bit: Sys32vm86,
 		name:    "vm86",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params: []trace.ArgMeta{
@@ -7877,6 +8286,7 @@ var CoreEvents = map[ID]Definition{
 		id:      OldGetrlimit,
 		id32Bit: Sys32getrlimit,
 		name:    "old_getrlimit",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params: []trace.ArgMeta{
@@ -7896,6 +8306,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Mmap2,
 		id32Bit: Sys32mmap2,
 		name:    "mmap2",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params: []trace.ArgMeta{
@@ -7919,6 +8330,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Truncate64,
 		id32Bit: Sys32truncate64,
 		name:    "truncate64",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params: []trace.ArgMeta{
@@ -7938,6 +8350,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Ftruncate64,
 		id32Bit: Sys32ftruncate64,
 		name:    "ftruncate64",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params: []trace.ArgMeta{
@@ -7957,6 +8370,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Stat64,
 		id32Bit: Sys32stat64,
 		name:    "stat64",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params: []trace.ArgMeta{
@@ -7976,6 +8390,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Lstat64,
 		id32Bit: Sys32lstat64,
 		name:    "lstat64",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params: []trace.ArgMeta{
@@ -7995,6 +8410,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Fstat64,
 		id32Bit: Sys32fstat64,
 		name:    "fstat64",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params: []trace.ArgMeta{
@@ -8014,6 +8430,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Lchown16,
 		id32Bit: Sys32lchown,
 		name:    "lchown16",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params: []trace.ArgMeta{
@@ -8034,6 +8451,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Getuid16,
 		id32Bit: Sys32getuid,
 		name:    "getuid16",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params:  []trace.ArgMeta{},
@@ -8050,6 +8468,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Getgid16,
 		id32Bit: Sys32getgid,
 		name:    "getgid16",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params:  []trace.ArgMeta{},
@@ -8066,6 +8485,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Geteuid16,
 		id32Bit: Sys32geteuid,
 		name:    "geteuid16",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params:  []trace.ArgMeta{},
@@ -8082,6 +8502,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Getegid16,
 		id32Bit: Sys32getegid,
 		name:    "getegid16",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params:  []trace.ArgMeta{},
@@ -8098,6 +8519,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Setreuid16,
 		id32Bit: Sys32setreuid,
 		name:    "setreuid16",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params: []trace.ArgMeta{
@@ -8117,6 +8539,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Setregid16,
 		id32Bit: Sys32setregid,
 		name:    "setregid16",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params: []trace.ArgMeta{
@@ -8136,6 +8559,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Getgroups16,
 		id32Bit: Sys32getgroups,
 		name:    "getgroups16",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params: []trace.ArgMeta{
@@ -8155,6 +8579,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Setgroups16,
 		id32Bit: Sys32setgroups,
 		name:    "setgroups16",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params: []trace.ArgMeta{
@@ -8174,6 +8599,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Fchown16,
 		id32Bit: Sys32fchown,
 		name:    "fchown16",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params: []trace.ArgMeta{
@@ -8194,6 +8620,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Setresuid16,
 		id32Bit: Sys32setresuid,
 		name:    "setresuid16",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params: []trace.ArgMeta{
@@ -8214,6 +8641,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Getresuid16,
 		id32Bit: Sys32getresuid,
 		name:    "getresuid16",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params: []trace.ArgMeta{
@@ -8234,6 +8662,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Setresgid16,
 		id32Bit: Sys32setresgid,
 		name:    "setresgid16",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params: []trace.ArgMeta{
@@ -8254,6 +8683,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Getresgid16,
 		id32Bit: Sys32getresgid,
 		name:    "getresgid16",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params: []trace.ArgMeta{
@@ -8274,6 +8704,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Chown16,
 		id32Bit: Sys32chown,
 		name:    "chown16",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params: []trace.ArgMeta{
@@ -8294,6 +8725,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Setuid16,
 		id32Bit: Sys32setuid,
 		name:    "setuid16",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params: []trace.ArgMeta{
@@ -8312,6 +8744,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Setgid16,
 		id32Bit: Sys32setgid,
 		name:    "setgid16",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params: []trace.ArgMeta{
@@ -8330,6 +8763,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Setfsuid16,
 		id32Bit: Sys32setfsuid,
 		name:    "setfsuid16",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params: []trace.ArgMeta{
@@ -8348,6 +8782,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Setfsgid16,
 		id32Bit: Sys32setfsgid,
 		name:    "setfsgid16",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params: []trace.ArgMeta{
@@ -8366,6 +8801,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Fcntl64,
 		id32Bit: Sys32fcntl64,
 		name:    "fcntl64",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params: []trace.ArgMeta{
@@ -8386,6 +8822,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Sendfile32,
 		id32Bit: Sys32sendfile,
 		name:    "sendfile32",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params: []trace.ArgMeta{
@@ -8407,6 +8844,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Statfs64,
 		id32Bit: Sys32statfs64,
 		name:    "statfs64",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params: []trace.ArgMeta{
@@ -8427,6 +8865,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Fstatfs64,
 		id32Bit: Sys32fstatfs64,
 		name:    "fstatfs64",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params: []trace.ArgMeta{
@@ -8447,6 +8886,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Fadvise64_64,
 		id32Bit: Sys32fadvise64_64,
 		name:    "fadvise64_64",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params: []trace.ArgMeta{
@@ -8468,6 +8908,7 @@ var CoreEvents = map[ID]Definition{
 		id:      ClockGettime32,
 		id32Bit: Sys32clock_gettime,
 		name:    "clock_gettime32",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params: []trace.ArgMeta{
@@ -8487,6 +8928,7 @@ var CoreEvents = map[ID]Definition{
 		id:      ClockSettime32,
 		id32Bit: Sys32clock_settime,
 		name:    "clock_settime32",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params: []trace.ArgMeta{
@@ -8506,6 +8948,7 @@ var CoreEvents = map[ID]Definition{
 		id:      ClockAdjtime64,
 		id32Bit: Sys32clock_adjtime64,
 		name:    "clock_adjtime64",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params:  []trace.ArgMeta{},
@@ -8522,6 +8965,7 @@ var CoreEvents = map[ID]Definition{
 		id:      ClockGetresTime32,
 		id32Bit: Sys32clock_getres,
 		name:    "clock_getres_time32",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params: []trace.ArgMeta{
@@ -8541,6 +8985,7 @@ var CoreEvents = map[ID]Definition{
 		id:      ClockNanosleepTime32,
 		id32Bit: Sys32clock_nanosleep,
 		name:    "clock_nanosleep_time32",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params: []trace.ArgMeta{
@@ -8562,6 +9007,7 @@ var CoreEvents = map[ID]Definition{
 		id:      TimerGettime32,
 		id32Bit: Sys32timer_gettime,
 		name:    "timer_gettime32",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params: []trace.ArgMeta{
@@ -8581,6 +9027,7 @@ var CoreEvents = map[ID]Definition{
 		id:      TimerSettime32,
 		id32Bit: Sys32timer_settime,
 		name:    "timer_settime32",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params: []trace.ArgMeta{
@@ -8602,6 +9049,7 @@ var CoreEvents = map[ID]Definition{
 		id:      TimerfdGettime32,
 		id32Bit: Sys32timerfd_gettime,
 		name:    "timerfd_gettime32",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params: []trace.ArgMeta{
@@ -8621,6 +9069,7 @@ var CoreEvents = map[ID]Definition{
 		id:      TimerfdSettime32,
 		id32Bit: Sys32timerfd_settime,
 		name:    "timerfd_settime32",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params: []trace.ArgMeta{
@@ -8642,6 +9091,7 @@ var CoreEvents = map[ID]Definition{
 		id:      UtimensatTime32,
 		id32Bit: Sys32utimensat,
 		name:    "utimensat_time32",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params: []trace.ArgMeta{
@@ -8663,6 +9113,7 @@ var CoreEvents = map[ID]Definition{
 		id:      Pselect6Time32,
 		id32Bit: Sys32pselect6,
 		name:    "pselect6_time32",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params: []trace.ArgMeta{
@@ -8686,6 +9137,7 @@ var CoreEvents = map[ID]Definition{
 		id:      PpollTime32,
 		id32Bit: Sys32ppoll,
 		name:    "ppoll_time32",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params: []trace.ArgMeta{
@@ -8708,6 +9160,7 @@ var CoreEvents = map[ID]Definition{
 		id:      IoPgeteventsTime32,
 		id32Bit: Sys32io_pgetevents,
 		name:    "io_pgetevents_time32",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params:  []trace.ArgMeta{},
@@ -8724,6 +9177,7 @@ var CoreEvents = map[ID]Definition{
 		id:      RecvmmsgTime32,
 		id32Bit: Sys32recvmmsg,
 		name:    "recvmmsg_time32",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params: []trace.ArgMeta{
@@ -8746,6 +9200,7 @@ var CoreEvents = map[ID]Definition{
 		id:      MqTimedsendTime32,
 		id32Bit: Sys32mq_timedsend,
 		name:    "mq_timedsend_time32",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params: []trace.ArgMeta{
@@ -8768,6 +9223,7 @@ var CoreEvents = map[ID]Definition{
 		id:      MqTimedreceiveTime32,
 		id32Bit: Sys32mq_timedreceive,
 		name:    "mq_timedreceive_time32",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params: []trace.ArgMeta{
@@ -8790,6 +9246,7 @@ var CoreEvents = map[ID]Definition{
 		id:      RtSigtimedwaitTime32,
 		id32Bit: Sys32rt_sigtimedwait,
 		name:    "rt_sigtimedwait_time32",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params: []trace.ArgMeta{
@@ -8811,6 +9268,7 @@ var CoreEvents = map[ID]Definition{
 		id:      FutexTime32,
 		id32Bit: Sys32futex,
 		name:    "futex_time32",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params: []trace.ArgMeta{
@@ -8834,6 +9292,7 @@ var CoreEvents = map[ID]Definition{
 		id:      SchedRrGetInterval32,
 		id32Bit: Sys32sched_rr_get_interval,
 		name:    "sched_rr_get_interval_time32",
+		version: NewVersion(1, 0, 0),
 		syscall: true,
 		sets:    []string{"syscalls", "32bit_unique"},
 		params: []trace.ArgMeta{
@@ -8856,6 +9315,7 @@ var CoreEvents = map[ID]Definition{
 		id:      SysEnter,
 		id32Bit: Sys32Undefined,
 		name:    "sys_enter",
+		version: NewVersion(1, 0, 0),
 		dependencies: Dependencies{
 			probes: []Probe{
 				{handle: probes.SysEnter, required: true},
@@ -8870,6 +9330,7 @@ var CoreEvents = map[ID]Definition{
 		id:      SysExit,
 		id32Bit: Sys32Undefined,
 		name:    "sys_exit",
+		version: NewVersion(1, 0, 0),
 		dependencies: Dependencies{
 			probes: []Probe{
 				{handle: probes.SysExit, required: true},
@@ -8884,6 +9345,7 @@ var CoreEvents = map[ID]Definition{
 		id:      SchedProcessFork,
 		id32Bit: Sys32Undefined,
 		name:    "sched_process_fork",
+		version: NewVersion(1, 0, 0),
 		dependencies: Dependencies{
 			probes: []Probe{
 				{handle: probes.SchedProcessFork, required: true},
@@ -8891,21 +9353,39 @@ var CoreEvents = map[ID]Definition{
 		},
 		sets: []string{},
 		params: []trace.ArgMeta{
+			// Real Parent
 			{Type: "int", Name: "parent_tid"},
 			{Type: "int", Name: "parent_ns_tid"},
 			{Type: "int", Name: "parent_pid"},
 			{Type: "int", Name: "parent_ns_pid"},
+			{Type: "unsigned long", Name: "parent_start_time"},
+			// Child
 			{Type: "int", Name: "child_tid"},
 			{Type: "int", Name: "child_ns_tid"},
 			{Type: "int", Name: "child_pid"},
 			{Type: "int", Name: "child_ns_pid"},
-			{Type: "unsigned long", Name: "start_time"},
+			{Type: "unsigned long", Name: "start_time"}, // child_start_time
+			// Arguments set by OPT_PROCESS_FORK (when process tree source is enabled for fork events).
+			// These arguments are always removed after process tree processing.
+			// Up Parent (Up in hierarchy until parent is a process and not a lwp)
+			{Type: "int", Name: "up_parent_tid"},
+			{Type: "int", Name: "up_parent_ns_tid"},
+			{Type: "int", Name: "up_parent_pid"},
+			{Type: "int", Name: "up_parent_ns_pid"},
+			{Type: "unsigned long", Name: "up_parent_start_time"},
+			// Thread Group Leader
+			{Type: "int", Name: "leader_tid"},
+			{Type: "int", Name: "leader_ns_tid"},
+			{Type: "int", Name: "leader_pid"},
+			{Type: "int", Name: "leader_ns_pid"},
+			{Type: "unsigned long", Name: "leader_start_time"},
 		},
 	},
 	SchedProcessExec: {
 		id:      SchedProcessExec,
 		id32Bit: Sys32Undefined,
 		name:    "sched_process_exec",
+		version: NewVersion(1, 0, 0),
 		dependencies: Dependencies{
 			probes: []Probe{
 				{handle: probes.SchedProcessExec, required: true},
@@ -8950,6 +9430,7 @@ var CoreEvents = map[ID]Definition{
 		id:      SchedProcessExit,
 		id32Bit: Sys32Undefined,
 		name:    "sched_process_exit",
+		version: NewVersion(1, 0, 0),
 		dependencies: Dependencies{
 			probes: []Probe{
 				{handle: probes.SchedProcessExit, required: true},
@@ -8969,6 +9450,7 @@ var CoreEvents = map[ID]Definition{
 		id:      SchedSwitch,
 		id32Bit: Sys32Undefined,
 		name:    "sched_switch",
+		version: NewVersion(1, 0, 0),
 		dependencies: Dependencies{
 			probes: []Probe{
 				{handle: probes.SchedSwitch, required: true},
@@ -8987,6 +9469,7 @@ var CoreEvents = map[ID]Definition{
 		id:      DoExit,
 		id32Bit: Sys32Undefined,
 		name:    "do_exit",
+		version: NewVersion(1, 0, 0),
 		dependencies: Dependencies{
 			probes: []Probe{{handle: probes.DoExit, required: true}},
 		},
@@ -8997,6 +9480,7 @@ var CoreEvents = map[ID]Definition{
 		id:      CapCapable,
 		id32Bit: Sys32Undefined,
 		name:    "cap_capable",
+		version: NewVersion(1, 0, 0),
 		dependencies: Dependencies{
 			probes: []Probe{
 				{handle: probes.CapCapable, required: true},
@@ -9011,6 +9495,7 @@ var CoreEvents = map[ID]Definition{
 		id:      VfsWrite,
 		id32Bit: Sys32Undefined,
 		name:    "vfs_write",
+		version: NewVersion(1, 0, 0),
 		dependencies: Dependencies{
 			probes: []Probe{
 				{handle: probes.VfsWrite, required: true},
@@ -9030,6 +9515,7 @@ var CoreEvents = map[ID]Definition{
 		id:      VfsWritev,
 		id32Bit: Sys32Undefined,
 		name:    "vfs_writev",
+		version: NewVersion(1, 0, 0),
 		dependencies: Dependencies{
 			probes: []Probe{
 				{handle: probes.VfsWriteV, required: true},
@@ -9049,6 +9535,7 @@ var CoreEvents = map[ID]Definition{
 		id:      MemProtAlert,
 		id32Bit: Sys32Undefined,
 		name:    "mem_prot_alert",
+		version: NewVersion(1, 0, 0),
 		dependencies: Dependencies{
 			probes: []Probe{
 				{handle: probes.SecurityMmapAddr, required: true},
@@ -9080,6 +9567,7 @@ var CoreEvents = map[ID]Definition{
 		id:      CommitCreds,
 		id32Bit: Sys32Undefined,
 		name:    "commit_creds",
+		version: NewVersion(1, 0, 0),
 		dependencies: Dependencies{
 			probes: []Probe{
 				{handle: probes.CommitCreds, required: true},
@@ -9095,6 +9583,7 @@ var CoreEvents = map[ID]Definition{
 		id:      SwitchTaskNS,
 		id32Bit: Sys32Undefined,
 		name:    "switch_task_ns",
+		version: NewVersion(1, 0, 0),
 		dependencies: Dependencies{
 			probes: []Probe{
 				{handle: probes.SwitchTaskNS, required: true},
@@ -9115,6 +9604,7 @@ var CoreEvents = map[ID]Definition{
 		id:      MagicWrite,
 		id32Bit: Sys32Undefined,
 		name:    "magic_write",
+		version: NewVersion(1, 0, 0),
 		docPath: "security_alerts/magic_write.md",
 		dependencies: Dependencies{
 			probes: []Probe{
@@ -9138,6 +9628,7 @@ var CoreEvents = map[ID]Definition{
 		id:      CgroupAttachTask,
 		id32Bit: Sys32Undefined,
 		name:    "cgroup_attach_task",
+		version: NewVersion(1, 0, 0),
 		dependencies: Dependencies{
 			probes: []Probe{
 				{handle: probes.CgroupAttachTask, required: true},
@@ -9154,6 +9645,7 @@ var CoreEvents = map[ID]Definition{
 		id:      CgroupMkdir,
 		id32Bit: Sys32Undefined,
 		name:    "cgroup_mkdir",
+		version: NewVersion(1, 0, 0),
 		dependencies: Dependencies{
 			probes: []Probe{
 				{handle: probes.CgroupMkdir, required: true},
@@ -9170,6 +9662,7 @@ var CoreEvents = map[ID]Definition{
 		id:      CgroupRmdir,
 		id32Bit: Sys32Undefined,
 		name:    "cgroup_rmdir",
+		version: NewVersion(1, 0, 0),
 		dependencies: Dependencies{
 			probes: []Probe{
 				{handle: probes.CgroupRmdir, required: true},
@@ -9186,6 +9679,7 @@ var CoreEvents = map[ID]Definition{
 		id:      SecurityBprmCheck,
 		id32Bit: Sys32Undefined,
 		name:    "security_bprm_check",
+		version: NewVersion(1, 0, 0),
 		dependencies: Dependencies{
 			probes: []Probe{
 				{handle: probes.SecurityBPRMCheck, required: true},
@@ -9214,6 +9708,7 @@ var CoreEvents = map[ID]Definition{
 		id:      SecurityFileOpen,
 		id32Bit: Sys32Undefined,
 		name:    "security_file_open",
+		version: NewVersion(1, 0, 0),
 		dependencies: Dependencies{
 			probes: []Probe{
 				{handle: probes.SecurityFileOpen, required: true},
@@ -9245,6 +9740,7 @@ var CoreEvents = map[ID]Definition{
 		id:      SecurityInodeUnlink,
 		id32Bit: Sys32Undefined,
 		name:    "security_inode_unlink",
+		version: NewVersion(1, 0, 0),
 		dependencies: Dependencies{
 			probes: []Probe{
 				{handle: probes.SecurityInodeUnlink, required: true},
@@ -9262,6 +9758,7 @@ var CoreEvents = map[ID]Definition{
 		id:      SecuritySocketCreate,
 		id32Bit: Sys32Undefined,
 		name:    "security_socket_create",
+		version: NewVersion(1, 0, 0),
 		dependencies: Dependencies{
 			probes: []Probe{
 				{handle: probes.SecuritySocketCreate, required: true},
@@ -9279,6 +9776,7 @@ var CoreEvents = map[ID]Definition{
 		id:      SecuritySocketListen,
 		id32Bit: Sys32Undefined,
 		name:    "security_socket_listen",
+		version: NewVersion(1, 0, 0),
 		dependencies: Dependencies{
 			probes: []Probe{
 				{handle: probes.SecuritySocketListen, required: true},
@@ -9299,6 +9797,7 @@ var CoreEvents = map[ID]Definition{
 		id:      SecuritySocketConnect,
 		id32Bit: Sys32Undefined,
 		name:    "security_socket_connect",
+		version: NewVersion(1, 0, 0),
 		dependencies: Dependencies{
 			probes: []Probe{
 				{handle: probes.SecuritySocketConnect, required: true},
@@ -9318,6 +9817,7 @@ var CoreEvents = map[ID]Definition{
 		id:      SecuritySocketAccept,
 		id32Bit: Sys32Undefined,
 		name:    "security_socket_accept",
+		version: NewVersion(1, 0, 0),
 		dependencies: Dependencies{
 			probes: []Probe{
 				{handle: probes.SecuritySocketAccept, required: true},
@@ -9337,6 +9837,7 @@ var CoreEvents = map[ID]Definition{
 		id:      SecuritySocketBind,
 		id32Bit: Sys32Undefined,
 		name:    "security_socket_bind",
+		version: NewVersion(1, 0, 0),
 		dependencies: Dependencies{
 			probes: []Probe{
 				{handle: probes.SecuritySocketBind, required: true},
@@ -9356,6 +9857,7 @@ var CoreEvents = map[ID]Definition{
 		id:      SecuritySocketSetsockopt,
 		id32Bit: Sys32Undefined,
 		name:    "security_socket_setsockopt",
+		version: NewVersion(1, 0, 0),
 		docPath: "lsm_hooks/security_socket_setsockopt.md",
 		dependencies: Dependencies{
 			probes: []Probe{
@@ -9378,6 +9880,7 @@ var CoreEvents = map[ID]Definition{
 		id:      SecuritySbMount,
 		id32Bit: Sys32Undefined,
 		name:    "security_sb_mount",
+		version: NewVersion(1, 0, 0),
 		dependencies: Dependencies{
 			probes: []Probe{
 				{handle: probes.SecuritySbMount, required: true},
@@ -9395,6 +9898,7 @@ var CoreEvents = map[ID]Definition{
 		id:      SecurityBPF,
 		id32Bit: Sys32Undefined,
 		name:    "security_bpf",
+		version: NewVersion(1, 0, 0),
 		dependencies: Dependencies{
 			probes: []Probe{
 				{handle: probes.SecurityBPF, required: true},
@@ -9409,6 +9913,7 @@ var CoreEvents = map[ID]Definition{
 		id:      SecurityBPFMap,
 		id32Bit: Sys32Undefined,
 		name:    "security_bpf_map",
+		version: NewVersion(1, 0, 0),
 		dependencies: Dependencies{
 			probes: []Probe{
 				{handle: probes.SecurityBPFMap, required: true},
@@ -9424,6 +9929,7 @@ var CoreEvents = map[ID]Definition{
 		id:      SecurityKernelReadFile,
 		id32Bit: Sys32Undefined,
 		name:    "security_kernel_read_file",
+		version: NewVersion(1, 0, 0),
 		dependencies: Dependencies{
 			probes: []Probe{
 				{handle: probes.SecurityKernelReadFile, required: true},
@@ -9442,6 +9948,7 @@ var CoreEvents = map[ID]Definition{
 		id:      SecurityPostReadFile,
 		id32Bit: Sys32Undefined,
 		name:    "security_kernel_post_read_file",
+		version: NewVersion(1, 0, 0),
 		dependencies: Dependencies{
 			probes: []Probe{
 				{handle: probes.SecurityKernelPostReadFile, required: true},
@@ -9458,6 +9965,7 @@ var CoreEvents = map[ID]Definition{
 		id:      SecurityInodeMknod,
 		id32Bit: Sys32Undefined,
 		name:    "security_inode_mknod",
+		version: NewVersion(1, 0, 0),
 		dependencies: Dependencies{
 			probes: []Probe{
 				{handle: probes.SecurityInodeMknod, required: true},
@@ -9474,6 +9982,7 @@ var CoreEvents = map[ID]Definition{
 		id:      SecurityInodeSymlinkEventId,
 		id32Bit: Sys32Undefined,
 		name:    "security_inode_symlink",
+		version: NewVersion(1, 0, 0),
 		dependencies: Dependencies{
 			probes: []Probe{
 				{handle: probes.SecurityInodeSymlink, required: true},
@@ -9489,6 +9998,7 @@ var CoreEvents = map[ID]Definition{
 		id:      SecurityMmapFile,
 		id32Bit: Sys32Undefined,
 		name:    "security_mmap_file",
+		version: NewVersion(1, 0, 0),
 		dependencies: Dependencies{
 			probes: []Probe{
 				{handle: probes.SecurityMmapFile, required: true},
@@ -9509,6 +10019,7 @@ var CoreEvents = map[ID]Definition{
 		id:      DoMmap,
 		id32Bit: Sys32Undefined,
 		name:    "do_mmap",
+		version: NewVersion(1, 0, 0),
 		dependencies: Dependencies{
 			probes: []Probe{
 				{handle: probes.DoMmap, required: true},
@@ -9533,6 +10044,7 @@ var CoreEvents = map[ID]Definition{
 		id:      SecurityFileMprotect,
 		id32Bit: Sys32Undefined,
 		name:    "security_file_mprotect",
+		version: NewVersion(1, 0, 0),
 		docPath: "lsm_hooks/security_file_mprotect.md",
 		dependencies: Dependencies{
 			probes: []Probe{
@@ -9558,6 +10070,7 @@ var CoreEvents = map[ID]Definition{
 		id:      InitNamespaces,
 		id32Bit: Sys32Undefined,
 		name:    "init_namespaces",
+		version: NewVersion(1, 0, 0),
 		sets:    []string{},
 		dependencies: Dependencies{
 			capabilities: Capabilities{
@@ -9583,6 +10096,7 @@ var CoreEvents = map[ID]Definition{
 		id:      SocketDup,
 		id32Bit: Sys32Undefined,
 		name:    "socket_dup",
+		version: NewVersion(1, 0, 0),
 		dependencies: Dependencies{
 			tailCalls: []TailCall{
 				{"sys_enter_init_tail", "sys_enter_init", []uint32{uint32(Dup), uint32(Dup2), uint32(Dup3)}},
@@ -9601,6 +10115,7 @@ var CoreEvents = map[ID]Definition{
 		id:      HiddenInodes,
 		id32Bit: Sys32Undefined,
 		name:    "hidden_inodes",
+		version: NewVersion(1, 0, 0),
 		dependencies: Dependencies{
 			probes: []Probe{
 				{handle: probes.Filldir64, required: true},
@@ -9615,6 +10130,7 @@ var CoreEvents = map[ID]Definition{
 		id:      KernelWrite,
 		id32Bit: Sys32Undefined,
 		name:    "__kernel_write",
+		version: NewVersion(1, 0, 0),
 		dependencies: Dependencies{
 			probes: []Probe{
 				{handle: probes.KernelWrite, required: true},
@@ -9634,6 +10150,7 @@ var CoreEvents = map[ID]Definition{
 		id:      DirtyPipeSplice,
 		id32Bit: Sys32Undefined,
 		name:    "dirty_pipe_splice",
+		version: NewVersion(1, 0, 0),
 		sets:    []string{},
 		dependencies: Dependencies{
 			probes: []Probe{
@@ -9658,6 +10175,7 @@ var CoreEvents = map[ID]Definition{
 		id:      ContainerCreate,
 		id32Bit: Sys32Undefined,
 		name:    "container_create",
+		version: NewVersion(1, 0, 0),
 		dependencies: Dependencies{
 			ids: []ID{CgroupMkdir},
 		},
@@ -9679,6 +10197,7 @@ var CoreEvents = map[ID]Definition{
 		id:      ContainerRemove,
 		id32Bit: Sys32Undefined,
 		name:    "container_remove",
+		version: NewVersion(1, 0, 0),
 		dependencies: Dependencies{
 			ids: []ID{CgroupRmdir},
 		},
@@ -9692,6 +10211,7 @@ var CoreEvents = map[ID]Definition{
 		id:      ExistingContainer,
 		id32Bit: Sys32Undefined,
 		name:    "existing_container",
+		version: NewVersion(1, 0, 0),
 		sets:    []string{"containers"},
 		params: []trace.ArgMeta{
 			{Type: "const char*", Name: "runtime"},
@@ -9710,6 +10230,7 @@ var CoreEvents = map[ID]Definition{
 		id:      ProcCreate,
 		id32Bit: Sys32Undefined,
 		name:    "proc_create",
+		version: NewVersion(1, 0, 0),
 		dependencies: Dependencies{
 			probes: []Probe{
 				{handle: probes.ProcCreate, required: true},
@@ -9725,6 +10246,7 @@ var CoreEvents = map[ID]Definition{
 		id:      KprobeAttach,
 		id32Bit: Sys32Undefined,
 		name:    "kprobe_attach",
+		version: NewVersion(1, 0, 0),
 		dependencies: Dependencies{
 			probes: []Probe{
 				{handle: probes.RegisterKprobe, required: true},
@@ -9742,6 +10264,7 @@ var CoreEvents = map[ID]Definition{
 		id:      CallUsermodeHelper,
 		id32Bit: Sys32Undefined,
 		name:    "call_usermodehelper",
+		version: NewVersion(1, 0, 0),
 		dependencies: Dependencies{
 			probes: []Probe{
 				{handle: probes.CallUsermodeHelper, required: true},
@@ -9759,6 +10282,7 @@ var CoreEvents = map[ID]Definition{
 		id:      DebugfsCreateFile,
 		id32Bit: Sys32Undefined,
 		name:    "debugfs_create_file",
+		version: NewVersion(1, 0, 0),
 		dependencies: Dependencies{
 			probes: []Probe{
 				{handle: probes.DebugfsCreateFile, required: true},
@@ -9772,14 +10296,15 @@ var CoreEvents = map[ID]Definition{
 			{Type: "void*", Name: "proc_ops_addr"},
 		},
 	},
-	PrintSyscallTable: {
-		id:       PrintSyscallTable,
+	SyscallTableCheck: {
+		id:       SyscallTableCheck,
 		id32Bit:  Sys32Undefined,
-		name:     "print_syscall_table",
+		name:     "syscall_table_check",
+		version:  NewVersion(1, 0, 0),
 		internal: true,
 		dependencies: Dependencies{
 			probes: []Probe{
-				{handle: probes.PrintSyscallTable, required: true},
+				{handle: probes.SyscallTableCheck, required: true},
 			},
 			kSymbols: []KSymbol{
 				{symbol: "sys_call_table", required: true},
@@ -9787,14 +10312,15 @@ var CoreEvents = map[ID]Definition{
 		},
 		sets: []string{},
 		params: []trace.ArgMeta{
-			{Type: "unsigned long[]", Name: "syscalls_addresses"},
-			{Type: "unsigned long", Name: trigger.ContextArgName},
+			{Type: "int", Name: "syscall_id"},
+			{Type: "unsigned long", Name: "syscall_address"},
 		},
 	},
 	HiddenKernelModule: {
 		id:      HiddenKernelModule,
 		id32Bit: Sys32Undefined,
 		name:    "hidden_kernel_module",
+		version: NewVersion(1, 0, 0),
 		dependencies: Dependencies{
 			ids: []ID{
 				HiddenKernelModuleSeeker,
@@ -9811,6 +10337,7 @@ var CoreEvents = map[ID]Definition{
 		id:       HiddenKernelModuleSeeker,
 		id32Bit:  Sys32Undefined,
 		name:     "hidden_kernel_module_seeker",
+		version:  NewVersion(1, 0, 0),
 		internal: true,
 		dependencies: Dependencies{
 			probes: []Probe{
@@ -9842,35 +10369,29 @@ var CoreEvents = map[ID]Definition{
 			{Type: "bytes", Name: "srcversion"},
 		},
 	},
-	HookedSyscalls: {
-		id:      HookedSyscalls,
+	HookedSyscall: {
+		id:      HookedSyscall,
 		id32Bit: Sys32Undefined,
-		name:    "hooked_syscalls",
+		name:    "hooked_syscall",
+		version: NewVersion(1, 0, 0),
 		dependencies: Dependencies{
-			kSymbols: []KSymbol{
-				{symbol: "_stext", required: true},
-				{symbol: "_etext", required: true},
-			},
 			ids: []ID{
-				DoInitModule,
-				PrintSyscallTable,
-			},
-			capabilities: Capabilities{
-				base: []cap.Value{
-					cap.SYSLOG, // read /proc/kallsyms
-				},
+				SyscallTableCheck,
 			},
 		},
 		sets: []string{},
 		params: []trace.ArgMeta{
-			{Type: "[]char*", Name: "check_syscalls"},
-			{Type: "[]trace.HookedSymbolData", Name: "hooked_syscalls"},
+			{Type: "const char*", Name: "syscall"},
+			{Type: "const char*", Name: "address"},
+			{Type: "const char*", Name: "function"},
+			{Type: "const char*", Name: "owner"},
 		},
 	},
 	DebugfsCreateDir: {
 		id:      DebugfsCreateDir,
 		id32Bit: Sys32Undefined,
 		name:    "debugfs_create_dir",
+		version: NewVersion(1, 0, 0),
 		dependencies: Dependencies{
 			probes: []Probe{
 				{handle: probes.DebugfsCreateDir, required: true},
@@ -9886,6 +10407,7 @@ var CoreEvents = map[ID]Definition{
 		id:      DeviceAdd,
 		id32Bit: Sys32Undefined,
 		name:    "device_add",
+		version: NewVersion(1, 0, 0),
 		dependencies: Dependencies{
 			probes: []Probe{
 				{handle: probes.DeviceAdd, required: true},
@@ -9901,6 +10423,7 @@ var CoreEvents = map[ID]Definition{
 		id:      RegisterChrdev,
 		id32Bit: Sys32Undefined,
 		name:    "register_chrdev",
+		version: NewVersion(1, 0, 0),
 		dependencies: Dependencies{
 			probes: []Probe{
 				{handle: probes.RegisterChrdev, required: true},
@@ -9919,6 +10442,7 @@ var CoreEvents = map[ID]Definition{
 		id:      SharedObjectLoaded,
 		id32Bit: Sys32Undefined,
 		name:    "shared_object_loaded",
+		version: NewVersion(1, 0, 0),
 		dependencies: Dependencies{
 			probes: []Probe{
 				{handle: probes.SecurityMmapFile, required: true},
@@ -9942,6 +10466,7 @@ var CoreEvents = map[ID]Definition{
 		id:      SymbolsLoaded,
 		id32Bit: Sys32Undefined,
 		name:    "symbols_loaded",
+		version: NewVersion(1, 0, 0),
 		docPath: "security_alerts/symbols_load.md",
 		dependencies: Dependencies{
 			ids: []ID{
@@ -9959,6 +10484,7 @@ var CoreEvents = map[ID]Definition{
 		id:      SymbolsCollision,
 		id32Bit: Sys32Undefined,
 		name:    "symbols_collision",
+		version: NewVersion(1, 0, 0),
 		docPath: "security_alerts/symbols_collision.md",
 		dependencies: Dependencies{
 			ids: []ID{
@@ -9977,6 +10503,7 @@ var CoreEvents = map[ID]Definition{
 		id:       CaptureFileWrite,
 		id32Bit:  Sys32Undefined,
 		name:     "capture_file_write",
+		version:  NewVersion(1, 0, 0),
 		internal: true,
 		dependencies: Dependencies{
 			probes: []Probe{
@@ -10003,6 +10530,7 @@ var CoreEvents = map[ID]Definition{
 		id:       CaptureFileRead,
 		id32Bit:  Sys32Undefined,
 		name:     "capture_file_read",
+		version:  NewVersion(1, 0, 0),
 		internal: true,
 		dependencies: Dependencies{
 			probes: []Probe{
@@ -10026,6 +10554,7 @@ var CoreEvents = map[ID]Definition{
 		id:       CaptureExec,
 		id32Bit:  Sys32Undefined,
 		name:     "capture_exec",
+		version:  NewVersion(1, 0, 0),
 		internal: true,
 		dependencies: Dependencies{
 			ids: []ID{
@@ -10042,6 +10571,7 @@ var CoreEvents = map[ID]Definition{
 		id:       CaptureModule,
 		id32Bit:  Sys32Undefined,
 		name:     "capture_module",
+		version:  NewVersion(1, 0, 0),
 		internal: true,
 		dependencies: Dependencies{
 			probes: []Probe{
@@ -10063,6 +10593,7 @@ var CoreEvents = map[ID]Definition{
 		id:       CaptureMem,
 		id32Bit:  Sys32Undefined,
 		name:     "capture_mem",
+		version:  NewVersion(1, 0, 0),
 		internal: true,
 		dependencies: Dependencies{
 			tailCalls: []TailCall{
@@ -10074,6 +10605,7 @@ var CoreEvents = map[ID]Definition{
 		id:       CaptureBpf,
 		id32Bit:  Sys32Undefined,
 		name:     "capture_bpf",
+		version:  NewVersion(1, 0, 0),
 		internal: true,
 		dependencies: Dependencies{
 			probes: []Probe{
@@ -10088,6 +10620,7 @@ var CoreEvents = map[ID]Definition{
 		id:      DoInitModule,
 		id32Bit: Sys32Undefined,
 		name:    "do_init_module",
+		version: NewVersion(1, 0, 0),
 		dependencies: Dependencies{
 			probes: []Probe{
 				{handle: probes.DoInitModule, required: true},
@@ -10105,6 +10638,7 @@ var CoreEvents = map[ID]Definition{
 		id:      ModuleLoad,
 		id32Bit: Sys32Undefined,
 		name:    "module_load",
+		version: NewVersion(1, 0, 0),
 		dependencies: Dependencies{
 			probes: []Probe{
 				{handle: probes.ModuleLoad, required: true},
@@ -10121,6 +10655,7 @@ var CoreEvents = map[ID]Definition{
 		id:      ModuleFree,
 		id32Bit: Sys32Undefined,
 		name:    "module_free",
+		version: NewVersion(1, 0, 0),
 		dependencies: Dependencies{
 			probes: []Probe{
 				{handle: probes.ModuleFree, required: true},
@@ -10137,6 +10672,7 @@ var CoreEvents = map[ID]Definition{
 		id:       SocketAccept,
 		id32Bit:  Sys32Undefined,
 		name:     "socket_accept",
+		version:  NewVersion(1, 0, 0),
 		internal: false,
 		dependencies: Dependencies{
 			probes: []Probe{
@@ -10161,6 +10697,7 @@ var CoreEvents = map[ID]Definition{
 		id:      LoadElfPhdrs,
 		id32Bit: Sys32Undefined,
 		name:    "load_elf_phdrs",
+		version: NewVersion(1, 0, 0),
 		dependencies: Dependencies{
 			probes: []Probe{
 				{handle: probes.LoadElfPhdrs, required: true},
@@ -10177,6 +10714,7 @@ var CoreEvents = map[ID]Definition{
 		id:      HookedProcFops,
 		id32Bit: Sys32Undefined,
 		name:    "hooked_proc_fops",
+		version: NewVersion(1, 0, 0),
 		dependencies: Dependencies{
 			probes: []Probe{
 				{handle: probes.SecurityFilePermission, required: true},
@@ -10203,6 +10741,7 @@ var CoreEvents = map[ID]Definition{
 		id:      PrintNetSeqOps,
 		id32Bit: Sys32Undefined,
 		name:    "print_net_seq_ops",
+		version: NewVersion(1, 0, 0),
 		dependencies: Dependencies{
 			probes: []Probe{
 				{handle: probes.PrintNetSeqOps, required: true},
@@ -10227,6 +10766,7 @@ var CoreEvents = map[ID]Definition{
 		id:      HookedSeqOps,
 		id32Bit: Sys32Undefined,
 		name:    "hooked_seq_ops",
+		version: NewVersion(1, 0, 0),
 		dependencies: Dependencies{
 			kSymbols: []KSymbol{
 				{symbol: "_stext", required: true},
@@ -10251,6 +10791,7 @@ var CoreEvents = map[ID]Definition{
 		id:      TaskRename,
 		id32Bit: Sys32Undefined,
 		name:    "task_rename",
+		version: NewVersion(1, 0, 0),
 		dependencies: Dependencies{
 			probes: []Probe{
 				{handle: probes.TaskRename, required: true},
@@ -10266,6 +10807,7 @@ var CoreEvents = map[ID]Definition{
 		id:      SecurityInodeRename,
 		id32Bit: Sys32Undefined,
 		name:    "security_inode_rename",
+		version: NewVersion(1, 0, 0),
 		dependencies: Dependencies{
 			probes: []Probe{
 				{handle: probes.SecurityInodeRename, required: true},
@@ -10281,6 +10823,7 @@ var CoreEvents = map[ID]Definition{
 		id:      DoSigaction,
 		id32Bit: Sys32Undefined,
 		name:    "do_sigaction",
+		version: NewVersion(1, 0, 0),
 		dependencies: Dependencies{
 			probes: []Probe{
 				{handle: probes.DoSigaction, required: true},
@@ -10305,6 +10848,7 @@ var CoreEvents = map[ID]Definition{
 		id:      BpfAttach,
 		id32Bit: Sys32Undefined,
 		name:    "bpf_attach",
+		version: NewVersion(1, 0, 0),
 		docPath: "docs/events/builtin/extra/bpf_attach.md",
 		dependencies: Dependencies{
 			probes: []Probe{
@@ -10331,6 +10875,7 @@ var CoreEvents = map[ID]Definition{
 		id:      KallsymsLookupName,
 		id32Bit: Sys32Undefined,
 		name:    "kallsyms_lookup_name",
+		version: NewVersion(1, 0, 0),
 		docPath: "kprobes/kallsyms_lookup_name.md",
 		dependencies: Dependencies{
 			probes: []Probe{
@@ -10348,6 +10893,7 @@ var CoreEvents = map[ID]Definition{
 		id:      PrintMemDump,
 		id32Bit: Sys32Undefined,
 		name:    "print_mem_dump",
+		version: NewVersion(1, 0, 0),
 		sets:    []string{},
 		dependencies: Dependencies{
 			probes: []Probe{
@@ -10383,6 +10929,7 @@ var CoreEvents = map[ID]Definition{
 		id:      VfsRead,
 		id32Bit: Sys32Undefined,
 		name:    "vfs_read",
+		version: NewVersion(1, 0, 0),
 		dependencies: Dependencies{
 			probes: []Probe{
 				{handle: probes.VfsRead, required: true},
@@ -10402,6 +10949,7 @@ var CoreEvents = map[ID]Definition{
 		id:      VfsReadv,
 		id32Bit: Sys32Undefined,
 		name:    "vfs_readv",
+		version: NewVersion(1, 0, 0),
 		dependencies: Dependencies{
 			probes: []Probe{
 				{handle: probes.VfsReadV, required: true},
@@ -10421,6 +10969,7 @@ var CoreEvents = map[ID]Definition{
 		id:      VfsUtimes,
 		id32Bit: Sys32Undefined,
 		name:    "vfs_utimes",
+		version: NewVersion(1, 0, 0),
 		dependencies: Dependencies{
 			probes: []Probe{
 				{handle: probes.VfsUtimes, required: false},    // this probe exits in kernels >= 5.9
@@ -10440,6 +10989,7 @@ var CoreEvents = map[ID]Definition{
 		id:      DoTruncate,
 		id32Bit: Sys32Undefined,
 		name:    "do_truncate",
+		version: NewVersion(1, 0, 0),
 		dependencies: Dependencies{
 			probes: []Probe{
 				{handle: probes.DoTruncate, required: true},
@@ -10457,6 +11007,7 @@ var CoreEvents = map[ID]Definition{
 		id:      FileModification,
 		id32Bit: Sys32Undefined,
 		name:    "file_modification",
+		version: NewVersion(1, 0, 0),
 		docPath: "kprobes/file_modification.md",
 		sets:    []string{},
 		params: []trace.ArgMeta{
@@ -10481,6 +11032,7 @@ var CoreEvents = map[ID]Definition{
 		id:      InotifyWatch,
 		id32Bit: Sys32Undefined,
 		name:    "inotify_watch",
+		version: NewVersion(1, 0, 0),
 		dependencies: Dependencies{
 			probes: []Probe{
 				{handle: probes.InotifyFindInode, required: true},
@@ -10498,6 +11050,7 @@ var CoreEvents = map[ID]Definition{
 		id:      SecurityBpfProg,
 		id32Bit: Sys32Undefined,
 		name:    "security_bpf_prog",
+		version: NewVersion(1, 0, 0),
 		docPath: "docs/events/builtin/extra/security_bpf_prog.md",
 		dependencies: Dependencies{
 			probes: []Probe{
@@ -10520,6 +11073,7 @@ var CoreEvents = map[ID]Definition{
 		id:      ProcessExecuteFailed,
 		id32Bit: Sys32Undefined,
 		name:    "process_execute_failed",
+		version: NewVersion(1, 0, 0),
 		sets:    []string{"proc"},
 		dependencies: Dependencies{
 			probes: []Probe{
@@ -10547,6 +11101,156 @@ var CoreEvents = map[ID]Definition{
 			{Type: "const char*const*", Name: "environment"},
 		},
 	},
+	FtraceHook: {
+		id:      FtraceHook,
+		id32Bit: Sys32Undefined,
+		name:    "ftrace_hook",
+		sets:    []string{},
+		params: []trace.ArgMeta{
+			{Type: "const char*", Name: "symbol"},
+			{Type: "const char*", Name: "trampoline"},
+			{Type: "const char*", Name: "callback"},
+			{Type: "off_t", Name: "callback_offset"},
+			{Type: "const char*", Name: "callback_owner"},
+			{Type: "const char*", Name: "flags"},
+			{Type: "unsigned long", Name: "count"},
+		},
+	},
+	//
+	// Begin of Signal Events (Control Plane)
+	//
+	SignalCgroupMkdir: {
+		id:       SignalCgroupMkdir,
+		id32Bit:  Sys32Undefined,
+		name:     "signal_cgroup_mkdir",
+		internal: true,
+		dependencies: Dependencies{
+			probes: []Probe{
+				{handle: probes.SignalCgroupMkdir, required: true},
+			},
+		},
+		sets: []string{"signal"},
+		params: []trace.ArgMeta{
+			{Type: "u64", Name: "cgroup_id"},
+			{Type: "const char*", Name: "cgroup_path"},
+			{Type: "u32", Name: "hierarchy_id"},
+		},
+	},
+	SignalCgroupRmdir: {
+		id:       SignalCgroupRmdir,
+		id32Bit:  Sys32Undefined,
+		name:     "signal_cgroup_rmdir",
+		internal: true,
+		dependencies: Dependencies{
+			probes: []Probe{
+				{handle: probes.SignalCgroupRmdir, required: true},
+			},
+		},
+		sets: []string{"signal"},
+		params: []trace.ArgMeta{
+			{Type: "u64", Name: "cgroup_id"},
+			{Type: "const char*", Name: "cgroup_path"},
+			{Type: "u32", Name: "hierarchy_id"},
+		},
+	},
+	SignalSchedProcessFork: {
+		id:       SignalSchedProcessFork,
+		id32Bit:  Sys32Undefined,
+		name:     "signal_sched_process_fork",
+		internal: true,
+		dependencies: Dependencies{
+			probes: []Probe{
+				{handle: probes.SignalSchedProcessFork, required: true},
+			},
+		},
+		sets: []string{"signal"},
+		params: []trace.ArgMeta{
+			{Type: "u64", Name: "timestamp"},
+			// Real Parent
+			{Type: "int", Name: "parent_tid"},
+			{Type: "int", Name: "parent_ns_tid"},
+			{Type: "int", Name: "parent_pid"},
+			{Type: "int", Name: "parent_ns_pid"},
+			{Type: "unsigned long", Name: "parent_start_time"},
+			// Child
+			{Type: "int", Name: "child_tid"},
+			{Type: "int", Name: "child_ns_tid"},
+			{Type: "int", Name: "child_pid"},
+			{Type: "int", Name: "child_ns_pid"},
+			{Type: "unsigned long", Name: "start_time"}, // child_start_time
+			// Up Parent (Up in hierarchy until parent is a process and not a lwp)
+			{Type: "int", Name: "up_parent_tid"},
+			{Type: "int", Name: "up_parent_ns_tid"},
+			{Type: "int", Name: "up_parent_pid"},
+			{Type: "int", Name: "up_parent_ns_pid"},
+			{Type: "unsigned long", Name: "up_parent_start_time"},
+			// Thread Group Leader
+			{Type: "int", Name: "leader_tid"},
+			{Type: "int", Name: "leader_ns_tid"},
+			{Type: "int", Name: "leader_pid"},
+			{Type: "int", Name: "leader_ns_pid"},
+			{Type: "unsigned long", Name: "leader_start_time"},
+		},
+	},
+	SignalSchedProcessExec: {
+		id:       SignalSchedProcessExec,
+		id32Bit:  Sys32Undefined,
+		name:     "signal_sched_process_exec",
+		internal: true,
+		dependencies: Dependencies{
+			probes: []Probe{
+				{handle: probes.SignalSchedProcessExec, required: true},
+				{handle: probes.SchedProcessFork, required: true}, // proc_info_map
+				{handle: probes.SchedProcessFree, required: true}, // proc_info_map
+				{handle: probes.LoadElfPhdrs, required: false},    // interpreter info
+			},
+		},
+		sets: []string{"signal"},
+		params: []trace.ArgMeta{
+			{Type: "u64", Name: "timestamp"},
+			{Type: "u32", Name: "task_hash"},
+			{Type: "u32", Name: "parent_hash"},
+			{Type: "u32", Name: "leader_hash"},
+			// command
+			{Type: "const char*", Name: "cmdpath"},
+			{Type: "const char*", Name: "pathname"},
+			{Type: "dev_t", Name: "dev"},
+			{Type: "unsigned long", Name: "inode"},
+			{Type: "unsigned long", Name: "ctime"},
+			{Type: "umode_t", Name: "inode_mode"},
+			// interpreter
+			{Type: "const char*", Name: "interpreter_pathname"},
+			{Type: "dev_t", Name: "interpreter_dev"},
+			{Type: "unsigned long", Name: "interpreter_inode"},
+			{Type: "unsigned long", Name: "interpreter_ctime"},
+			// other
+			{Type: "const char**", Name: "argv"},
+			{Type: "const char*", Name: "interp"},
+			{Type: "umode_t", Name: "stdin_type"},
+			{Type: "char*", Name: "stdin_path"},
+			{Type: "int", Name: "invoked_from_kernel"},
+		},
+	},
+	SignalSchedProcessExit: {
+		id:       SignalSchedProcessExit,
+		id32Bit:  Sys32Undefined,
+		name:     "signal_sched_process_exit",
+		internal: true,
+		dependencies: Dependencies{
+			probes: []Probe{
+				{handle: probes.SignalSchedProcessExit, required: true},
+			},
+		},
+		sets: []string{"signal"},
+		params: []trace.ArgMeta{
+			{Type: "u64", Name: "timestamp"},
+			{Type: "u32", Name: "task_hash"},
+			{Type: "u32", Name: "parent_hash"},
+			{Type: "u32", Name: "leader_hash"},
+			{Type: "long", Name: "exit_code"},
+			{Type: "bool", Name: "process_group_exit"},
+		},
+	},
 	//
 	// Begin of Network Protocol Event Types
 	//
@@ -10554,6 +11258,7 @@ var CoreEvents = map[ID]Definition{
 		id:       NetPacketBase,
 		id32Bit:  Sys32Undefined,
 		name:     "net_packet_base",
+		version:  NewVersion(1, 0, 0),
 		internal: true,
 		dependencies: Dependencies{
 			capabilities: Capabilities{
@@ -10579,6 +11284,7 @@ var CoreEvents = map[ID]Definition{
 		id:       NetPacketIPBase,
 		id32Bit:  Sys32Undefined,
 		name:     "net_packet_ip_base",
+		version:  NewVersion(1, 0, 0),
 		internal: true,
 		dependencies: Dependencies{
 			ids: []ID{
@@ -10594,6 +11300,7 @@ var CoreEvents = map[ID]Definition{
 		id:      NetPacketIPv4,
 		id32Bit: Sys32Undefined,
 		name:    "net_packet_ipv4",
+		version: NewVersion(1, 1, 0),
 		dependencies: Dependencies{
 			ids: []ID{
 				NetPacketIPBase,
@@ -10601,8 +11308,9 @@ var CoreEvents = map[ID]Definition{
 		},
 		sets: []string{"network_events"},
 		params: []trace.ArgMeta{
-			{Type: "const char*", Name: "src"}, // TODO: remove after filter supports ProtoIPv4
-			{Type: "const char*", Name: "dst"}, // TODO: remove after filter supports ProtoIPv4
+			{Type: "const char*", Name: "src"}, // TODO: pack and remove into trace.PacketMetadata after it supports filtering
+			{Type: "const char*", Name: "dst"}, // TODO: pack and remove into trace.PacketMetadata after it supports filtering
+			{Type: "trace.PacketMetadata", Name: "metadata"},
 			{Type: "trace.ProtoIPv4", Name: "proto_ipv4"},
 		},
 	},
@@ -10610,6 +11318,7 @@ var CoreEvents = map[ID]Definition{
 		id:      NetPacketIPv6,
 		id32Bit: Sys32Undefined,
 		name:    "net_packet_ipv6",
+		version: NewVersion(1, 1, 0),
 		dependencies: Dependencies{
 			ids: []ID{
 				NetPacketIPBase,
@@ -10617,8 +11326,9 @@ var CoreEvents = map[ID]Definition{
 		},
 		sets: []string{"network_events"},
 		params: []trace.ArgMeta{
-			{Type: "const char*", Name: "src"}, // TODO: remove after filter supports ProtoIPv6
-			{Type: "const char*", Name: "dst"}, // TODO: remove after filter supports ProtoIPv6
+			{Type: "const char*", Name: "src"}, // TODO: pack and remove into trace.PacketMetadata after it supports filtering
+			{Type: "const char*", Name: "dst"}, // TODO: pack and remove into trace.PacketMetadata after it supports filtering
+			{Type: "trace.PacketMetadata", Name: "metadata"},
 			{Type: "trace.ProtoIPv6", Name: "proto_ipv6"},
 		},
 	},
@@ -10626,6 +11336,7 @@ var CoreEvents = map[ID]Definition{
 		id:       NetPacketTCPBase,
 		id32Bit:  Sys32Undefined,
 		name:     "net_packet_tcp_base",
+		version:  NewVersion(1, 0, 0),
 		internal: true,
 		dependencies: Dependencies{
 			ids: []ID{
@@ -10641,6 +11352,7 @@ var CoreEvents = map[ID]Definition{
 		id:      NetPacketTCP,
 		id32Bit: Sys32Undefined,
 		name:    "net_packet_tcp",
+		version: NewVersion(1, 1, 0),
 		dependencies: Dependencies{
 			ids: []ID{
 				NetPacketTCPBase,
@@ -10648,10 +11360,11 @@ var CoreEvents = map[ID]Definition{
 		},
 		sets: []string{"network_events"},
 		params: []trace.ArgMeta{
-			{Type: "const char*", Name: "src"},
-			{Type: "const char*", Name: "dst"},
-			{Type: "u16", Name: "src_port"}, // TODO: remove after filter supports ProtoTCP
-			{Type: "u16", Name: "dst_port"}, // TODO: remove after filter supports ProtoTCP
+			{Type: "const char*", Name: "src"}, // TODO: pack and remove into trace.PacketMetadata after it supports filtering
+			{Type: "const char*", Name: "dst"}, // TODO: pack and remove into trace.PacketMetadata after it supports filtering
+			{Type: "u16", Name: "src_port"},    // TODO: pack and remove into trace.PacketMetadata after it supports filtering
+			{Type: "u16", Name: "dst_port"},    // TODO: pack and remove into trace.PacketMetadata after it supports filtering
+			{Type: "trace.PacketMetadata", Name: "metadata"},
 			{Type: "trace.ProtoTCP", Name: "proto_tcp"},
 		},
 	},
@@ -10659,6 +11372,7 @@ var CoreEvents = map[ID]Definition{
 		id:       NetPacketUDPBase,
 		id32Bit:  Sys32Undefined,
 		name:     "net_packet_udp_base",
+		version:  NewVersion(1, 0, 0),
 		internal: true,
 		dependencies: Dependencies{
 			ids: []ID{
@@ -10674,6 +11388,7 @@ var CoreEvents = map[ID]Definition{
 		id:      NetPacketUDP,
 		id32Bit: Sys32Undefined,
 		name:    "net_packet_udp",
+		version: NewVersion(1, 1, 0),
 		dependencies: Dependencies{
 			ids: []ID{
 				NetPacketUDPBase,
@@ -10681,10 +11396,11 @@ var CoreEvents = map[ID]Definition{
 		},
 		sets: []string{"network_events"},
 		params: []trace.ArgMeta{
-			{Type: "const char*", Name: "src"},
-			{Type: "const char*", Name: "dst"},
-			{Type: "u16", Name: "src_port"}, // TODO: remove after filter supports ProtoUDP
-			{Type: "u16", Name: "dst_port"}, // TODO: remove after filter supports ProtoUDP
+			{Type: "const char*", Name: "src"}, // TODO: pack and remove into trace.PacketMetadata after it supports filtering
+			{Type: "const char*", Name: "dst"}, // TODO: pack and remove into trace.PacketMetadata after it supports filtering
+			{Type: "u16", Name: "src_port"},    // TODO: pack and remove into trace.PacketMetadata after it supports filtering
+			{Type: "u16", Name: "dst_port"},    // TODO: pack and remove into trace.PacketMetadata after it supports filtering
+			{Type: "trace.PacketMetadata", Name: "metadata"},
 			{Type: "trace.ProtoUDP", Name: "proto_udp"},
 		},
 	},
@@ -10692,6 +11408,7 @@ var CoreEvents = map[ID]Definition{
 		id:      NetPacketICMPBase,
 		id32Bit: Sys32Undefined,
 		name:    "net_packet_icmp_base",
+		version: NewVersion(1, 0, 0),
 		dependencies: Dependencies{
 			ids: []ID{
 				NetPacketBase,
@@ -10707,6 +11424,7 @@ var CoreEvents = map[ID]Definition{
 		id:      NetPacketICMP,
 		id32Bit: Sys32Undefined,
 		name:    "net_packet_icmp",
+		version: NewVersion(1, 1, 0),
 		dependencies: Dependencies{
 			ids: []ID{
 				NetPacketICMPBase,
@@ -10714,8 +11432,9 @@ var CoreEvents = map[ID]Definition{
 		},
 		sets: []string{"default", "network_events"},
 		params: []trace.ArgMeta{
-			{Type: "const char*", Name: "src"},
-			{Type: "const char*", Name: "dst"},
+			{Type: "const char*", Name: "src"}, // TODO: pack and remove into trace.PacketMetadata after it supports filtering
+			{Type: "const char*", Name: "dst"}, // TODO: pack and remove into trace.PacketMetadata after it supports filtering
+			{Type: "trace.PacketMetadata", Name: "metadata"},
 			{Type: "trace.ProtoICMP", Name: "proto_icmp"},
 		},
 	},
@@ -10723,6 +11442,7 @@ var CoreEvents = map[ID]Definition{
 		id:       NetPacketICMPv6Base,
 		id32Bit:  Sys32Undefined,
 		name:     "net_packet_icmpv6_base",
+		version:  NewVersion(1, 0, 0),
 		internal: true,
 		dependencies: Dependencies{
 			ids: []ID{
@@ -10738,6 +11458,7 @@ var CoreEvents = map[ID]Definition{
 		id:      NetPacketICMPv6,
 		id32Bit: Sys32Undefined,
 		name:    "net_packet_icmpv6",
+		version: NewVersion(1, 1, 0),
 		dependencies: Dependencies{
 			ids: []ID{
 				NetPacketICMPv6Base,
@@ -10745,8 +11466,9 @@ var CoreEvents = map[ID]Definition{
 		},
 		sets: []string{"default", "network_events"},
 		params: []trace.ArgMeta{
-			{Type: "const char*", Name: "src"},
-			{Type: "const char*", Name: "dst"},
+			{Type: "const char*", Name: "src"}, // TODO: pack and remove into trace.PacketMetadata after it supports filtering
+			{Type: "const char*", Name: "dst"}, // TODO: pack and remove into trace.PacketMetadata after it supports filtering
+			{Type: "trace.PacketMetadata", Name: "metadata"},
 			{Type: "trace.ProtoICMPv6", Name: "proto_icmpv6"},
 		},
 	},
@@ -10754,6 +11476,7 @@ var CoreEvents = map[ID]Definition{
 		id:       NetPacketDNSBase,
 		id32Bit:  Sys32Undefined,
 		name:     "net_packet_dns_base",
+		version:  NewVersion(1, 0, 0),
 		internal: true,
 		dependencies: Dependencies{
 			ids: []ID{
@@ -10769,6 +11492,7 @@ var CoreEvents = map[ID]Definition{
 		id:      NetPacketDNS,
 		id32Bit: Sys32Undefined,
 		name:    "net_packet_dns", // preferred event to write signatures
+		version: NewVersion(1, 1, 0),
 		dependencies: Dependencies{
 			ids: []ID{
 				NetPacketDNSBase,
@@ -10776,10 +11500,11 @@ var CoreEvents = map[ID]Definition{
 		},
 		sets: []string{"network_events"},
 		params: []trace.ArgMeta{
-			{Type: "const char*", Name: "src"},
-			{Type: "const char*", Name: "dst"},
-			{Type: "u16", Name: "src_port"},
-			{Type: "u16", Name: "dst_port"},
+			{Type: "const char*", Name: "src"}, // TODO: pack and remove into trace.PacketMetadata after it supports filtering
+			{Type: "const char*", Name: "dst"}, // TODO: pack and remove into trace.PacketMetadata after it supports filtering
+			{Type: "u16", Name: "src_port"},    // TODO: pack and remove into trace.PacketMetadata after it supports filtering
+			{Type: "u16", Name: "dst_port"},    // TODO: pack and remove into trace.PacketMetadata after it supports filtering
+			{Type: "trace.PacketMetadata", Name: "metadata"},
 			{Type: "trace.ProtoDNS", Name: "proto_dns"},
 		},
 	},
@@ -10787,6 +11512,7 @@ var CoreEvents = map[ID]Definition{
 		id:      NetPacketDNSRequest,
 		id32Bit: Sys32Undefined,
 		name:    "net_packet_dns_request", // simple dns event compatible dns_request (deprecated)
+		version: NewVersion(1, 0, 0),
 		dependencies: Dependencies{
 			ids: []ID{
 				NetPacketDNSBase,
@@ -10802,6 +11528,7 @@ var CoreEvents = map[ID]Definition{
 		id:      NetPacketDNSResponse,
 		id32Bit: Sys32Undefined,
 		name:    "net_packet_dns_response", // simple dns event compatible dns_response (deprecated)
+		version: NewVersion(1, 0, 0),
 		dependencies: Dependencies{
 			ids: []ID{
 				NetPacketDNSBase,
@@ -10817,6 +11544,7 @@ var CoreEvents = map[ID]Definition{
 		id:       NetPacketHTTPBase,
 		id32Bit:  Sys32Undefined,
 		name:     "net_packet_http_base",
+		version:  NewVersion(1, 0, 0),
 		internal: true,
 		dependencies: Dependencies{
 			ids: []ID{
@@ -10832,6 +11560,7 @@ var CoreEvents = map[ID]Definition{
 		id:      NetPacketHTTP,
 		id32Bit: Sys32Undefined,
 		name:    "net_packet_http", // preferred event to write signatures
+		version: NewVersion(1, 0, 0),
 		dependencies: Dependencies{
 			ids: []ID{
 				NetPacketHTTPBase,
@@ -10839,10 +11568,11 @@ var CoreEvents = map[ID]Definition{
 		},
 		sets: []string{"network_events"},
 		params: []trace.ArgMeta{
-			{Type: "const char*", Name: "src"},
-			{Type: "const char*", Name: "dst"},
-			{Type: "u16", Name: "src_port"},
-			{Type: "u16", Name: "dst_port"},
+			{Type: "const char*", Name: "src"}, // TODO: pack and remove into trace.PacketMetadata after it supports filtering
+			{Type: "const char*", Name: "dst"}, // TODO: pack and remove into trace.PacketMetadata after it supports filtering
+			{Type: "u16", Name: "src_port"},    // TODO: pack and remove into trace.PacketMetadata after it supports filtering
+			{Type: "u16", Name: "dst_port"},    // TODO: pack and remove into trace.PacketMetadata after it supports filtering
+			{Type: "trace.PacketMetadata", Name: "metadata"},
 			{Type: "trace.ProtoHTTP", Name: "proto_http"},
 		},
 	},
@@ -10850,6 +11580,7 @@ var CoreEvents = map[ID]Definition{
 		id:      NetPacketHTTPRequest,
 		id32Bit: Sys32Undefined,
 		name:    "net_packet_http_request",
+		version: NewVersion(1, 0, 0),
 		dependencies: Dependencies{
 			ids: []ID{
 				NetPacketHTTPBase,
@@ -10865,6 +11596,7 @@ var CoreEvents = map[ID]Definition{
 		id:      NetPacketHTTPResponse,
 		id32Bit: Sys32Undefined,
 		name:    "net_packet_http_response",
+		version: NewVersion(1, 0, 0),
 		dependencies: Dependencies{
 			ids: []ID{
 				NetPacketHTTPBase,
@@ -10880,6 +11612,7 @@ var CoreEvents = map[ID]Definition{
 		id:       NetPacketCapture, // all packets have full payload (sent in a dedicated perfbuffer)
 		id32Bit:  Sys32Undefined,
 		name:     "net_packet_capture",
+		version:  NewVersion(1, 0, 0),
 		internal: true,
 		dependencies: Dependencies{
 			ids: []ID{
@@ -10894,6 +11627,7 @@ var CoreEvents = map[ID]Definition{
 		id:       CaptureNetPacket, // network packet capture pseudo event
 		id32Bit:  Sys32Undefined,
 		name:     "capture_net_packet",
+		version:  NewVersion(1, 0, 0),
 		internal: true,
 		dependencies: Dependencies{
 			ids: []ID{

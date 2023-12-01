@@ -16,24 +16,13 @@ func NetPacketUDP() DeriveFunction {
 
 func deriveNetPacketUDPArgs() deriveArgsFunction {
 	return func(event trace.Event) ([]interface{}, error) {
-		var ok bool
-		var payload []byte
 		var layerType gopacket.LayerType
 		var srcIP net.IP
 		var dstIP net.IP
 
-		// sanity checks
-
-		payloadArg := events.GetArg(&event, "payload")
-		if payloadArg == nil {
-			return nil, noPayloadError()
-		}
-		if payload, ok = payloadArg.Value.([]byte); !ok {
-			return nil, nonByteArgError()
-		}
-		payloadSize := len(payload)
-		if payloadSize < 1 {
-			return nil, emptyPayloadError()
+		payload, err := parsePayloadArg(&event)
+		if err != nil {
+			return nil, err
 		}
 
 		// event retval encodes layer 3 protocol type
@@ -76,12 +65,16 @@ func deriveNetPacketUDPArgs() deriveArgsFunction {
 		case (*layers.UDP):
 			var udp trace.ProtoUDP
 			copyUDPToProtoUDP(l4, &udp)
+			md := trace.PacketMetadata{
+				Direction: getPacketDirection(&event),
+			}
 
 			return []interface{}{
 				srcIP,
 				dstIP,
 				udp.SrcPort,
 				udp.DstPort,
+				md,
 				udp,
 			}, nil
 		}

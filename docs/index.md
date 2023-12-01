@@ -4,11 +4,6 @@ hide:
 ---
 ![Tracker Logo >](images/tracker.png)
 
-Before moving on, please consider giving us a star ⭐️
-by clicking the button at the top of the [GitHub page](https://github.com/khulnasoft-lab/tracker/)
-
-# Navigating the Documentation
-
 👋 Welcome to Tracker Documentation! To help you get around, please notice the different sections at the top global menu:
 
 - You are currently in the [Getting Started](./) section where you can find general information and help with first steps.
@@ -16,52 +11,61 @@ by clicking the button at the top of the [GitHub page](https://github.com/khulna
 - In the [Docs](./docs/overview) section you can find the complete reference documentation for all of the different features and settings that Tracker has to offer.
 - In the [Contributing](./contributing/overview) section you can find technical developer documentation and contribution guidelines.
 
-## Tracker: Runtime Security and Forensics using eBPF
+<!-- links that differ between docs and readme -->
+[installation]:./docs/install/index.md
+[docker-guide]:./docs/install/docker.md
+[kubernetes-guide]:./docs/install/kubernetes.md
+[prereqs]:./docs/install/prerequisites.md
+[macfaq]:./docs/advanced/mac.md
+<!-- everything below is copied from readme -->
 
-Tracker uses eBPF technology to tap into your system and give you access to hundreds of events that help you understand how your system behaves.
-In addition to basic observability events about system activity, Tracker adds a collection of sophisticated security events that expose more advanced behavioral patterns. 
-Tracker provides a rich filtering mechanism that allows you to eliminate noise and focus on specific workloads that matter most to you.
+Before moving on, please consider giving us a GitHub star ⭐️. Thank you!
 
-**Key Features:**
+## About Tracker
 
-* Kubernetes native installation
-* Hundreds of default events
-* Ships with a basic set of behavioral signatures for malware detection out of the box 
-* Easy configuration through Tracker Policies 
-* Kubernetes native user experience that is targetted at cluster administrators
+Tracker is a runtime security and observability tool that helps you understand how your system and applications behave.  
+It is using [eBPF technology](https://ebpf.io/what-is-ebpf/) to tap into your system and expose that information as events that you can consume.  
+Events range from factual system activity events to sophisticated security events that detect suspicious behavioral patterns.
 
-> We release new features and changes on a regular basis. Learn more about the letest release in our [discussions.](https://github.com/khulnasoft-lab/tracker/discussions)
-
-To learn more about Tracker, check out the [documentation](https://khulnasoft-lab.github.io/tracker/latest/docs/overview/). 
+To learn more about Tracker, check out the [documentation](https://khulnasoft-lab.github.io/tracker/). 
 
 ## Quickstart
 
-Installation options:
+To quickly try Tracker use one of the following snippets. For a more complete installation guide, check out the [Installation section][installation].  
+Tracker should run on most common Linux distributions and kernels. For compatibility information see the [Prerequisites][prereqs] page. Mac users, please read [this FAQ](macfaq).
 
-- [Install Tracker in your Kubernetes cluster.](./getting-started/kubernetes-quickstart)
-- [Experiment using the Tracker container image.](./getting-started/docker-quickstart)
+### Using Docker
 
-Steps to get started:
+```shell
+docker run --name tracker -it --rm \
+  --pid=host --cgroupns=host --privileged \
+  -v /etc/os-release:/etc/os-release-host:ro \
+  -v /var/run:/var/run:ro \
+  khulnasoft/tracker:latest
+```
 
-1. [Install Tracker in your Kubernetes cluster through Helm](./getting-started/kubernetes-quickstart/)
-2. Query logs to see detected events
+For a complete walkthrough please see the [Docker getting started guide][docker-guide].
 
-Next, try one of our tutorials:
+### On Kubernetes
 
-3. Filter events through [Tracker Policies](./tutorials/k8s-policies/) 
-4. [Manage logs through Grafana Loki](./tutorials/promtail/) or your preferred monitoring solution
+```shell
+helm repo add khulnasoft https://khulnasoft-lab.github.io/helm-charts/
+helm repo update
+helm install tracker khulnasoft/tracker --namespace tracker --create-namespace
+```
 
-![Example log output in Tracker pod](./images/log-example.png)
-Example log output in Tracker pod
+```shell
+kubectl logs --follow --namespace tracker daemonset/tracker
+```
+
+For a complete walkthrough please see the [Kubernetes getting started guide][kubernetes-guide].
+
 ## Contributing
   
 Join the community, and talk to us about any matter in the [GitHub Discussions](https://github.com/khulnasoft-lab/tracker/discussions) or [Slack](https://slack.khulnasoft.com).  
 If you run into any trouble using Tracker or you would like to give use user feedback, please [create an issue.](https://github.com/khulnasoft-lab/tracker/issues)
 
-Find more information on [contributing to the source code](./contributing/overview/) in the documentation.
-
-Please consider giving us a star ⭐️
-by clicking the button at the top of the [GitHub page](https://github.com/khulnasoft-lab/tracker/)
+Find more information on [contribution documentation](./contributing/overview/).
 
 ## More about Khulnasoft Security
 

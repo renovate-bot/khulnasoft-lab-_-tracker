@@ -22,16 +22,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
+        uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b
         with:
           ref: ${{ github.event.inputs.ref }}
           fetch-depth: 0
       - name: Install Helm
-        uses: azure/setup-helm@ac5ee1fca8fba06d82bfc39af726f19ffe037a49
+        uses: azure/setup-helm@18bc76811624f360dbd7f18c2d4ecb32c7b87bab
         with:
           version: v3.5.0
       - name: Set up python
-        uses: actions/setup-python@b64ffcaf5b410884ad320a9cfac8866006a109aa
+        uses: actions/setup-python@98f2ad02fd48d057ee3b4d4f66525b231c3e52b6
         with:
           python-version: 3.7
       - name: Set up khulnasoft charts
@@ -70,7 +70,7 @@ jobs:
             --charts-repo https://${{ env.GH_OWNER }}.github.io/${{ env.HELM_REP }}/ \
             --index-path index.yaml
       - name: Push index file
-        uses: dmnemec/copy_file_to_another_repo_action@bbebd3da22e4a37d04dca5f782edd5201cb97083
+        uses: dmnemec/copy_file_to_another_repo_action@c93037aa10fa8893de271f19978c980d0c1a9b37
         env:
           API_TOKEN_GITHUB: ${{ secrets.ORG_REPO_TOKEN }}
         with:

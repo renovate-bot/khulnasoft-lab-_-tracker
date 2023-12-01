@@ -2,9 +2,19 @@ package cobra
 
 import (
 	"github.com/khulnasoft-lab/tracker/pkg/cmd/flags"
+	k8s "github.com/khulnasoft-lab/tracker/pkg/k8s/apis/tracker.khulnasoft.com/v1beta1"
 	"github.com/khulnasoft-lab/tracker/pkg/policy"
 	"github.com/khulnasoft-lab/tracker/pkg/policy/v1beta1"
 )
+
+func createPoliciesFromK8SPolicy(policies []k8s.PolicyInterface) (*policy.Policies, error) {
+	policyScopeMap, policyEventsMap, err := flags.PrepareFilterMapsFromPolicies(policies)
+	if err != nil {
+		return nil, err
+	}
+
+	return flags.CreatePolicies(policyScopeMap, policyEventsMap, true)
+}
 
 func createPoliciesFromPolicyFiles(policyFlags []string) (*policy.Policies, error) {
 	policyFiles, err := v1beta1.PoliciesFromPaths(policyFlags)

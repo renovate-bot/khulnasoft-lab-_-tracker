@@ -10,6 +10,8 @@ import (
 )
 
 func TestPrepareTrackerEbpfOutput(t *testing.T) {
+	t.Parallel()
+
 	testCases := []struct {
 		testName       string
 		outputSlice    []string
@@ -149,7 +151,11 @@ func TestPrepareTrackerEbpfOutput(t *testing.T) {
 		},
 	}
 	for _, testcase := range testCases {
+		testcase := testcase
+
 		t.Run(testcase.testName, func(t *testing.T) {
+			t.Parallel()
+
 			output, err := TrackerEbpfPrepareOutput(testcase.outputSlice, false)
 			if err != nil {
 				assert.ErrorContains(t, err, testcase.expectedError.Error())

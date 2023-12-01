@@ -1,55 +1,101 @@
-Configure log severity:
+# Tracker Logs
+
+This section showcases how to configure diagnostics log. The information provided can then be used to troubleshoot Tracker. This is done through the Tracker configuration file. For more information, have a look at the respective section in the [installation guide.](../install/index.md)
+
+## Log options
+
+**Configure the log severity:**
 
 ```console
-sudo ./dist/tracker --log debug
+log:
+    level: debug
 ```
 
-Redirect logs to a file if needed:
+Note that the other log level are `info`, `warn`, `error` and `panic`.
+
+**Redirect logs to a file if needed:**
 
 ```console
-sudo ./dist/tracker --scope comm=bash --scope follow --events openat --output json:/tmp/tracker.events --log file:/tmp/tracker.log
+log:
+    level: debug
+    file: "/tmp/tracker.log"
 ```
 
-Logs can be aggregated for a given interval to delay its output:
+**Logs can be aggregated for a given interval (default: 3s) to delay its output:**
 
 ```console
-sudo ./dist/tracker --log debug --log aggregate:5s
+log:
+    level: debug
+    aggregate:
+        enabled: true
+        flush-interval: "10s"
 ```
 
-Filter logs which message contains specified words:
+The flush-interval defines how often the Tracker logs will be forwarded.
+
+**Filter logs which message contains specified words:**
 
 ```console
-sudo ./dist/tracker --log filter:msg=foo,bar
+log:
+    filters: 
+        msg: 
+            - foo
+            - bar
 ```
 
-Filter logs using regular expressions against messages:
+**Filter logs using regular expressions against messages:**
 
 ```console
-sudo ./dist/tracker --log filter:regex='^foo'
+log:
+    filters: 
+        regex: 
+            - ^pattern-one
 ```
 
-Filter logs originating from a specific package:
+**Filter logs originating from a specific package:**
 
 ```console
-sudo ./dist/tracker --log filter:pkg=core
+log:
+    filters: 
+        pkg:
+            - core
 ```
 
-Filter logs originating from a specific file:
+**Filter logs originating from a specific file:**
 
 ```console
-sudo ./dist/tracker --log filter:file=/pkg/cmd/flags/logger.go
+log:
+    filter: 
+        file: 
+            - /pkg/cmd/flags/logger.go
 ```
 
-Filter logs based on their severity level:
+**Filter logs based on their severity level:**
 
 ```console
-sudo ./dist/tracker --log filter:lvl=error
+log:
+    filters: 
+        level: 
+            - error
 ```
 
-Filter logs originating from libbpf:
+**Filter logs originating from libbpf**:
 
 ```console
-sudo ./dist/tracker --log filter:libbpf
+log:
+    filters: 
+        libbpf: true
 ```
 
-All `--log filter` options can also be used with `--log filter-out` for the opposite behavior. For more information, please refer to the `--log` help in the CLI.
+## Additional Configuration
+
+All `filters` options can also be used with `filter-out` to achieve the opposite behavior. 
+
+For instance, the following configuration would exclude all logs with the severity level `error`:
+
+```console
+log:
+    filter-out: 
+        level: 
+            - error
+```

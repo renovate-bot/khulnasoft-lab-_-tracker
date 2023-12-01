@@ -6,10 +6,12 @@ import (
 	"github.com/khulnasoft-lab/libbpfgo/helpers"
 
 	"github.com/khulnasoft-lab/tracker/pkg/containers/runtime"
+	"github.com/khulnasoft-lab/tracker/pkg/dnscache"
 	"github.com/khulnasoft-lab/tracker/pkg/errfmt"
 	"github.com/khulnasoft-lab/tracker/pkg/events"
 	"github.com/khulnasoft-lab/tracker/pkg/events/queue"
 	"github.com/khulnasoft-lab/tracker/pkg/policy"
+	"github.com/khulnasoft-lab/tracker/pkg/proctree"
 	"github.com/khulnasoft-lab/tracker/pkg/signatures/engine"
 )
 
@@ -20,6 +22,7 @@ type Config struct {
 	Capabilities       *CapabilitiesConfig
 	Output             *OutputConfig
 	Cache              queue.CacheConfig
+	ProcTree           proctree.ProcTreeConfig
 	PerfBufferSize     int
 	BlobPerfBufferSize int
 	MaxPidsCache       int // maximum number of pids to cache per mnt ns (in Tracker.pidsInMntns)
@@ -28,9 +31,10 @@ type Config struct {
 	KernelConfig       *helpers.KernelConfig
 	OSInfo             *helpers.OSInfo
 	Sockets            runtime.Sockets
-	ContainersEnrich   bool
+	NoContainersEnrich bool
 	EngineConfig       engine.Config
 	MetricsEnabled     bool
+	DNSCacheConfig     dnscache.Config
 }
 
 // Validate does static validation of the configuration

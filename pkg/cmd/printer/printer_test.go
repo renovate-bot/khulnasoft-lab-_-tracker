@@ -12,6 +12,7 @@ import (
 )
 
 func TestTrackerEbpfPrepareOutputPrinterConfig(t *testing.T) {
+	t.Parallel()
 
 	testCases := []struct {
 		testName        string
@@ -61,7 +62,11 @@ func TestTrackerEbpfPrepareOutputPrinterConfig(t *testing.T) {
 		},
 	}
 	for _, testcase := range testCases {
+		testcase := testcase
+
 		t.Run(testcase.testName, func(t *testing.T) {
+			t.Parallel()
+
 			outputConfig, err := flags.TrackerEbpfPrepareOutput(testcase.outputSlice, false)
 			if err != nil {
 				assert.ErrorContains(t, err, testcase.expectedError.Error())

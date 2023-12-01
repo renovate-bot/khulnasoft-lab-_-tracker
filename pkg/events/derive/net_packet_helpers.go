@@ -25,6 +25,8 @@ const (
 	familyIpv6
 	protoHttpRequest
 	protoHttpResponse
+	packetIngress
+	packetEgress
 )
 
 func boolToUint8(b bool) uint8 {
@@ -35,7 +37,7 @@ func boolToUint8(b bool) uint8 {
 }
 
 func convertArrayOfBytes(given [][]byte) []string {
-	var res []string
+	res := make([]string, 0, len(given))
 
 	for _, i := range given {
 		res = append(res, string(i))
@@ -66,6 +68,24 @@ const (
 	IPPROTO_UDP uint8 = 17
 )
 
+// parsePayloadArg extracts the payload packet argument and performs sanity checks on it.
+// finally it returns either the raw byte payload or an appropriate error.
+func parsePayloadArg(event *trace.Event) ([]byte, error) {
+	payloadArg := events.GetArg(event, "payload")
+	if payloadArg == nil {
+		return nil, noPayloadError()
+	}
+	payload, ok := payloadArg.Value.([]byte)
+	if !ok {
+		return nil, nonByteArgError()
+	}
+	payloadSize := len(payload)
+	if payloadSize < 1 {
+		return nil, emptyPayloadError()
+	}
+	return payload, nil
+}
+
 // convertNetPairToPktMeta converts the local netPair type, used by this code,
 // to PktMeta type, expected by the old dns events, which, for now, we want the
 // new network packet simple dns events to be compatible with.
@@ -82,22 +102,11 @@ func convertNetPairToPktMeta(n *netPair) *trace.PktMeta {
 }
 
 func parseUntilLayer7(event *trace.Event, pair *netPair) (gopacket.ApplicationLayer, error) {
-	var ok bool
-	var payload []byte
 	var layerType gopacket.LayerType
 
-	// sanity checks
-
-	payloadArg := events.GetArg(event, "payload")
-	if payloadArg == nil {
-		return nil, noPayloadError()
-	}
-	if payload, ok = payloadArg.Value.([]byte); !ok {
-		return nil, nonByteArgError()
-	}
-	payloadSize := len(payload)
-	if payloadSize < 1 {
-		return nil, emptyPayloadError()
+	payload, err := parsePayloadArg(event)
+	if err != nil {
+		return nil, err
 	}
 
 	// event retval encodes layer 3 protocol
@@ -167,4 +176,14 @@ func parseUntilLayer7(event *trace.Event, pair *netPair) (gopacket.ApplicationLa
 	layer7 := packet.ApplicationLayer()
 
 	return layer7, nil
+}
+
+func getPacketDirection(event *trace.Event) trace.PacketDirection {
+	if event.ReturnValue&packetIngress == packetIngress {
+		return trace.PacketIngress
+	}
+	if event.ReturnValue&packetEgress == packetEgress {
+		return trace.PacketEgress
+	}
+	return trace.InvalidPacketDirection
 }

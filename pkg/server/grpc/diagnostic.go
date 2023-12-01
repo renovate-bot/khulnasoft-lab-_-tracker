@@ -4,9 +4,9 @@ import (
 	"context"
 	"runtime"
 
+	pb "github.com/khulnasoft-lab/tracker/api/v1beta1"
 	tracker "github.com/khulnasoft-lab/tracker/pkg/ebpf"
 	"github.com/khulnasoft-lab/tracker/pkg/logger"
-	pb "github.com/khulnasoft-lab/tracker/types/api/v1beta1"
 )
 
 type DiagnosticService struct {

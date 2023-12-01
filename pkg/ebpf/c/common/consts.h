@@ -17,6 +17,7 @@
 #define ARGS_BUF_SIZE       32000
 #define SEND_META_SIZE      28
 
+#define MAX_SYS_CALL_TABLE_SIZE 500
 #define MAX_MEM_DUMP_SIZE   127
 
 
@@ -39,6 +40,7 @@
 #define OPT_TRANSLATE_FD_FILEPATH (1 << 7)
 #define OPT_CAPTURE_BPF           (1 << 8)
 #define OPT_CAPTURE_FILES_READ    (1 << 9)
+#define OPT_FORK_PROCTREE         (1 << 10)
 
 #define STDIN  0
 #define STDOUT 1

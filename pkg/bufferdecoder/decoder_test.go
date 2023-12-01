@@ -11,8 +11,10 @@ import (
 )
 
 func TestDecodeContext(t *testing.T) {
+	t.Parallel()
+
 	buf := new(bytes.Buffer)
-	ctxExpected := Context{
+	eCtxExpected := EventContext{
 		Ts:          11,
 		CgroupID:    22,
 		ProcessorId: 5,
@@ -31,24 +33,26 @@ func TestDecodeContext(t *testing.T) {
 		Retval:      0,
 		StackID:     0,
 	}
-	err := binary.Write(buf, binary.LittleEndian, ctxExpected)
+	err := binary.Write(buf, binary.LittleEndian, eCtxExpected)
 	assert.Equal(t, nil, err)
-	var ctxObtained Context
+	var eCtxObtained EventContext
 	rawData := buf.Bytes()
 	d := New(rawData)
 	cursorBefore := d.cursor
-	err = d.DecodeContext(&ctxObtained)
+	err = d.DecodeContext(&eCtxObtained)
 	cursorAfter := d.cursor
 
 	// checking no error
 	assert.Equal(t, nil, err)
 	// checking decoding succeeded correctly
-	assert.Equal(t, ctxExpected, ctxObtained)
+	assert.Equal(t, eCtxExpected, eCtxObtained)
 	// checking decoder cursor on buffer moved appropriately
-	assert.Equal(t, int(ctxExpected.GetSizeBytes()), cursorAfter-cursorBefore)
+	assert.Equal(t, int(eCtxExpected.GetSizeBytes()), cursorAfter-cursorBefore)
 }
 
 func TestDecodeUint8(t *testing.T) {
+	t.Parallel()
+
 	buf := new(bytes.Buffer)
 	var expected uint8 = 42
 	err := binary.Write(buf, binary.LittleEndian, expected)
@@ -69,6 +73,8 @@ func TestDecodeUint8(t *testing.T) {
 }
 
 func TestDecodeInt8(t *testing.T) {
+	t.Parallel()
+
 	buf := new(bytes.Buffer)
 	var expected int8 = -42
 	err := binary.Write(buf, binary.LittleEndian, expected)
@@ -89,6 +95,8 @@ func TestDecodeInt8(t *testing.T) {
 }
 
 func TestDecodeUint16(t *testing.T) {
+	t.Parallel()
+
 	buf := new(bytes.Buffer)
 	var expected uint16 = 5555
 	err := binary.Write(buf, binary.LittleEndian, expected)
@@ -109,6 +117,8 @@ func TestDecodeUint16(t *testing.T) {
 }
 
 func TestDecodeUint16BigEndian(t *testing.T) {
+	t.Parallel()
+
 	buf := new(bytes.Buffer)
 	var expected uint16 = 5555
 	err := binary.Write(buf, binary.BigEndian, expected)
@@ -128,6 +138,8 @@ func TestDecodeUint16BigEndian(t *testing.T) {
 	assert.Equal(t, 2, cursorAfter-cursorBefore) // cursor should move 2 byte
 }
 func TestDecodeInt16(t *testing.T) {
+	t.Parallel()
+
 	buf := new(bytes.Buffer)
 	var expected int16 = -3456
 	err := binary.Write(buf, binary.LittleEndian, expected)
@@ -148,6 +160,8 @@ func TestDecodeInt16(t *testing.T) {
 }
 
 func TestDecodeUint32(t *testing.T) {
+	t.Parallel()
+
 	buf := new(bytes.Buffer)
 	var expected uint32 = 5555
 	err := binary.Write(buf, binary.LittleEndian, expected)
@@ -168,6 +182,8 @@ func TestDecodeUint32(t *testing.T) {
 }
 
 func TestDecodeUint32BigEndian(t *testing.T) {
+	t.Parallel()
+
 	buf := new(bytes.Buffer)
 	var expected uint32 = 5555
 	err := binary.Write(buf, binary.BigEndian, expected)
@@ -187,6 +203,8 @@ func TestDecodeUint32BigEndian(t *testing.T) {
 	assert.Equal(t, cursorAfter-cursorBefore, 4) // cursor should move 4 byte
 }
 func TestDecodeInt32(t *testing.T) {
+	t.Parallel()
+
 	buf := new(bytes.Buffer)
 	var expected int32 = -3456
 	err := binary.Write(buf, binary.LittleEndian, expected)
@@ -207,6 +225,8 @@ func TestDecodeInt32(t *testing.T) {
 }
 
 func TestDecodeUint64(t *testing.T) {
+	t.Parallel()
+
 	buf := new(bytes.Buffer)
 	var expected uint64 = 5555
 	err := binary.Write(buf, binary.LittleEndian, expected)
@@ -227,6 +247,8 @@ func TestDecodeUint64(t *testing.T) {
 }
 
 func TestDecodeInt64(t *testing.T) {
+	t.Parallel()
+
 	buf := new(bytes.Buffer)
 	var expected int64 = -3456
 	err := binary.Write(buf, binary.LittleEndian, expected)
@@ -247,6 +269,8 @@ func TestDecodeInt64(t *testing.T) {
 }
 
 func TestDecodeBoolTrue(t *testing.T) {
+	t.Parallel()
+
 	buf := new(bytes.Buffer)
 	expected := true
 	err := binary.Write(buf, binary.LittleEndian, expected)
@@ -267,6 +291,8 @@ func TestDecodeBoolTrue(t *testing.T) {
 }
 
 func TestDecodeBoolFalse(t *testing.T) {
+	t.Parallel()
+
 	buf := new(bytes.Buffer)
 	expected := false
 	err := binary.Write(buf, binary.LittleEndian, expected)
@@ -288,6 +314,8 @@ func TestDecodeBoolFalse(t *testing.T) {
 
 // TODO DecodeBytes and DecodeIntArray
 func TestDecodeBytes(t *testing.T) {
+	t.Parallel()
+
 	type JustAStruct struct {
 		A1 uint32
 		A2 uint64
@@ -313,6 +341,8 @@ func TestDecodeBytes(t *testing.T) {
 }
 
 func TestDecodeIntArray(t *testing.T) {
+	t.Parallel()
+
 	var raw []byte
 	raw = append(raw, 1, 2, 3, 4, 5, 6, 7, 8)
 	decoder := New(raw)
@@ -329,6 +359,8 @@ func TestDecodeIntArray(t *testing.T) {
 }
 
 func TestDecodeSlimCred(t *testing.T) {
+	t.Parallel()
+
 	buf := new(bytes.Buffer)
 	expected := SlimCred{
 		Uid:            43,
@@ -358,6 +390,8 @@ func TestDecodeSlimCred(t *testing.T) {
 }
 
 func TestDecodeChunkMeta(t *testing.T) {
+	t.Parallel()
+
 	buf := new(bytes.Buffer)
 	expected := ChunkMeta{
 		BinType:  54,
@@ -377,6 +411,8 @@ func TestDecodeChunkMeta(t *testing.T) {
 }
 
 func TestDecodeVfsWriteMeta(t *testing.T) {
+	t.Parallel()
+
 	buf := new(bytes.Buffer)
 	expected := VfsFileMeta{
 		DevID: 54,
@@ -395,6 +431,8 @@ func TestDecodeVfsWriteMeta(t *testing.T) {
 }
 
 func TestDecodeKernelModuleMeta(t *testing.T) {
+	t.Parallel()
+
 	buf := new(bytes.Buffer)
 	expected := KernelModuleMeta{
 		DevID: 7489,
@@ -413,6 +451,8 @@ func TestDecodeKernelModuleMeta(t *testing.T) {
 }
 
 func TestDecodeBpfObjectMeta(t *testing.T) {
+	t.Parallel()
+
 	buf := new(bytes.Buffer)
 	expected := BpfObjectMeta{
 		Name: [16]byte{80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80},
@@ -431,6 +471,8 @@ func TestDecodeBpfObjectMeta(t *testing.T) {
 }
 
 func TestDecodeMprotectWriteMeta(t *testing.T) {
+	t.Parallel()
+
 	buf := new(bytes.Buffer)
 	expected := MprotectWriteMeta{
 		Pid: 12,
@@ -447,9 +489,9 @@ func TestDecodeMprotectWriteMeta(t *testing.T) {
 }
 
 func BenchmarkDecodeContext(*testing.B) {
-	var ctx Context
+	var eCtx EventContext
 	/*
-		s := Context{
+		eCtx := EventContext{
 			Ts:          11,
 			ProcessorId: 32,
 			CgroupID:    22,
@@ -479,13 +521,13 @@ func BenchmarkDecodeContext(*testing.B) {
 		0, 0, 0}
 	for i := 0; i < 100; i++ {
 		decoder := New(buffer)
-		decoder.DecodeContext(&ctx)
+		decoder.DecodeContext(&eCtx)
 	}
 }
 func BenchmarkBinaryContext(*testing.B) {
-	var ctx Context
+	var eCtx EventContext
 	/*
-		s := Context{
+		eCtx := EventContext{
 			Ts:       11,
 			CgroupID: 22,
 			ProcessorId: 432,
@@ -516,7 +558,7 @@ func BenchmarkBinaryContext(*testing.B) {
 		0, 0, 0}
 	for i := 0; i < 100; i++ {
 		binBuf := bytes.NewBuffer(buffer)
-		binary.Read(binBuf, binary.LittleEndian, &ctx)
+		binary.Read(binBuf, binary.LittleEndian, &eCtx)
 	}
 }
 

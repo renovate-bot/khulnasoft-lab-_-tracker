@@ -3,9 +3,14 @@ package policy
 import (
 	"sync/atomic"
 
+	"github.com/khulnasoft-lab/tracker/pkg/events"
 	"github.com/khulnasoft-lab/tracker/pkg/filters"
 	"github.com/khulnasoft-lab/tracker/pkg/utils"
 )
+
+var AlwaysSubmit = events.EventState{
+	Submit: AllPoliciesOn,
+}
 
 // TODO: add locking mechanism as policies will change at runtime
 type Policies struct {

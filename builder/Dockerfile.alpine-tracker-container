@@ -79,6 +79,7 @@ RUN make clean && \
     BTFHUB=$BTFHUB make tracker && \
     BTFHUB=$BTFHUB make tracker-ebpf && \
     make tracker-rules && \
+    make tracker-operator && \
     make signatures && \
     rm -rf ./3rdparty/btfhub/ && \
     rm -rf ./3rdparty/btfhub-archive/
@@ -96,6 +97,7 @@ WORKDIR /tracker
 COPY --from=tracker-make /tracker/dist/tracker /tracker
 COPY --from=tracker-make /tracker/dist/tracker-ebpf /tracker
 COPY --from=tracker-make /tracker/dist/tracker-rules /tracker
+COPY --from=tracker-make /tracker/dist/tracker-operator /tracker
 COPY --from=tracker-make /tracker/dist/signatures/ /tracker/signatures/
 COPY --from=tracker-make /tracker/builder/entrypoint.sh /tracker/entrypoint.sh
 COPY --from=tracker-make /tracker/cmd/tracker-rules/templates/ /tracker/templates/

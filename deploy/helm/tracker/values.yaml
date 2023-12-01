@@ -61,7 +61,6 @@ trackerConfig: {}
 config:
   blobPerfBufferSize: ""
   perfBufferSize: 1024
-  containers: true
   healthz: true
   metrics: true
   pprof: false
@@ -69,40 +68,26 @@ config:
   listenAddr: :3366
   installPath: ""
   signaturesDir: ""
-  capabilities: []
-  crs: []
-  rego: []
   cache:
-    - cache-type=mem
-    - mem-cache-size=512
+    type: mem
+    size: 512
   log:
-    - info
+    level: info
   output:
-    - json
-    - option:parse-arguments
+    format: json
+    options:
+      parseArguments: true
+      stackAddresses: false
+      execEnv: false
+      relativeTime: true
+      execHash: false
+      sortEvents: false
 
-signatures:
-  # config defines Common Expression Language (CEL) signatures that are loaded
-  # by Tracker-Rules from the --rules-dir directory. If the config object is not
-  # empty, the configuration file is automatically mounted at
-  # /tracker/signatures/signatures.yaml.
-  config: {}
-#  config:
-#    kind: SignaturesConfig
-#    apiVersion: tracker.khulnasoft-lab.github.io/v1alpha1
-#    signatures:
-#      - metadata:
-#          id: "CEL-2"
-#          version: "0.1.0"
-#          name: "Anti-Debugging"
-#          tags:
-#            - "linux"
-#            - "containers"
-#          properties:
-#            Severity: 3
-#            "MITRE ATT&CK": "Defense Evasion: Execution Guardrails"
-#        eventSelectors:
-#          - source: tracker
-#            name: ptrace
-#        expression: |-
-#          input.eventName == 'ptrace' && input.stringArg('request') == 'PTRACE_TRACEME'
+defaultPolicy: true
+
+operator:
+  create: true
+  name: "tracker-operator"
+  serviceAccount:
+    name: "tracker-operator"
+  healthProbeBindAddress: :8081

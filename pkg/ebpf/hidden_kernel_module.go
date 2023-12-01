@@ -2,12 +2,12 @@ package ebpf
 
 import (
 	gocontext "context"
-	"math/rand"
 	"time"
 
 	"github.com/khulnasoft-lab/tracker/pkg/events"
 	"github.com/khulnasoft-lab/tracker/pkg/events/derive"
 	"github.com/khulnasoft-lab/tracker/pkg/logger"
+	"github.com/khulnasoft-lab/tracker/pkg/utils"
 )
 
 const throttleSecs = 2 // Seconds
@@ -68,12 +68,6 @@ func (t *Tracker) lkmSeekerRoutine(ctx gocontext.Context) {
 
 	wakeupChan := derive.GetWakeupChannelRead()
 
-	// generateRandomDuration returns a random duration between min and max, inclusive
-	generateRandomDuration := func(min, max int) time.Duration {
-		randDuration := time.Duration(rand.Intn(max-min+1)+min) * time.Second
-		return randDuration
-	}
-
 	// Since on each module load the scan is triggered, the following variables
 	// are used to enforce that we scan at most once in throttleSecs
 	// to avoid exhausting the system
@@ -128,7 +122,7 @@ func (t *Tracker) lkmSeekerRoutine(ctx gocontext.Context) {
 			case <-ctx.Done():
 				return
 
-			case <-time.After(generateRandomDuration(10, 300)):
+			case <-time.After(utils.GenerateRandomDuration(10, 300)):
 				run = true // Run from time to time.
 
 			case <-throttleTimer:
