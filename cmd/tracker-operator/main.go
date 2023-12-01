@@ -108,10 +108,10 @@ func parseConfig() Config {
 
 	flag.Parse()
 
-	if namespace := os.Getenv("TRACEE_NAMESPACE"); namespace != "" {
+	if namespace := os.Getenv("TRACKER_NAMESPACE"); namespace != "" {
 		cfg.TrackerNamespace = namespace
 	}
-	if name := os.Getenv("TRACEE_NAME"); name != "" {
+	if name := os.Getenv("TRACKER_NAME"); name != "" {
 		cfg.TrackerName = name
 	}
 

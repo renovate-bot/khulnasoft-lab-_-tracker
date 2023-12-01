@@ -68,7 +68,7 @@ endif
 .PHONY: help
 help:
 	@echo ""
-	@echo "CREATES TRACEE SNAPSHOTS FOR TESTING AND RELEASING"
+	@echo "CREATES TRACKER SNAPSHOTS FOR TESTING AND RELEASING"
 	@echo ""
 	@echo "To GENERATE a release SNAPSHOT (versioned by latest git SHA):"
 	@echo ""

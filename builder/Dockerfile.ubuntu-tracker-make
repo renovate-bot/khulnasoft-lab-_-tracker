@@ -38,10 +38,10 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
     apt-get install -y wget lynx w3m && \
     apt-get install -y stress
 
-# allow TRACEE* and LIBBPFGO* environment variables through sudo
+# allow TRACKER* and LIBBPFGO* environment variables through sudo
 
 RUN echo "Defaults env_keep += \"LANG LC_* HOME EDITOR PAGER GIT_PAGER MAN_PAGER\"" > /etc/sudoers && \
-    echo "Defaults env_keep += \"LIBBPFGO* TRACEE*\"" >> /etc/sudoers && \
+    echo "Defaults env_keep += \"LIBBPFGO* TRACKER*\"" >> /etc/sudoers && \
     echo "root ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers && \
     echo "tracker ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers && \
     chmod 0440 /etc/sudoers

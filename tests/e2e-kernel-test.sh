@@ -4,11 +4,11 @@
 # This test is executed by github workflows inside the action runners
 #
 
-TRACEE_STARTUP_TIMEOUT=60
-TRACEE_SHUTDOWN_TIMEOUT=60
-#TRACEE_RUN_TIMEOUT=60
+TRACKER_STARTUP_TIMEOUT=60
+TRACKER_SHUTDOWN_TIMEOUT=60
+#TRACKER_RUN_TIMEOUT=60
 SCRIPT_TMP_DIR=/tmp
-TRACEE_TMP_DIR=/tmp/tracker
+TRACKER_TMP_DIR=/tmp/tracker
 
 info_exit() {
     echo -n "INFO: "
@@ -41,7 +41,7 @@ DOCKER_IMAGE=ghcr.io/khulnasoft-lab/tracker-tester:latest
 TESTS=${TESTS:=TRC-102}
 
 # startup needs
-rm -rf $TRACEE_TMP_DIR/* || error_exit "could not delete $TRACEE_TMP_DIR"
+rm -rf $TRACKER_TMP_DIR/* || error_exit "could not delete $TRACKER_TMP_DIR"
 git config --global --add safe.directory "*"
 
 info
@@ -55,7 +55,7 @@ info "= PULLING CONTAINER IMAGE ====================================="
 info
 docker image pull $DOCKER_IMAGE
 info
-info "= COMPILING TRACEE ============================================"
+info "= COMPILING TRACKER ============================================"
 info
 # make clean # if you want to be extra cautious
 set -e
@@ -81,7 +81,7 @@ for TEST in $TESTS; do
     events=$(./dist/tracker-rules --rules $TEST --list-events)
 
     ./dist/tracker-ebpf \
-        --install-path $TRACEE_TMP_DIR \
+        --install-path $TRACKER_TMP_DIR \
         --cache cache-type=mem \
         --cache mem-cache-size=512 \
         --output format:gob \
@@ -101,14 +101,14 @@ for TEST in $TESTS; do
     while true; do
         times=$(($times + 1))
         sleep 1
-        if [[ -f $TRACEE_TMP_DIR/out/tracker.pid ]]; then
+        if [[ -f $TRACKER_TMP_DIR/out/tracker.pid ]]; then
             info
             info "UP AND RUNNING"
             info
             break
         fi
 
-        if [[ $times -gt $TRACEE_STARTUP_TIMEOUT ]]; then
+        if [[ $times -gt $TRACKER_STARTUP_TIMEOUT ]]; then
             timedout=1
             break
         fi
@@ -170,7 +170,7 @@ for TEST in $TESTS; do
     kill -2 $rules_pid
     kill -2 $tracker_pid
 
-    sleep $TRACEE_SHUTDOWN_TIMEOUT
+    sleep $TRACKER_SHUTDOWN_TIMEOUT
 
     # make sure tracker is exited with SIGKILL
     kill -9 $rules_pid >/dev/null 2>&1
@@ -180,7 +180,7 @@ for TEST in $TESTS; do
     sleep 3
 
     # cleanup leftovers
-    rm -rf $TRACEE_TMP_DIR
+    rm -rf $TRACKER_TMP_DIR
 done
 
 info

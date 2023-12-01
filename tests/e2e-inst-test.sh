@@ -6,11 +6,11 @@
 
 ARCH=$(uname -m)
 
-TRACEE_STARTUP_TIMEOUT=30
-TRACEE_SHUTDOWN_TIMEOUT=30
-TRACEE_RUN_TIMEOUT=60
+TRACKER_STARTUP_TIMEOUT=30
+TRACKER_SHUTDOWN_TIMEOUT=30
+TRACKER_RUN_TIMEOUT=60
 SCRIPT_TMP_DIR=/tmp
-TRACEE_TMP_DIR=/tmp/tracker
+TRACKER_TMP_DIR=/tmp/tracker
 
 # Default test to run if no other is given
 TESTS=${INSTTESTS:=VFS_WRITE}
@@ -42,7 +42,7 @@ if [[ ! -d ./signatures ]]; then
     error_exit "need to be in tracker root directory"
 fi
 
-rm -rf ${TRACEE_TMP_DIR:?}/* || error_exit "could not delete $TRACEE_TMP_DIR"
+rm -rf ${TRACKER_TMP_DIR:?}/* || error_exit "could not delete $TRACKER_TMP_DIR"
 
 KERNEL=$(uname -r)
 KERNEL_MAJ=$(echo "$KERNEL" | cut -d'.' -f1)
@@ -65,7 +65,7 @@ info "KERNEL: ${KERNEL}"
 info "CLANG: $(clang --version)"
 info "GO: $(go version)"
 info
-info "= COMPILING TRACEE ============================================"
+info "= COMPILING TRACKER ============================================"
 info
 # make clean # if you want to be extra cautious
 set -e
@@ -128,7 +128,7 @@ for TEST in $TESTS; do
     rm -f $SCRIPT_TMP_DIR/tracker-log-$$
 
     ./dist/tracker \
-        --install-path $TRACEE_TMP_DIR \
+        --install-path $TRACKER_TMP_DIR \
         --cache cache-type=mem \
         --cache mem-cache-size=512 \
         --proctree source=both \
@@ -148,14 +148,14 @@ for TEST in $TESTS; do
     while true; do
         times=$((times + 1))
         sleep 1
-        if [[ -f $TRACEE_TMP_DIR/out/tracker.pid ]]; then
+        if [[ -f $TRACKER_TMP_DIR/out/tracker.pid ]]; then
             info
             info "UP AND RUNNING"
             info
             break
         fi
 
-        if [[ $times -gt $TRACEE_STARTUP_TIMEOUT ]]; then
+        if [[ $times -gt $TRACKER_STARTUP_TIMEOUT ]]; then
             timedout=1
             break
         fi
@@ -185,7 +185,7 @@ for TEST in $TESTS; do
         sleep 15
         ;;
     *)
-        timeout --preserve-status $TRACEE_RUN_TIMEOUT "${TESTS_DIR}"/"${TEST,,}".sh
+        timeout --preserve-status $TRACKER_RUN_TIMEOUT "${TESTS_DIR}"/"${TEST,,}".sh
         ;;
     esac
 
@@ -227,12 +227,12 @@ for TEST in $TESTS; do
 
     pid_tracker=$(pidof tracker | cut -d' ' -f1)
     kill -2 "$pid_tracker"
-    sleep $TRACEE_SHUTDOWN_TIMEOUT
+    sleep $TRACKER_SHUTDOWN_TIMEOUT
     kill -9 "$pid_tracker" >/dev/null 2>&1
     sleep 3
 
     # Cleanup leftovers
-    rm -rf $TRACEE_TMP_DIR
+    rm -rf $TRACKER_TMP_DIR
 done
 
 # Print summary and exit with error if any test failed

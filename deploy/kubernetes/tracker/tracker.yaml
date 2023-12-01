@@ -246,9 +246,9 @@ spec:
           - --health-probe-bind-address
           - :8081
         env:
-          - name: TRACEE_NAME
+          - name: TRACKER_NAME
             value: tracker
-          - name: TRACEE_NAMESPACE
+          - name: TRACKER_NAMESPACE
             value: default
         securityContext:
             privileged: true

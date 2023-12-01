@@ -29,9 +29,9 @@ spec:
           - --health-probe-bind-address
           - {{ .Values.operator.healthProbeBindAddress }}
         env:
-          - name: TRACEE_NAME
+          - name: TRACKER_NAME
             value: {{ include "tracker.fullname" . }}
-          - name: TRACEE_NAMESPACE
+          - name: TRACKER_NAMESPACE
             value: {{ .Release.Namespace }}
         securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
