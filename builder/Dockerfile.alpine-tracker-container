@@ -53,7 +53,7 @@ RUN apk --no-cache update && \
 # install bpftool from btfhub
 
 RUN cd /tmp && \
-    git clone https://github.com/aquasecurity/btfhub.git && \
+    git clone https://github.com/khulnasoft-lab/btfhub.git && \
     cd ./btfhub && \
     git submodule update --init --recursive 3rdparty/bpftool && \
     cd ./3rdparty/bpftool && \

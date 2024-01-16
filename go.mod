@@ -11,10 +11,10 @@ require (
 	github.com/google/gopacket v1.1.19
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/hashicorp/golang-lru/v2 v2.0.2
-	github.com/khulnasoft-lab/libbpfgo v0.6.0-libbpf-1.3
-	github.com/khulnasoft-lab/libbpfgo/helpers v0.0.0-20231130211317-43c2546a4d5b
-	github.com/khulnasoft-lab/tracker/api v0.0.0-20231201062514-3154a2eb24e8
-	github.com/khulnasoft-lab/tracker/types v0.0.0-20231201031803-c595a6721eea
+	github.com/khulnasoft-lab/libbpfgo v1.0.0
+	github.com/khulnasoft-lab/libbpfgo/helpers v0.0.0-20240116024302-7f885ffe6535
+	github.com/khulnasoft-lab/tracker/api v0.0.0-20240116021916-6f8c7a0e06e9
+	github.com/khulnasoft-lab/tracker/types v0.0.0-20240116021916-6f8c7a0e06e9
 	github.com/kubernetes/cri-api v0.27.1
 	github.com/mennanov/fmutils v0.2.0
 	github.com/mitchellh/mapstructure v1.5.0
@@ -28,7 +28,7 @@ require (
 	github.com/urfave/cli/v2 v2.3.0
 	go.uber.org/goleak v1.2.1
 	go.uber.org/zap v1.25.0
-	golang.org/x/sys v0.15.0
+	golang.org/x/sys v0.16.0
 	google.golang.org/grpc v1.59.0
 	google.golang.org/protobuf v1.31.0
 	gopkg.in/yaml.v2 v2.4.0
@@ -180,3 +180,5 @@ require (
 )
 
 replace github.com/kubernetes/cri-api => k8s.io/cri-api v0.23.5-rc.0
+
+replace github.com/aquasecurity/libbpfgo => github.com/khulnasoft-lab/libbpfgo v0.6.0-libbpf-1.3
