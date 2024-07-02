@@ -47,30 +47,62 @@ CMD_CONTROLLER_GEN ?= controller-gen
 		echo "missing required tool $*"
 		exit 1
 	else
-		touch $@ # avoid target rebuilds due to inexistent file
+		touch $@ # avoid target rebuilds due to non-existing file
 	fi
 
 #
 # libs
 #
 
-LIB_ELF ?= libelf
-LIB_ZLIB ?= zlib
+LIB_BPF ?= libbpf
 
-define pkg_config
-	$(CMD_PKGCONFIG) --libs $(1)
-endef
+# Recursively get private requirements of a library.
+# It ignores libbpf as it is in 3rdparty, but considers its requirements.
+fetch_priv_reqs_recursive = \
+get_priv_reqs_recursive() { \
+	lib=$$1; \
+	processed_libs=$$2; \
+	if echo "$$processed_libs" | grep -qw "$$lib"; then \
+		return; \
+	fi; \
+	processed_libs="$$processed_libs $$lib"; \
+	if [ "$$lib" = "libbpf" ]; then \
+		priv_reqs=$$(PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) $(CMD_PKGCONFIG) --print-requires-private $$lib); \
+	else \
+		echo $$lib; \
+		priv_reqs=$$($(CMD_PKGCONFIG) --print-requires-private $$lib); \
+	fi; \
+	for req in $$priv_reqs; do \
+		if echo "$$processed_libs" | grep -qw "$$req"; then \
+			continue; \
+		fi; \
+	done; \
+	for req in $$priv_reqs; do \
+		get_priv_reqs_recursive $$req "$$processed_libs"; \
+	done; \
+}; \
+\
+get_all_priv_reqs() { \
+	lib=$$1; \
+	get_priv_reqs_recursive $$lib ""; \
+}; \
+\
+get_all_priv_reqs $$1
 
 .checklib_%: \
 	| .check_$(CMD_PKGCONFIG)
 #
-	@$(CMD_PKGCONFIG) --silence-errors --validate $* 2>/dev/null
-	if [ $$? -ne 0 ]; then
-		echo "missing lib $*"
-		exit 1
-	else
-		touch $@ # avoid target rebuilds due to inexistent file
-	fi
+	@{ \
+		$(eval required_libs := $(shell sh -c '$(fetch_priv_reqs_recursive) $*'))
+		$(eval output := $(shell sh -c '\
+		for lib in "$(required_libs)"; do \
+			$(CMD_PKGCONFIG) --silence-errors --validate $$lib 2>/dev/null || echo "$$lib"; \
+		done'))
+		if [ -n "$(output)" ]; then \
+			echo "missing required library: $(output)"; \
+			exit 1; \
+		fi; \
+	} && touch $@ # avoid target rebuilds due to non-existing file
 
 #
 # tools version
@@ -87,7 +119,7 @@ CLANG_VERSION = $(shell $(CMD_CLANG) --version 2>/dev/null | \
 		echo "your current clang version is ${CLANG_VERSION}"
 		exit 1
 	fi
-	touch $@ # avoid target rebuilds over and over due to inexistent file
+	touch $@ # avoid target rebuilds over and over due to non-existing file
 
 GO_VERSION = $(shell $(CMD_GO) version 2>/dev/null | $(CMD_AWK) '{print $$3}' | $(CMD_SED) 's:go::g' | $(CMD_CUT) -d. -f1,2)
 GO_VERSION_MAJ = $(shell echo $(GO_VERSION) | $(CMD_CUT) -d'.' -f1)
@@ -170,8 +202,7 @@ env:
 	@echo "CMD_TR                   $(CMD_TR)"
 	@echo "CMD_PROTOC               $(CMD_PROTOC)"
 	@echo ---------------------------------------
-	@echo "LIB_ELF                  $(LIB_ELF)"
-	@echo "LIB_ZLIB                 $(LIB_ZLIB)"
+	@echo "LIB_BPF                  $(LIB_BPF)"
 	@echo ---------------------------------------
 	@echo "VERSION                  $(VERSION)"
 	@echo "LAST_GIT_TAG             $(LAST_GIT_TAG)"
@@ -316,10 +347,13 @@ $(OUTPUT_DIR)/btfhub:
 #
 
 LIBBPF_CFLAGS = "-fPIC"
-LIBBPF_LDLAGS =
+LIBBPF_LDFLAGS =
 LIBBPF_SRC = ./3rdparty/libbpf/src
+LIBBPF_DESTDIR = $(OUTPUT_DIR)/libbpf
+LIBBPF_OBJDIR = $(LIBBPF_DESTDIR)/obj
+LIBBPF_OBJ = $(LIBBPF_OBJDIR)/libbpf.a
 
-$(OUTPUT_DIR)/libbpf/libbpf.a: \
+$(LIBBPF_OBJ): \
 	$(LIBBPF_SRC) \
 	$(wildcard $(LIBBPF_SRC)/*.[ch]) \
 	| .checkver_$(CMD_CLANG) $(OUTPUT_DIR)
@@ -330,9 +364,10 @@ $(OUTPUT_DIR)/libbpf/libbpf.a: \
 		$(MAKE) \
 		-C $(LIBBPF_SRC) \
 		BUILD_STATIC_ONLY=1 \
-		DESTDIR=$(abspath ./$(OUTPUT_DIR)/libbpf/) \
-		OBJDIR=$(abspath ./$(OUTPUT_DIR)/libbpf/obj) \
-		INCLUDEDIR= LIBDIR= UAPIDIR= prefix= libdir= \
+		DESTDIR=$(abspath $(LIBBPF_DESTDIR)) \
+		OBJDIR=$(abspath $(LIBBPF_OBJDIR)) \
+		LIBDIR=$(abspath $(LIBBPF_OBJDIR)) \
+		INCLUDEDIR= UAPIDIR= prefix= libdir= \
 		install install_uapi_headers
 
 $(LIBBPF_SRC): \
@@ -353,7 +388,7 @@ TRACKER_EBPF_OBJ_HEADERS = $(shell find pkg/ebpf/c -name *.h)
 bpf: $(OUTPUT_DIR)/tracker.bpf.o
 
 $(OUTPUT_DIR)/tracker.bpf.o: \
-	$(OUTPUT_DIR)/libbpf/libbpf.a \
+	$(LIBBPF_OBJ) \
 	$(TRACKER_EBPF_OBJ_SRC) \
 	$(TRACKER_EBPF_OBJ_HEADERS)
 #
@@ -366,7 +401,7 @@ $(OUTPUT_DIR)/tracker.bpf.o: \
 		-I ./3rdparty/include \
 		-target bpf \
 		-O2 -g \
-		-march=bpf -mcpu=$(BPF_VCPU) \
+		-mcpu=$(BPF_VCPU) \
 		-c $(TRACKER_EBPF_OBJ_SRC) \
 		-o $@
 
@@ -380,20 +415,21 @@ clean-bpf:
 #
 
 STATIC ?= 0
-GO_TAGS_EBPF = core,ebpf
-CGO_EXT_LDFLAGS_EBPF =
-
-ifeq ($(STATIC), 1)
-    CGO_EXT_LDFLAGS_EBPF += -static
-    GO_TAGS_EBPF := $(GO_TAGS_EBPF),netgo
-endif
-
 TRACKER_SRC_DIRS = ./cmd/ ./pkg/ ./signatures/
 TRACKER_SRC = $(shell find $(TRACKER_SRC_DIRS) -type f -name '*.go' ! -name '*_test.go')
-
+GO_TAGS_EBPF = core,ebpf
+CGO_EXT_LDFLAGS_EBPF =
 CUSTOM_CGO_CFLAGS = "-I$(abspath $(OUTPUT_DIR)/libbpf)"
-CUSTOM_CGO_LDFLAGS = "$(shell $(call pkg_config, $(LIB_ELF))) $(shell $(call pkg_config, $(LIB_ZLIB))) $(abspath $(OUTPUT_DIR)/libbpf/libbpf.a)"
+PKG_CONFIG_PATH = $(LIBBPF_OBJDIR)
+PKG_CONFIG_FLAG =
 
+ifeq ($(STATIC), 1)
+    GO_TAGS_EBPF := $(GO_TAGS_EBPF),netgo
+    CGO_EXT_LDFLAGS_EBPF += -static
+    PKG_CONFIG_FLAG = --static
+endif
+
+CUSTOM_CGO_LDFLAGS = "$(shell PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) $(CMD_PKGCONFIG) $(PKG_CONFIG_FLAG) --libs $(LIB_BPF))"
 GO_ENV_EBPF =
 GO_ENV_EBPF += GOOS=linux
 GO_ENV_EBPF += CC=$(CMD_CLANG)
@@ -437,8 +473,7 @@ $(OUTPUT_DIR)/tracker: \
 	$(OUTPUT_DIR)/tracker.bpf.o \
 	$(TRACKER_SRC) \
 	| .checkver_$(CMD_GO) \
-	.checklib_$(LIB_ELF) \
-	.checklib_$(LIB_ZLIB) \
+	.checklib_$(LIB_BPF) \
 	btfhub \
 	signatures
 #
@@ -448,10 +483,10 @@ $(OUTPUT_DIR)/tracker: \
 		-tags $(GO_TAGS_EBPF) \
 		-ldflags="$(GO_DEBUG_FLAG) \
 			-extldflags \"$(CGO_EXT_LDFLAGS_EBPF)\" \
-			-X github.com/khulnasoft-lab/tracker/pkg/version.version=\"$(VERSION)\" \
+			-X github.com/khulnasoft-lab/tracker/pkg/version.version=$(VERSION) \
 			" \
 		-v -o $@ \
-		./cmd/tracker
+		./cmd/tra
 
 .PHONY: clean-tracker
 clean-tracker:
@@ -470,8 +505,7 @@ $(OUTPUT_DIR)/tracker-ebpf: \
 	$(OUTPUT_DIR)/tracker.bpf.o \
 	$(TRACKER_SRC) \
 	| .checkver_$(CMD_GO) \
-	.checklib_$(LIB_ELF) \
-	.checklib_$(LIB_ZLIB) \
+	.checklib_$(LIB_BPF) \
 	btfhub
 #
 	$(MAKE) $(OUTPUT_DIR)/btfhub
@@ -518,9 +552,9 @@ TRACKER_RULES_SRC=$(shell find $(TRACKER_RULES_SRC_DIRS) -type f -name '*.go')
 tracker-rules: $(OUTPUT_DIR)/tracker-rules
 
 $(OUTPUT_DIR)/tracker-rules: \
-	.checkver_$(CMD_GO) \
 	$(TRACKER_RULES_SRC) \
-	| $(OUTPUT_DIR) \
+	| .checkver_$(CMD_GO) \
+	$(OUTPUT_DIR) \
 	signatures
 #
 	$(GO_ENV_RULES) $(CMD_GO) build \
@@ -596,9 +630,9 @@ TRACKER_BENCH_SRC = $(shell find $(TRACKER_BENCH_SRC_DIRS) \
 tracker-bench: $(OUTPUT_DIR)/tracker-bench
 
 $(OUTPUT_DIR)/tracker-bench: \
-	.checkver_$(CMD_GO) \
 	$(TRACKER_BENCH_SRC) \
-	| $(OUTPUT_DIR)
+	| .checkver_$(CMD_GO) \
+	$(OUTPUT_DIR)
 #
 	$(CMD_GO) build \
 		-v -o $@ \
@@ -622,9 +656,10 @@ TRACKER_GPTDOCS_SRC = $(shell find $(TRACKER_GPTDOCS_SRC_DIRS) \
 tracker-gptdocs: $(OUTPUT_DIR)/tracker-gptdocs
 
 $(OUTPUT_DIR)/tracker-gptdocs: \
-	.checkver_$(CMD_GO) \
 	$(TRACKER_GPTDOCS_SRC) \
-	| $(OUTPUT_DIR)
+	$(LIBBPF_OBJ) \
+	| .checkver_$(CMD_GO) \
+	$(OUTPUT_DIR)
 #
 	$(MAKE) $(OUTPUT_DIR)/btfhub
 	$(MAKE) btfhub
@@ -682,6 +717,8 @@ E2E_INST_SRC := $(shell find $(E2E_INST_DIR) \
 		-type f \
 		-name '*.go' \
 		! -name '*_test.go' \
+		! -path '$(E2E_INST_DIR)/scripts/*' \
+		! -path '$(E2E_INST_DIR)/datasourcetest/*' \
 		)
 
 .PHONY: e2e-inst-signatures
@@ -710,9 +747,9 @@ clean-e2e-inst-signatures:
 
 .PHONY: test-unit
 test-unit: \
-	.checkver_$(CMD_GO) \
 	tracker-ebpf \
-	test-types
+	test-types \
+	| .checkver_$(CMD_GO)
 #
 	@$(GO_ENV_EBPF) \
 	$(CMD_GO) test \
@@ -728,7 +765,7 @@ test-unit: \
 
 .PHONY: test-types
 test-types: \
-	.checkver_$(CMD_GO)
+	| .checkver_$(CMD_GO)
 #
 	# Note that we must changed the directory here because types is a standalone Go module.
 	@cd ./types && $(CMD_GO) test \
@@ -745,7 +782,7 @@ test-types: \
 
 .PHONY: $(OUTPUT_DIR)/syscaller
 $(OUTPUT_DIR)/syscaller: \
-	$(OUTPUT_DIR)/libbpf/libbpf.a \
+	$(LIBBPF_OBJ) \
 	| .check_$(CMD_GO)
 #
 	$(GO_ENV_EBPF) \
@@ -753,9 +790,9 @@ $(OUTPUT_DIR)/syscaller: \
 
 .PHONY: test-integration
 test-integration: \
-	.checkver_$(CMD_GO) \
 	$(OUTPUT_DIR)/syscaller \
-	tracker-ebpf
+	tracker \
+	| .checkver_$(CMD_GO)
 #
 	@$(GO_ENV_EBPF) \
 	$(CMD_GO) test \
@@ -779,8 +816,7 @@ test-signatures: \
 
 .PHONY: test-upstream-libbpfgo
 test-upstream-libbpfgo: \
-	.checkver_$(CMD_GO) \
-	$(OUTPUT_DIR)/libbpf/libbpf.a
+	| .checkver_$(CMD_GO)
 #
 	./tests/libbpfgo.sh $(GO_ENV_EBPF)
 
@@ -790,8 +826,8 @@ test-upstream-libbpfgo: \
 
 .PHONY: test-performance
 test-performance: \
-	.checkver_$(CMD_GO) \
-	tracker
+	tracker \
+	| .checkver_$(CMD_GO)
 #
 	@$(GO_ENV_EBPF) \
 	$(CMD_GO) test \
@@ -835,8 +871,8 @@ check-code:: \
 
 .PHONY: check-vet
 check-vet: \
-	.checkver_$(CMD_GO) \
-	tracker-ebpf
+	tracker-ebpf \
+	| .checkver_$(CMD_GO)
 #
 	@$(GO_ENV_EBPF) \
 	$(CMD_GO) vet \
@@ -845,9 +881,9 @@ check-vet: \
 
 .PHONY: check-staticcheck
 check-staticcheck: \
-	.checkver_$(CMD_GO) \
 	tracker-ebpf \
-	| .check_$(CMD_STATICCHECK)
+	| .checkver_$(CMD_GO) \
+	.check_$(CMD_STATICCHECK)
 #
 	@$(GO_ENV_EBPF) \
 	$(CMD_STATICCHECK) -f stylish \
@@ -856,9 +892,9 @@ check-staticcheck: \
 
 .PHONY: check-err
 check-err: \
-	.checkver_$(CMD_GO) \
 	tracker-ebpf \
-	| .check_$(CMD_ERRCHECK)
+	| .checkver_$(CMD_GO) \
+	.check_$(CMD_ERRCHECK)
 #
 	@$(CMD_ERRCHECK) \
 		-tags $(GO_TAGS_EBPF) \
@@ -890,12 +926,16 @@ check-pr: \
 	@echo
 	@echo
 
-	@output=$$(git rev-list $(LOGFROM)..HEAD | while read commit; do \
-		if [[ "$$(git show --no-patch --format=%b $$commit)" ]]; then \
+	@output=$$($(CMD_GIT) rev-list $(LOGFROM)..HEAD | while read commit; do \
+		body="$$($(CMD_GIT) show --no-patch --format=%b $$commit | sed ':a;N;$$!ba;s/\n$$//')"; \
+		if [ -n "$$body" ]; then \
 			$(CMD_GIT) \
 				show -s $$commit \
 				--color=always \
-				--format='%C(auto,yellow)%h%Creset **%C(auto,red)%s%Creset**%n%n```%n%b%n```%n'; \
+				--format='%C(auto,yellow)%h%Creset **%C(auto,red)%s%Creset**%n'; \
+			echo '```'; \
+			echo "$$body"; \
+			echo '```'; \
 			echo; \
 		fi; \
 	done); \
@@ -915,8 +955,9 @@ protoc:
 	$(CMD_PROTOC) \
 		--go_out=. \
 		--go_opt=paths=source_relative \
+		--go-json_out=orig_name=true,paths=source_relative:. \
 		--go-grpc_out=. \
-		--go-grpc_opt=paths=source_relative $(TRACKER_PROTOS) 
+		--go-grpc_opt=paths=source_relative $(TRACKER_PROTOS)
 
 #
 # man pages
@@ -968,8 +1009,8 @@ clean:
 tracker-operator: $(OUTPUT_DIR)/tracker-operator
 
 $(OUTPUT_DIR)/tracker-operator: \
-	.checkver_$(CMD_GO) \
-	| $(OUTPUT_DIR)
+	| .checkver_$(CMD_GO) \
+	$(OUTPUT_DIR)
 #
 	$(CMD_GO) build \
 		-v -o $@ \
@@ -989,3 +1030,8 @@ k8s-manifests: ## Generate WebhookConfiguration, ClusterRole and CustomResourceD
 .PHONY: k8s-generate
 k8s-generate: ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
 	$(CMD_CONTROLLER_GEN) object:headerFile="deploy/boilerplate.go.txt" paths="./pkg/k8s/..."
+
+# benchmarks
+.PHONY: bench-network
+bench-network:
+	./performance/benchmark/network/bench.sh $(IMAGE) $(OUTPUT) $(TIME)
