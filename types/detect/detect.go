@@ -48,20 +48,13 @@ type SignatureEventSelector struct {
 }
 
 // SignatureHandler is a callback function that reports a finding
-type SignatureHandler func(found Finding)
+type SignatureHandler func(found *Finding)
 
 // Signal is a generic lifecycle event for a signature
 type Signal interface{}
 
 // SignalSourceComplete signals that an input source the signature was subscribed to had ended
 type SignalSourceComplete string
-
-// Finding is the main output of a signature. It represents a match result for the signature business logic
-type Finding struct {
-	Data        map[string]interface{}
-	Event       protocol.Event // Event is the causal event of the Finding
-	SigMetadata SignatureMetadata
-}
 
 // Logger interface to inject in signatures
 type Logger interface {
@@ -94,3 +87,20 @@ type DataSource interface {
 
 var ErrDataNotFound = errors.New("requested data was not found")
 var ErrKeyNotSupported = errors.New("queried key is not supported")
+var ErrFailedToUnmarshal = errors.New("given value could not be unmarshaled")
+
+type WriteableDataSource interface {
+	DataSource
+	// Write values to keys in the data source. The values may not strictly match the schema defined
+	// in the data source, however the implementation must be able to unmarshal it successfully to some form
+	// where it can be eventually represented by the schema.
+	//
+	// The following errors should be returned for the appropriate cases:
+	//
+	// - ErrKeyNotSupported - When a given key does not match to supported key type
+	// - ErrFailedToUnmarshal - When a value given could not be unmarshalled to an expected type
+	// - Otherwise errors may vary.
+	Write(data map[interface{}]interface{}) error
+	// The types of values the data source supports writing.
+	Values() []string
+}

@@ -7,10 +7,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/khulnasoft-lab/libbpfgo/helpers"
-
 	"github.com/khulnasoft-lab/tracker/pkg/errfmt"
 	"github.com/khulnasoft-lab/tracker/pkg/events"
+	"github.com/khulnasoft-lab/tracker/pkg/events/parsers"
 	"github.com/khulnasoft-lab/tracker/pkg/logger"
 	"github.com/khulnasoft-lab/tracker/types/trace"
 )
@@ -255,9 +254,9 @@ func readSockaddrFromBuff(ebpfMsgDecoder *EbpfDecoder) (map[string]string, error
 	if err != nil {
 		return nil, errfmt.WrapError(err)
 	}
-	socketDomainArg, err := helpers.ParseSocketDomainArgument(uint64(family))
+	socketDomainArg, err := parsers.ParseSocketDomainArgument(uint64(family))
 	if err != nil {
-		socketDomainArg = helpers.AF_UNSPEC
+		socketDomainArg = parsers.AF_UNSPEC
 	}
 	res["sa_family"] = socketDomainArg.String()
 	switch family {

@@ -8,14 +8,14 @@ runs:
       run: |
         sudo apt-get update
         sudo apt-get install -y bsdutils build-essential pkgconf
-        sudo apt-get install -y zlib1g-dev libelf-dev
+        sudo apt-get install -y zlib1g-dev libelf-dev libzstd-dev
         sudo apt-get install -y software-properties-common
       shell: bash
     - name: Install Golang
       run: |
         sudo rm -f /usr/bin/go
         sudo rm -f /usr/bin/gofmt
-        curl -L -o /tmp/golang.tar.gz https://go.dev/dl/go1.20.8.linux-amd64.tar.gz
+        curl -L -o /tmp/golang.tar.gz https://go.dev/dl/go1.22.3.linux-amd64.tar.gz
         sudo tar -C /usr/local -xzf /tmp/golang.tar.gz
         sudo ln -s /usr/local/go/bin/go /usr/bin/go
         sudo ln -s /usr/local/go/bin/gofmt /usr/bin/gofmt
@@ -66,7 +66,7 @@ runs:
       shell: bash
     - name: Install OPA
       run: |
-        sudo curl -L -o /usr/bin/opa https://github.com/open-policy-agent/opa/releases/download/v0.56.0/opa_linux_amd64_static
+        sudo curl -L -o /usr/bin/opa https://github.com/open-policy-agent/opa/releases/download/v0.63.0/opa_linux_amd64_static
         sudo chmod 755 /usr/bin/opa
       shell: bash
     - name: Install staticchecker
@@ -76,7 +76,7 @@ runs:
       shell: bash
     - name: Install revive
       run: |
-        GOROOT=/usr/local/go GOPATH=$HOME/go go install github.com/mgechev/revive@latest
+        GOROOT=/usr/local/go GOPATH=$HOME/go go install github.com/mgechev/revive@e33fb87
         sudo cp $HOME/go/bin/revive /usr/bin/
       shell: bash
     - name: Install goimports-reviser

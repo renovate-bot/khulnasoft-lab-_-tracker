@@ -18,8 +18,18 @@ const ALL_EVENT_TYPES = "*"
 
 // Config defines the engine's configurable values
 type Config struct {
-	// Enables the signatures engine to run in the events pipeline
-	Enabled             bool
+	// Engine-in-Pipeline related configuration
+	Enabled          bool             // Enables the signatures engine to run in the events pipeline
+	SigNameToEventID map[string]int32 // Cache of loaded signature event names to event ids, used to filter in dispatching
+
+	// Callback from tracker to determine if event should be dispatched to signature.
+	// This is done as a callback becaues importing the events package breaks compilation for the
+	// tracker-rules binary.
+	// When tracker-rules is removed, and the policy coordinator is implemented (PR #3305)
+	// this solution should be abandoned in favor of using it alongside the engine.
+	ShouldDispatchEvent func(eventIdInt32 int32) bool
+
+	// General engine configuration
 	SignatureBufferSize uint
 	Signatures          []detect.Signature
 	DataSources         []detect.DataSource
@@ -31,7 +41,7 @@ type Engine struct {
 	signaturesIndex  map[detect.SignatureEventSelector][]detect.Signature
 	signaturesMutex  sync.RWMutex
 	inputs           EventSources
-	output           chan detect.Finding
+	output           chan *detect.Finding
 	waitGroup        sync.WaitGroup
 	config           Config
 	stats            metrics.Stats
@@ -51,7 +61,7 @@ func (engine *Engine) Stats() *metrics.Stats {
 // NewEngine creates a new signatures-engine with the given arguments
 // inputs and outputs are given as channels created by the consumer
 // Signatures are not loaded at this point, Init must be called to perform config side effects.
-func NewEngine(config Config, sources EventSources, output chan detect.Finding) (*Engine, error) {
+func NewEngine(config Config, sources EventSources, output chan *detect.Finding) (*Engine, error) {
 	if sources.Tracker == nil || output == nil {
 		return nil, fmt.Errorf("nil input received")
 	}
@@ -133,7 +143,7 @@ func (engine *Engine) unloadAllSignatures() {
 }
 
 // matchHandler is a function that runs when a signature is matched
-func (engine *Engine) matchHandler(res detect.Finding) {
+func (engine *Engine) matchHandler(res *detect.Finding) {
 	_ = engine.stats.Detections.Increment()
 	engine.output <- res
 }
@@ -222,6 +232,7 @@ func (engine *Engine) consumeSources(ctx context.Context) {
 				engine.signaturesMutex.RUnlock()
 				engine.inputs.Tracker = nil
 				if engine.checkCompletion() {
+					close(engine.output)
 					return
 				}
 
@@ -248,7 +259,30 @@ drain:
 }
 
 func (engine *Engine) dispatchEvent(s detect.Signature, event protocol.Event) {
+	if engine.config.Enabled {
+		// Do this test only if engine runs as part of the event pipeline
+		if ok := engine.filterDispatchInPipeline(s, event); !ok {
+			return
+		}
+	}
+
 	engine.signatures[s] <- event
+}
+
+func (engine *Engine) filterDispatchInPipeline(s detect.Signature, event protocol.Event) bool {
+	md, err := s.GetMetadata()
+	if err != nil {
+		logger.Warnw(fmt.Sprintf("event %s not dispatched to signature: no metadata", event.Selector().Name))
+		return false
+	}
+	evtName := md.EventName
+	id, ok := engine.config.SigNameToEventID[evtName] // use specialized cache to avoid definiton lookup
+	if !ok {
+		logger.Warnw(fmt.Sprintf("event %s not dispatched to signature: no eventname declared for siganture %s", event.Selector().Name, md.ID))
+		return false
+	}
+
+	return engine.config.ShouldDispatchEvent(id)
 }
 
 // TODO: This method seems not to be used, let's confirm inside the team and remove it if not needed

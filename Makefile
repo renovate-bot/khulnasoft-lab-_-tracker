@@ -486,7 +486,7 @@ $(OUTPUT_DIR)/tracker: \
 			-X github.com/khulnasoft-lab/tracker/pkg/version.version=$(VERSION) \
 			" \
 		-v -o $@ \
-		./cmd/tra
+		./cmd/tracker
 
 .PHONY: clean-tracker
 clean-tracker:

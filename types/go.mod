@@ -1,6 +1,6 @@
 module github.com/khulnasoft-lab/tracker/types
 
-go 1.19
+go 1.22.0
 
 require github.com/stretchr/testify v1.7.0
 

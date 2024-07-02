@@ -75,11 +75,11 @@ func (decoder *EbpfDecoder) DecodeContext(eCtx *EventContext) error {
 
 	eCtx.EventID = events.ID(int32(binary.LittleEndian.Uint32(decoder.buffer[offset+112 : offset+116])))
 	eCtx.Syscall = int32(binary.LittleEndian.Uint32(decoder.buffer[offset+116 : offset+120]))
-	eCtx.MatchedPolicies = binary.LittleEndian.Uint64(decoder.buffer[offset+120 : offset+128])
-	eCtx.Retval = int64(binary.LittleEndian.Uint64(decoder.buffer[offset+128 : offset+136]))
-	eCtx.StackID = binary.LittleEndian.Uint32(decoder.buffer[offset+136 : offset+140])
-	eCtx.ProcessorId = binary.LittleEndian.Uint16(decoder.buffer[offset+140 : offset+142])
-	// 2 byte padding
+	eCtx.Retval = int64(binary.LittleEndian.Uint64(decoder.buffer[offset+120 : offset+128]))
+	eCtx.StackID = binary.LittleEndian.Uint32(decoder.buffer[offset+128 : offset+132])
+	eCtx.ProcessorId = binary.LittleEndian.Uint16(decoder.buffer[offset+132 : offset+134])
+	eCtx.PoliciesVersion = binary.LittleEndian.Uint16(decoder.buffer[offset+134 : offset+136])
+	eCtx.MatchedPolicies = binary.LittleEndian.Uint64(decoder.buffer[offset+136 : offset+144])
 	// event_context end
 
 	decoder.cursor += eCtx.GetSizeBytes()
@@ -89,26 +89,25 @@ func (decoder *EbpfDecoder) DecodeContext(eCtx *EventContext) error {
 // DecodeArguments decodes the remaining buffer's argument values, according to the given event definition.
 // It should be called last, and after decoding the argnum with DecodeUint8.
 //
-// Argument array passed should be initialized with the size of len(eventDefinition.Params).
-func (decoder *EbpfDecoder) DecodeArguments(args []trace.Argument, argnum int, evtDef events.Definition, eventId events.ID) error {
+// Argument array passed should be initialized with the size of len(evtParams).
+func (decoder *EbpfDecoder) DecodeArguments(args []trace.Argument, argnum int, evtParams []trace.ArgMeta, evtName string, eventId events.ID) error {
 	for i := 0; i < argnum; i++ {
 		idx, arg, err := readArgFromBuff(
 			eventId,
 			decoder,
-			evtDef.GetParams(),
+			evtParams,
 		)
 		if err != nil {
-			logger.Errorw("error reading argument from buffer", "error", errfmt.Errorf("failed to read argument %d of event %s: %v", i, evtDef.GetName(), err))
+			logger.Errorw("error reading argument from buffer", "error", errfmt.Errorf("failed to read argument %d of event %s: %v", i, evtName, err))
 			continue
 		}
 		if args[idx].Value != nil {
-			logger.Warnw("argument overridden from buffer", "error", errfmt.Errorf("read more than one instance of argument %s of event %s. Saved value: %v. New value: %v", arg.Name, evtDef.GetName(), args[idx].Value, arg.Value))
+			logger.Warnw("argument overridden from buffer", "error", errfmt.Errorf("read more than one instance of argument %s of event %s. Saved value: %v. New value: %v", arg.Name, evtName, args[idx].Value, arg.Value))
 		}
 		args[idx] = arg
 	}
-	evtParams := evtDef.GetParams()
 	// Fill missing arguments metadata
-	for i := 0; i < len(evtDef.GetParams()); i++ {
+	for i := 0; i < len(evtParams); i++ {
 		if args[i].Value == nil {
 			args[i].ArgMeta = evtParams[i]
 		}
