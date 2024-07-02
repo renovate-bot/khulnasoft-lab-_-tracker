@@ -2,6 +2,8 @@ github.com/davecgh/go-spew v1.1.0 h1:ZDRjVQ15GmhC3fiQ8ni8+OwkZQO4DARzQgrnXU1Liz8
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/khulnasoft-lab/tracker/types v0.0.0-20240702113932-6407b2fe992e h1:qTkBAySLFJCErZw8aqm91NFxc3i6PGTEH46Ud6Kf+6s=
 github.com/khulnasoft-lab/tracker/types v0.0.0-20240702113932-6407b2fe992e/go.mod h1:N5KcyPpSDJXu52Az1jAdmJ9nZHygIKpazbU1n+7M5aU=
+github.com/khulnasoft-lab/tracker/types v0.0.0-20240702141001-643a35e63b15 h1:Tb/woo2yfSbOS7Ej+8z9KWw3av7EBvEreodKAenW0YM=
+github.com/khulnasoft-lab/tracker/types v0.0.0-20240702141001-643a35e63b15/go.mod h1:N5KcyPpSDJXu52Az1jAdmJ9nZHygIKpazbU1n+7M5aU=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/stretchr/testify v1.7.0 h1:nwc3DEeHmmLAfoZucVR881uASk0Mfjw8xYJ99tb5CcY=
