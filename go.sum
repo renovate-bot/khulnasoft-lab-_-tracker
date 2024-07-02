@@ -674,6 +674,8 @@ github.com/khulnasoft-lab/libbpfgo v1.0.0 h1:McXno6OZbm4xBRT8mWCasZmfeAfmP1vILYl
 github.com/khulnasoft-lab/libbpfgo v1.0.0/go.mod h1:fuLBO2/PqDPKPbKihvqYZE0BegTEq4MtC3W7qAWtZSQ=
 github.com/khulnasoft-lab/tracker/api v0.0.0-20240702113932-6407b2fe992e h1:pp1wT2vwqvgzvcyQcwt6QUv0F6m4gi9YsJW/d4Gc7CI=
 github.com/khulnasoft-lab/tracker/api v0.0.0-20240702113932-6407b2fe992e/go.mod h1:Q7GFl3B3SSXIpERvnJGbTe9Wn38qyGnfIjMFn5vxq0Q=
+github.com/khulnasoft-lab/tracker/api v0.0.0-20240702150859-d3189fe99891 h1:pke59/z1QaiW8NDVw6c8HoQgud64n4pJmMD8cSGRDCg=
+github.com/khulnasoft-lab/tracker/api v0.0.0-20240702150859-d3189fe99891/go.mod h1:kTdVVbfcDM+sIX1/h/lVigE0s8IK+TGsNYnjS9p4WMs=
 github.com/khulnasoft-lab/tracker/signatures/helpers v0.0.0-20240702122955-2c3da8dd8eb3 h1:4BCCtRvceAUPJhT99f50wQ2EFLHQUH9aw1sKmOw4+Ek=
 github.com/khulnasoft-lab/tracker/signatures/helpers v0.0.0-20240702122955-2c3da8dd8eb3/go.mod h1:XCgyJlec+XteU95VwOqEQSpLb308/e6lQiBmTqxrw9M=
 github.com/khulnasoft-lab/tracker/signatures/helpers v0.0.0-20240702141001-643a35e63b15 h1:sTYeDzi7B3vOabcyp4x8NoOIwwt29nJSxGopxZIvoaI=
