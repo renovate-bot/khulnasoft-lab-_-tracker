@@ -1,6 +1,7 @@
 package changelog
 
 import (
+	"slices"
 	"time"
 
 	"github.com/khulnasoft-lab/tracker/pkg/logger"
@@ -25,13 +26,15 @@ type item[T comparable] struct {
 type Changelog[T comparable] struct {
 	changes    []item[T]              // list of changes
 	timestamps map[time.Time]struct{} // set of timestamps (used to avoid duplicates)
+	maxSize    int                    // maximum amount of changes to keep track of
 }
 
 // NewChangelog creates a new changelog.
-func NewChangelog[T comparable]() *Changelog[T] {
+func NewChangelog[T comparable](maxSize int) *Changelog[T] {
 	return &Changelog[T]{
 		changes:    []item[T]{},
 		timestamps: map[time.Time]struct{}{},
+		maxSize:    maxSize,
 	}
 }
 
@@ -74,8 +77,7 @@ func (clv *Changelog[T]) Get(targetTime time.Time) T {
 
 	idx := clv.findIndex(targetTime)
 	if idx == 0 {
-		var zero T
-		return zero
+		return returnZero[T]()
 	}
 
 	return clv.changes[idx-1].value
@@ -84,8 +86,8 @@ func (clv *Changelog[T]) Get(targetTime time.Time) T {
 // GetAll returns all the values of the changelog.
 func (clv *Changelog[T]) GetAll() []T {
 	values := make([]T, len(clv.changes))
-	for i, entry := range clv.changes {
-		values[i] = entry.value
+	for i := range clv.changes {
+		values[i] = clv.changes[i].value
 	}
 	return values
 }
@@ -109,7 +111,10 @@ func (clv *Changelog[T]) setAt(value T, targetTime time.Time) {
 	// If the timestamp is already set, update that value only.
 	_, ok := clv.timestamps[targetTime]
 	if ok {
-		index := clv.findIndex(targetTime)
+		index := clv.findIndex(targetTime) - 1
+		if index < 0 {
+			logger.Debugw("changelog internal error: illegal index for existing timestamp")
+		}
 		if !clv.changes[index].timestamp.Equal(targetTime) { // sanity check only (time exists already)
 			logger.Debugw("changelog internal error: timestamp mismatch")
 			return
@@ -126,14 +131,20 @@ func (clv *Changelog[T]) setAt(value T, targetTime time.Time) {
 		value:     value,
 	}
 
-	// Insert the new entry in the changelog, keeping the list sorted by timestamp.
 	idx := clv.findIndex(entry.timestamp)
+	// If the changelog has reached its maximum size and the new change would be inserted as the oldest,
+	// there is no need to add the new change. We can simply return without making any modifications.
+	if len(clv.changes) >= clv.maxSize && idx == 0 {
+		return
+	}
+	// Insert the new entry in the changelog, keeping the list sorted by timestamp.
 	clv.changes = append(clv.changes, item[T]{})
 	copy(clv.changes[idx+1:], clv.changes[idx:])
 	clv.changes[idx] = entry
-
 	// Mark the timestamp as set.
 	clv.timestamps[targetTime] = struct{}{}
+
+	clv.enforceSizeBoundary()
 }
 
 // findIndex returns the index of the first item in the changelog that is after the given time.
@@ -142,14 +153,45 @@ func (clv *Changelog[T]) findIndex(target time.Time) int {
 
 	for left < right {
 		middle := (left + right) / 2
-		if clv.changes[middle].timestamp.Before(target) {
-			left = middle + 1
-		} else {
+		if clv.changes[middle].timestamp.After(target) {
 			right = middle
+		} else {
+			left = middle + 1
 		}
 	}
 
 	return left
+}
+
+// enforceSizeBoundary ensures that the size of the inner array doesn't exceed the limit.
+// It applies two methods to reduce the log size to the maximum allowed:
+// 1. Unite duplicate values that are trailing one another.
+// 2. Remove the oldest logs as they are likely less important.
+
+func (clv *Changelog[T]) enforceSizeBoundary() {
+	if len(clv.changes) > clv.maxSize {
+		// Get rid of oldest changes to keep max size boundary
+		boundaryDiff := len(clv.changes) - clv.maxSize
+
+		// First try to unite states
+		clv.changes = slices.CompactFunc(clv.changes, func(i item[T], i2 item[T]) bool {
+			if i.value == i2.value && boundaryDiff > 0 {
+				delete(clv.timestamps, i2.timestamp)
+				boundaryDiff--
+				return true
+			}
+			return false
+		})
+
+		if boundaryDiff == 0 {
+			return
+		}
+		removedChanges := clv.changes[:boundaryDiff]
+		clv.changes = clv.changes[boundaryDiff:]
+		for _, removedChange := range removedChanges {
+			delete(clv.timestamps, removedChange.timestamp)
+		}
+	}
 }
 
 // returnZero returns the zero value of the type T.

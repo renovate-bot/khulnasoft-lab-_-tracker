@@ -75,7 +75,7 @@ func (sig *codeInjection) OnEvent(event protocol.Event) error {
 				return err
 			}
 			if sig.processMemFileRegexp.MatchString(pathname.Value.(string)) {
-				sig.cb(detect.Finding{
+				sig.cb(&detect.Finding{
 					// Signature: sig,
 					SigMetadata: sig.metadata,
 					Event:       event,
@@ -91,9 +91,14 @@ func (sig *codeInjection) OnEvent(event protocol.Event) error {
 		if err != nil {
 			return err
 		}
-		requestString := request.Value.(string)
+
+		requestString, ok := request.Value.(string)
+		if !ok {
+			return fmt.Errorf("failed to cast request's value")
+		}
+
 		if requestString == "PTRACE_POKETEXT" || requestString == "PTRACE_POKEDATA" {
-			sig.cb(detect.Finding{
+			sig.cb(&detect.Finding{
 				// Signature: sig,
 				SigMetadata: sig.metadata,
 				Event:       event,
@@ -116,7 +121,7 @@ func (sig *codeInjection) OnEvent(event protocol.Event) error {
 		//			if err != nil {
 		//				return err
 		//			}
-		//			sig.cb(detect.Finding{
+		//			sig.cb(&detect.Finding{
 		// Signature: sig,
 		//				SigMetadata: sig.metadata,
 		//				Payload:     ee,

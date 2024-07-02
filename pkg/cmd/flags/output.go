@@ -39,15 +39,13 @@ func PrepareOutput(outputSlice []string, newBinary bool) (PrepareOutputResult, e
 		case "none":
 			if len(outputParts) > 1 {
 				if newBinary {
-					// TODO: build man page
-					// return outConfig, errors.New("none output does not support path. See 'tracker-output' man page for more info")
-					return outConfig, errors.New("none output does not support path. Use '--help' for more info")
+					return outConfig, errors.New("none output does not support path. Run 'man output' for more info")
 				}
 
 				return outConfig, errors.New("none output does not support path. Use '--output help' for more info")
 			}
 			printerMap["stdout"] = "ignore"
-		case "table", "table-verbose", "json", "gob":
+		case "table", "table-verbose", "json":
 			err := parseFormat(outputParts, printerMap, newBinary)
 			if err != nil {
 				return outConfig, err
@@ -73,9 +71,7 @@ func PrepareOutput(outputSlice []string, newBinary bool) (PrepareOutputResult, e
 			}
 		default:
 			if newBinary {
-				// TODO: build man page
-				// return outConfig, fmt.Errorf("invalid output flag: %s, see 'tracker-output' man page for more info", outputParts[0])
-				return outConfig, fmt.Errorf("invalid output flag: %s, use '--help' for more info", outputParts[0])
+				return outConfig, fmt.Errorf("invalid output flag: %s, run 'man output' for more info", outputParts[0])
 			}
 
 			return outConfig, fmt.Errorf("invalid output flag: %s, use '--output help' for more info", outputParts[0])
@@ -107,8 +103,6 @@ func setOption(cfg *config.OutputConfig, option string, newBinary bool) error {
 		cfg.ExecEnv = true
 	case "relative-time":
 		cfg.RelativeTime = true
-	case "exec-hash":
-		cfg.ExecHash = true
 	case "parse-arguments":
 		cfg.ParseArguments = true
 	case "parse-arguments-fds":
@@ -117,10 +111,40 @@ func setOption(cfg *config.OutputConfig, option string, newBinary bool) error {
 	case "sort-events":
 		cfg.EventsSorting = true
 	default:
+		if strings.HasPrefix(option, "exec-hash") {
+			hashExecParts := strings.Split(option, "=")
+			if len(hashExecParts) == 1 {
+				if option != "exec-hash" {
+					goto invalidOption
+				}
+				// default
+				cfg.CalcHashes = config.CalcHashesDevInode
+			} else if len(hashExecParts) == 2 {
+				hashExecOpt := hashExecParts[1]
+				switch hashExecOpt {
+				case "none":
+					cfg.CalcHashes = config.CalcHashesNone
+				case "inode":
+					cfg.CalcHashes = config.CalcHashesInode
+				case "dev-inode":
+					cfg.CalcHashes = config.CalcHashesDevInode
+				case "digest-inode":
+					cfg.CalcHashes = config.CalcHashesDigestInode
+				default:
+					goto invalidOption
+				}
+			} else {
+				goto invalidOption
+			}
+
+			return nil
+		} else {
+			goto invalidOption
+		}
+
+	invalidOption:
 		if newBinary {
-			// TODO: build man page
-			// return errfmt.Errorf("invalid output option: %s, see 'tracker-output' man page for more info", option)
-			return errfmt.Errorf("invalid output option: %s, use '--help' for more info", option)
+			return errfmt.Errorf("invalid output option: %s, run 'man output' for more info", option)
 		}
 
 		return errfmt.Errorf("invalid output option: %s, use '--output help' for more info", option)
@@ -171,9 +195,7 @@ func parseFormat(outputParts []string, printerMap map[string]string, newBinary b
 	for _, outPath := range strings.Split(outputParts[1], ",") {
 		if outPath == "" {
 			if newBinary {
-				// TODO: build man page
-				// return errfmt.Errorf("format flag can't be empty, see 'tracker-output' man page for more info")
-				return errfmt.Errorf("format flag can't be empty, use '--help' for more info")
+				return errfmt.Errorf("format flag can't be empty, run 'man output' for more info")
 			}
 
 			return errfmt.Errorf("format flag can't be empty, use '--output help' for more info")
@@ -181,9 +203,7 @@ func parseFormat(outputParts []string, printerMap map[string]string, newBinary b
 
 		if _, ok := printerMap[outPath]; ok {
 			if newBinary {
-				// TODO: build man page
-				// return errfmt.Errorf("cannot use the same path for multiple outputs: %s, see 'tracker-output' man page for more info", outPath)
-				return errfmt.Errorf("cannot use the same path for multiple outputs: %s, use '--help' for more info", outPath)
+				return errfmt.Errorf("cannot use the same path for multiple outputs: %s, run  'man output' for more info", outPath)
 			}
 
 			return errfmt.Errorf("cannot use the same path for multiple outputs: %s, use '--output help' for more info", outPath)
@@ -198,9 +218,7 @@ func parseFormat(outputParts []string, printerMap map[string]string, newBinary b
 func parseOption(outputParts []string, trackerConfig *config.OutputConfig, newBinary bool) error {
 	if len(outputParts) == 1 || outputParts[1] == "" {
 		if newBinary {
-			// TODO: build man page
-			// return errfmt.Errorf("option flag can't be empty, see 'tracker-output' man page for more info")
-			return errfmt.Errorf("option flag can't be empty, use '--help' for more info")
+			return errfmt.Errorf("option flag can't be empty, run 'man output' for more info")
 		}
 
 		return errfmt.Errorf("option flag can't be empty, use '--output help' for more info")
@@ -240,9 +258,7 @@ func createFile(path string) (*os.File, error) {
 func validateURL(outputParts []string, flag string, newBinary bool) error {
 	if len(outputParts) == 1 || outputParts[1] == "" {
 		if newBinary {
-			// TODO: build man page
-			// return errfmt.Errorf("%s flag can't be empty, see 'tracker-output' man page for more info", flag)
-			return errfmt.Errorf("%s flag can't be empty, use '--help' for more info", flag)
+			return errfmt.Errorf("%s flag can't be empty, run 'man output' for more info", flag)
 		}
 
 		return errfmt.Errorf("%s flag can't be empty, use '--output help' for more info", flag)
@@ -252,9 +268,7 @@ func validateURL(outputParts []string, flag string, newBinary bool) error {
 
 	if err != nil {
 		if newBinary {
-			// TODO: build man page
-			// return errfmt.Errorf("invalid uri for %s output %q. Use 'tracker-output' man page for more info", flag, outputParts[1])
-			return errfmt.Errorf("invalid uri for %s output %q. Use '--help' for more info", flag, outputParts[1])
+			return errfmt.Errorf("invalid uri for %s output %q. Run 'man output' for more info", flag, outputParts[1])
 		}
 
 		return errfmt.Errorf("invalid uri for %s output %q. Use '--output help' for more info", flag, outputParts[1])

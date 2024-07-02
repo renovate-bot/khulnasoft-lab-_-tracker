@@ -7,16 +7,19 @@ import (
 	"unsafe"
 
 	bpf "github.com/khulnasoft-lab/libbpfgo"
-	"github.com/khulnasoft-lab/libbpfgo/helpers"
 
 	"github.com/khulnasoft-lab/tracker/pkg/errfmt"
+	"github.com/khulnasoft-lab/tracker/pkg/events/parsers"
 	"github.com/khulnasoft-lab/tracker/types/trace"
 )
 
 func ParseArgs(event *trace.Event) error {
-	for i := range event.Args {
-		if ptr, isUintptr := event.Args[i].Value.(uintptr); isUintptr {
-			event.Args[i].Value = "0x" + strconv.FormatUint(uint64(ptr), 16)
+	for _, arg := range event.Args {
+		if ptr, isUintptr := arg.Value.(uintptr); isUintptr {
+			err := SetArgValue(event, arg.Name, "0x"+strconv.FormatUint(uint64(ptr), 16))
+			if err != nil {
+				return err
+			}
 		}
 	}
 
@@ -25,7 +28,7 @@ func ParseArgs(event *trace.Event) error {
 		arg.Value = ""
 	}
 
-	parseOrEmptyString := func(arg *trace.Argument, sysArg helpers.SystemFunctionArgument, err error) {
+	parseOrEmptyString := func(arg *trace.Argument, sysArg parsers.SystemFunctionArgument, err error) {
 		emptyString(arg)
 		if err == nil {
 			arg.Value = sysArg.String()
@@ -42,13 +45,13 @@ func ParseArgs(event *trace.Event) error {
 		}
 		if protArg := GetArg(event, "prot"); protArg != nil {
 			if prot, isInt32 := protArg.Value.(int32); isInt32 {
-				mmapProtArgument := helpers.ParseMmapProt(uint64(prot))
+				mmapProtArgument := parsers.ParseMmapProt(uint64(prot))
 				parseOrEmptyString(protArg, mmapProtArgument, nil)
 			}
 		}
 		if prevProtArg := GetArg(event, "prev_prot"); prevProtArg != nil {
 			if prevProt, isInt32 := prevProtArg.Value.(int32); isInt32 {
-				mmapProtArgument := helpers.ParseMmapProt(uint64(prevProt))
+				mmapProtArgument := parsers.ParseMmapProt(uint64(prevProt))
 				parseOrEmptyString(prevProtArg, mmapProtArgument, nil)
 			}
 		}
@@ -67,130 +70,130 @@ func ParseArgs(event *trace.Event) error {
 	case CapCapable:
 		if capArg := GetArg(event, "cap"); capArg != nil {
 			if capability, isInt32 := capArg.Value.(int32); isInt32 {
-				capabilityFlagArgument, err := helpers.ParseCapability(uint64(capability))
+				capabilityFlagArgument, err := parsers.ParseCapability(uint64(capability))
 				parseOrEmptyString(capArg, capabilityFlagArgument, err)
 			}
 		}
 	case SecurityMmapFile, DoMmap:
 		if protArg := GetArg(event, "prot"); protArg != nil {
 			if prot, isUint64 := protArg.Value.(uint64); isUint64 {
-				mmapProtArgument := helpers.ParseMmapProt(prot)
+				mmapProtArgument := parsers.ParseMmapProt(prot)
 				parseOrEmptyString(protArg, mmapProtArgument, nil)
 			}
 		}
 	case Mmap, Mprotect, PkeyMprotect:
 		if protArg := GetArg(event, "prot"); protArg != nil {
 			if prot, isInt32 := protArg.Value.(int32); isInt32 {
-				mmapProtArgument := helpers.ParseMmapProt(uint64(prot))
+				mmapProtArgument := parsers.ParseMmapProt(uint64(prot))
 				parseOrEmptyString(protArg, mmapProtArgument, nil)
 			}
 		}
 	case SecurityFileMprotect:
 		if protArg := GetArg(event, "prot"); protArg != nil {
 			if prot, isInt32 := protArg.Value.(int32); isInt32 {
-				mmapProtArgument := helpers.ParseMmapProt(uint64(prot))
+				mmapProtArgument := parsers.ParseMmapProt(uint64(prot))
 				parseOrEmptyString(protArg, mmapProtArgument, nil)
 			}
 		}
 		if prevProtArg := GetArg(event, "prev_prot"); prevProtArg != nil {
 			if prevProt, isInt32 := prevProtArg.Value.(int32); isInt32 {
-				mmapProtArgument := helpers.ParseMmapProt(uint64(prevProt))
+				mmapProtArgument := parsers.ParseMmapProt(uint64(prevProt))
 				parseOrEmptyString(prevProtArg, mmapProtArgument, nil)
 			}
 		}
 	case Ptrace:
 		if reqArg := GetArg(event, "request"); reqArg != nil {
 			if req, isInt64 := reqArg.Value.(int64); isInt64 {
-				ptraceRequestArgument, err := helpers.ParsePtraceRequestArgument(uint64(req))
+				ptraceRequestArgument, err := parsers.ParsePtraceRequestArgument(uint64(req))
 				parseOrEmptyString(reqArg, ptraceRequestArgument, err)
 			}
 		}
 	case Prctl:
 		if optArg := GetArg(event, "option"); optArg != nil {
 			if opt, isInt32 := optArg.Value.(int32); isInt32 {
-				prctlOptionArgument, err := helpers.ParsePrctlOption(uint64(opt))
+				prctlOptionArgument, err := parsers.ParsePrctlOption(uint64(opt))
 				parseOrEmptyString(optArg, prctlOptionArgument, err)
 			}
 		}
 	case Socketcall:
 		if callArg := GetArg(event, "call"); callArg != nil {
 			if call, isInt32 := callArg.Value.(int32); isInt32 {
-				socketcallArgument, err := helpers.ParseSocketcallCall(uint64(call))
+				socketcallArgument, err := parsers.ParseSocketcallCall(uint64(call))
 				parseOrEmptyString(callArg, socketcallArgument, err)
 			}
 		}
 	case Socket:
 		if domArg := GetArg(event, "domain"); domArg != nil {
 			if dom, isInt32 := domArg.Value.(int32); isInt32 {
-				socketDomainArgument, err := helpers.ParseSocketDomainArgument(uint64(dom))
+				socketDomainArgument, err := parsers.ParseSocketDomainArgument(uint64(dom))
 				parseOrEmptyString(domArg, socketDomainArgument, err)
 			}
 		}
 		if typeArg := GetArg(event, "type"); typeArg != nil {
 			if typ, isInt32 := typeArg.Value.(int32); isInt32 {
-				socketTypeArgument, err := helpers.ParseSocketType(uint64(typ))
+				socketTypeArgument, err := parsers.ParseSocketType(uint64(typ))
 				parseOrEmptyString(typeArg, socketTypeArgument, err)
 			}
 		}
-	case SecuritySocketCreate:
+	case SecuritySocketCreate, SecuritySocketConnect:
 		if domArg := GetArg(event, "family"); domArg != nil {
 			if dom, isInt32 := domArg.Value.(int32); isInt32 {
-				socketDomainArgument, err := helpers.ParseSocketDomainArgument(uint64(dom))
+				socketDomainArgument, err := parsers.ParseSocketDomainArgument(uint64(dom))
 				parseOrEmptyString(domArg, socketDomainArgument, err)
 			}
 		}
 		if typeArg := GetArg(event, "type"); typeArg != nil {
 			if typ, isInt32 := typeArg.Value.(int32); isInt32 {
-				socketTypeArgument, err := helpers.ParseSocketType(uint64(typ))
+				socketTypeArgument, err := parsers.ParseSocketType(uint64(typ))
 				parseOrEmptyString(typeArg, socketTypeArgument, err)
 			}
 		}
 	case Access, Faccessat:
 		if modeArg := GetArg(event, "mode"); modeArg != nil {
 			if mode, isInt32 := modeArg.Value.(int32); isInt32 {
-				accessModeArgument, err := helpers.ParseAccessMode(uint64(mode))
+				accessModeArgument, err := parsers.ParseAccessMode(uint64(mode))
 				parseOrEmptyString(modeArg, accessModeArgument, err)
 			}
 		}
 	case Execveat:
 		if flagsArg := GetArg(event, "flags"); flagsArg != nil {
 			if flags, isInt32 := flagsArg.Value.(int32); isInt32 {
-				execFlagArgument, err := helpers.ParseExecFlag(uint64(flags))
+				execFlagArgument, err := parsers.ParseExecFlag(uint64(flags))
 				parseOrEmptyString(flagsArg, execFlagArgument, err)
 			}
 		}
 	case Open, Openat, SecurityFileOpen:
 		if flagsArg := GetArg(event, "flags"); flagsArg != nil {
 			if flags, isInt32 := flagsArg.Value.(int32); isInt32 {
-				openFlagArgument, err := helpers.ParseOpenFlagArgument(uint64(flags))
+				openFlagArgument, err := parsers.ParseOpenFlagArgument(uint64(flags))
 				parseOrEmptyString(flagsArg, openFlagArgument, err)
 			}
 		}
 	case Mknod, Mknodat, Chmod, Fchmod, Fchmodat:
 		if modeArg := GetArg(event, "mode"); modeArg != nil {
 			if mode, isUint32 := modeArg.Value.(uint32); isUint32 {
-				inodeModeArgument, err := helpers.ParseInodeMode(uint64(mode))
+				inodeModeArgument, err := parsers.ParseInodeMode(uint64(mode))
 				parseOrEmptyString(modeArg, inodeModeArgument, err)
 			}
 		}
 	case SecurityInodeMknod:
 		if modeArg := GetArg(event, "mode"); modeArg != nil {
 			if mode, isUint16 := modeArg.Value.(uint16); isUint16 {
-				inodeModeArgument, err := helpers.ParseInodeMode(uint64(mode))
+				inodeModeArgument, err := parsers.ParseInodeMode(uint64(mode))
 				parseOrEmptyString(modeArg, inodeModeArgument, err)
 			}
 		}
 	case Clone:
 		if flagsArg := GetArg(event, "flags"); flagsArg != nil {
 			if flags, isUint64 := flagsArg.Value.(uint64); isUint64 {
-				cloneFlagArgument, err := helpers.ParseCloneFlags(uint64(flags))
+				cloneFlagArgument, err := parsers.ParseCloneFlags(uint64(flags))
 				parseOrEmptyString(flagsArg, cloneFlagArgument, err)
 			}
 		}
 	case Bpf, SecurityBPF:
 		if cmdArg := GetArg(event, "cmd"); cmdArg != nil {
 			if cmd, isInt32 := cmdArg.Value.(int32); isInt32 {
-				bpfCommandArgument, err := helpers.ParseBPFCmd(uint64(cmd))
+				bpfCommandArgument, err := parsers.ParseBPFCmd(uint64(cmd))
 				parseOrEmptyString(cmdArg, bpfCommandArgument, err)
 			}
 		}
@@ -204,32 +207,32 @@ func ParseArgs(event *trace.Event) error {
 	case SchedProcessExec:
 		if modeArg := GetArg(event, "stdin_type"); modeArg != nil {
 			if mode, isUint16 := modeArg.Value.(uint16); isUint16 {
-				inodeModeArgument, err := helpers.ParseInodeMode(uint64(mode))
+				inodeModeArgument, err := parsers.ParseInodeMode(uint64(mode))
 				parseOrEmptyString(modeArg, inodeModeArgument, err)
 			}
 		}
 	case DirtyPipeSplice:
 		if modeArg := GetArg(event, "in_file_type"); modeArg != nil {
 			if mode, isUint16 := modeArg.Value.(uint16); isUint16 {
-				inodeModeArgument, err := helpers.ParseInodeMode(uint64(mode))
+				inodeModeArgument, err := parsers.ParseInodeMode(uint64(mode))
 				parseOrEmptyString(modeArg, inodeModeArgument, err)
 			}
 		}
 	case SecuritySocketSetsockopt, Setsockopt, Getsockopt:
 		if levelArg := GetArg(event, "level"); levelArg != nil {
 			if level, isInt := levelArg.Value.(int32); isInt {
-				levelArgument, err := helpers.ParseSocketLevel(uint64(level))
+				levelArgument, err := parsers.ParseSocketLevel(uint64(level))
 				parseOrEmptyString(levelArg, levelArgument, err)
 			}
 		}
 		if optionNameArg := GetArg(event, "optname"); optionNameArg != nil {
 			if opt, isInt := optionNameArg.Value.(int32); isInt {
-				var optionNameArgument helpers.SocketOptionArgument
+				var optionNameArgument parsers.SocketOptionArgument
 				var err error
 				if ID(event.EventID) == Getsockopt {
-					optionNameArgument, err = helpers.ParseGetSocketOption(uint64(opt))
+					optionNameArgument, err = parsers.ParseGetSocketOption(uint64(opt))
 				} else {
-					optionNameArgument, err = helpers.ParseSetSocketOption(uint64(opt))
+					optionNameArgument, err = parsers.ParseSetSocketOption(uint64(opt))
 				}
 				parseOrEmptyString(optionNameArg, optionNameArgument, err)
 			}
@@ -237,7 +240,7 @@ func ParseArgs(event *trace.Event) error {
 	case BpfAttach:
 		if progTypeArg := GetArg(event, "prog_type"); progTypeArg != nil {
 			if progType, isInt := progTypeArg.Value.(int32); isInt {
-				progTypeArgument, err := helpers.ParseBPFProgType(uint64(progType))
+				progTypeArgument, err := parsers.ParseBPFProgType(uint64(progType))
 				parseOrEmptyString(progTypeArg, progTypeArgument, err)
 			}
 		}
@@ -263,7 +266,7 @@ func ParseArgs(event *trace.Event) error {
 	case SecurityBpfProg:
 		if progTypeArg := GetArg(event, "type"); progTypeArg != nil {
 			if progType, isInt := progTypeArg.Value.(int32); isInt {
-				progTypeArgument, err := helpers.ParseBPFProgType(uint64(progType))
+				progTypeArgument, err := parsers.ParseBPFProgType(uint64(progType))
 				parseOrEmptyString(progTypeArg, progTypeArgument, err)
 			}
 		}
@@ -275,6 +278,19 @@ func ParseArgs(event *trace.Event) error {
 				}
 				helpersArg.Type = "const char**"
 				helpersArg.Value = parsedHelpersList
+			}
+		}
+	case SecurityPathNotify:
+		if maskArg := GetArg(event, "mask"); maskArg != nil {
+			if mask, isUint64 := maskArg.Value.(uint64); isUint64 {
+				fsNotifyMaskArgument := parsers.ParseFsNotifyMask(mask)
+				parseOrEmptyString(maskArg, fsNotifyMaskArgument, nil)
+			}
+		}
+		if objTypeArg := GetArg(event, "obj_type"); objTypeArg != nil {
+			if objType, isUint := objTypeArg.Value.(uint32); isUint {
+				objTypeArgument, err := parsers.ParseFsNotifyObjType(uint64(objType))
+				parseOrEmptyString(objTypeArg, objTypeArgument, err)
 			}
 		}
 	}
@@ -308,6 +324,15 @@ func GetArg(event *trace.Event, argName string) *trace.Argument {
 	return nil
 }
 
+func SetArgValue(event *trace.Event, argName string, value any) error {
+	arg := GetArg(event, argName)
+	if arg == nil {
+		return fmt.Errorf("event %s has no argument named %s", event.EventName, argName)
+	}
+	arg.Value = value
+	return nil
+}
+
 type CustomFunctionArgument struct {
 	val uint64
 	str string
@@ -326,7 +351,7 @@ func parseBpfHelpersUsage(helpersList []uint64) ([]string, error) {
 	for i := 0; i < len(helpersList)*64; i++ {
 		if (helpersList[i/64] & (1 << (i % 64))) > 0 {
 			// helper number <i> is used. get its name from libbpfgo
-			bpfHelper, err := helpers.ParseBPFFunc(uint64(i))
+			bpfHelper, err := parsers.ParseBPFFunc(uint64(i))
 			if err != nil {
 				continue
 			}

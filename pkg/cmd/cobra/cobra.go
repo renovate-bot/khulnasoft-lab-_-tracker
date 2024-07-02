@@ -6,8 +6,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
-	"github.com/khulnasoft-lab/libbpfgo/helpers"
-
 	"github.com/khulnasoft-lab/tracker/pkg/cmd"
 	"github.com/khulnasoft-lab/tracker/pkg/cmd/flags"
 	"github.com/khulnasoft-lab/tracker/pkg/cmd/flags/server"
@@ -22,7 +20,7 @@ import (
 	"github.com/khulnasoft-lab/tracker/pkg/policy"
 	"github.com/khulnasoft-lab/tracker/pkg/signatures/engine"
 	"github.com/khulnasoft-lab/tracker/pkg/signatures/signature"
-	"github.com/khulnasoft-lab/tracker/types/detect"
+	"github.com/khulnasoft-lab/tracker/pkg/utils/environment"
 )
 
 func GetTrackerRunner(c *cobra.Command, version string) (cmd.Runner, error) {
@@ -58,7 +56,7 @@ func GetTrackerRunner(c *cobra.Command, version string) (cmd.Runner, error) {
 
 	// Signature directory command line flags
 
-	sigs, err := signature.Find(
+	sigs, dataSources, err := signature.Find(
 		rego.RuntimeTarget,
 		rego.PartialEval,
 		viper.GetStringSlice("signatures-dir"),
@@ -69,7 +67,7 @@ func GetTrackerRunner(c *cobra.Command, version string) (cmd.Runner, error) {
 		return runner, err
 	}
 
-	initialize.CreateEventsFromSignatures(events.StartSignatureID, sigs)
+	sigNameToEventId := initialize.CreateEventsFromSignatures(events.StartSignatureID, sigs)
 
 	// Initialize a tracker config structure
 
@@ -81,10 +79,10 @@ func GetTrackerRunner(c *cobra.Command, version string) (cmd.Runner, error) {
 
 	// OS release information
 
-	osInfo, err := helpers.GetOSInfo()
+	osInfo, err := environment.GetOSInfo()
 	if err != nil {
 		logger.Debugw("OSInfo", "warning: os-release file could not be found", "error", err) // only to be enforced when BTF needs to be downloaded, later on
-		logger.Debugw("OSInfo", "os_release_field", helpers.OS_KERNEL_RELEASE, "OS_KERNEL_RELEASE", osInfo.GetOSReleaseFieldValue(helpers.OS_KERNEL_RELEASE))
+		logger.Debugw("OSInfo", "os_release_field", environment.OS_KERNEL_RELEASE, "OS_KERNEL_RELEASE", osInfo.GetOSReleaseFieldValue(environment.OS_KERNEL_RELEASE))
 	} else {
 		osInfoSlice := make([]interface{}, 0)
 		for k, v := range osInfo.GetOSReleaseAllFieldValues() {
@@ -247,25 +245,23 @@ func GetTrackerRunner(c *cobra.Command, version string) (cmd.Runner, error) {
 	}
 	cfg.Output = output.TrackerConfig
 
-	if err != nil {
-		return runner, err
-	}
-	cfg.Output = output.TrackerConfig
-
 	// Create printer
 
-	p, err := printer.NewBroadcast(output.PrinterConfigs, cmd.GetContainerMode(cfg))
+	p, err := printer.NewBroadcast(
+		output.PrinterConfigs,
+		cmd.GetContainerMode(policies.ContainerFilterEnabled(), cfg.NoContainersEnrich),
+	)
 	if err != nil {
 		return runner, err
 	}
 
 	// Check kernel lockdown
 
-	lockdown, err := helpers.Lockdown()
+	lockdown, err := environment.Lockdown()
 	if err != nil {
 		logger.Debugw("OSInfo", "lockdown", err)
 	}
-	if err == nil && lockdown == helpers.CONFIDENTIALITY {
+	if err == nil && lockdown == environment.CONFIDENTIALITY {
 		return runner, errfmt.Errorf("kernel lockdown is set to 'confidentiality', can't load eBPF programs")
 	}
 
@@ -273,7 +269,7 @@ func GetTrackerRunner(c *cobra.Command, version string) (cmd.Runner, error) {
 
 	// Check if ftrace is enabled
 
-	enabled, err := helpers.FtraceEnabled()
+	enabled, err := environment.FtraceEnabled()
 	if err != nil {
 		return runner, err
 	}
@@ -290,7 +286,8 @@ func GetTrackerRunner(c *cobra.Command, version string) (cmd.Runner, error) {
 
 	// Decide BTF & BPF files to use (based in the kconfig, release & environment info)
 
-	err = initialize.BpfObject(&cfg, kernelConfig, osInfo, viper.GetString("install-path"), version)
+	trackerInstallPath := viper.GetString("install-path")
+	err = initialize.BpfObject(&cfg, kernelConfig, osInfo, trackerInstallPath, version)
 	if err != nil {
 		return runner, errfmt.Errorf("failed preparing BPF object: %v", err)
 	}
@@ -317,17 +314,19 @@ func GetTrackerRunner(c *cobra.Command, version string) (cmd.Runner, error) {
 	runner.GRPCServer = grpcServer
 	runner.TrackerConfig = cfg
 	runner.Printer = p
+	runner.InstallPath = trackerInstallPath
 
 	// parse arguments must be enabled if the rule engine is part of the pipeline
 	runner.TrackerConfig.Output.ParseArguments = true
 
 	runner.TrackerConfig.EngineConfig = engine.Config{
-		Enabled:    true,
-		Signatures: sigs,
+		Enabled:          true,
+		SigNameToEventID: sigNameToEventId,
+		Signatures:       sigs,
 		// This used to be a flag, we have removed the flag from this binary to test
 		// if users do use it or not.
 		SignatureBufferSize: 1000,
-		DataSources:         []detect.DataSource{},
+		DataSources:         dataSources,
 	}
 
 	return runner, nil

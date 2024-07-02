@@ -100,7 +100,7 @@ func TestFindingToEvent(t *testing.T) {
 	}
 
 	finding := createFakeEventAndFinding()
-	got, err := FindingToEvent(finding)
+	got, err := FindingToEvent(&finding)
 
 	assert.NoError(t, err)
 
@@ -132,6 +132,7 @@ func createFakeEventAndFinding() detect.Finding {
 			events.Capabilities{},
 		),
 		[]trace.ArgMeta{},
+		nil,
 	)
 
 	events.Core.Add(events.StartSignatureID, eventDefinition)

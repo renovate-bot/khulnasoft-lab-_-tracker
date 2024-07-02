@@ -719,7 +719,45 @@ func TestPrepareFilterMapsFromPolicies(t *testing.T) {
 		// events
 		//
 
-		// args filter
+		// data filter
+		{
+			testName: "data filter",
+			policy: v1beta1.PolicyFile{
+				Metadata: v1beta1.Metadata{
+					Name: "data-filter",
+				},
+				Spec: k8s.PolicySpec{
+					Scope:          []string{"global"},
+					DefaultActions: []string{"log"},
+					Rules: []k8s.Rule{
+						{
+							Event:   "security_file_open",
+							Filters: []string{"data.pathname=/etc/passwd"},
+						},
+					},
+				},
+			},
+			expPolicyScopeMap: PolicyScopeMap{},
+			expPolicyEventMap: PolicyEventMap{
+				0: {
+					policyName: "data-filter",
+					eventFlags: []eventFlag{
+						{
+							full:              "security_file_open",
+							eventName:         "security_file_open",
+							operatorAndValues: "",
+						},
+						{
+							full:              "security_file_open.data.pathname=/etc/passwd",
+							eventName:         "security_file_open",
+							eventFilter:       "security_file_open.data.pathname",
+							operatorAndValues: "=/etc/passwd",
+						},
+					},
+				},
+			},
+		},
+		// keep a single args (deprecated) filter test that shall break on future removal
 		{
 			testName: "args filter",
 			policy: v1beta1.PolicyFile{
@@ -791,7 +829,7 @@ func TestPrepareFilterMapsFromPolicies(t *testing.T) {
 				},
 			},
 		},
-		// context filter
+		// scope filter
 		{
 			testName: "timestamp filter",
 			policy: v1beta1.PolicyFile{
@@ -816,9 +854,9 @@ func TestPrepareFilterMapsFromPolicies(t *testing.T) {
 					eventFlags: []eventFlag{
 						writeEvtFlag,
 						{
-							full:              "write.context.timestamp>1234567890",
+							full:              "write.scope.timestamp>1234567890",
 							eventName:         "write",
-							eventFilter:       "write.context.timestamp",
+							eventFilter:       "write.scope.timestamp",
 							operatorAndValues: ">1234567890",
 						},
 					},
@@ -849,9 +887,9 @@ func TestPrepareFilterMapsFromPolicies(t *testing.T) {
 					eventFlags: []eventFlag{
 						writeEvtFlag,
 						{
-							full:              "write.context.processorId>=1234567890",
+							full:              "write.scope.processorId>=1234567890",
 							eventName:         "write",
-							eventFilter:       "write.context.processorId",
+							eventFilter:       "write.scope.processorId",
 							operatorAndValues: ">=1234567890",
 						},
 					},
@@ -882,9 +920,9 @@ func TestPrepareFilterMapsFromPolicies(t *testing.T) {
 					eventFlags: []eventFlag{
 						writeEvtFlag,
 						{
-							full:              "write.context.p<=10",
+							full:              "write.scope.p<=10",
 							eventName:         "write",
-							eventFilter:       "write.context.p",
+							eventFilter:       "write.scope.p",
 							operatorAndValues: "<=10",
 						},
 					},
@@ -915,9 +953,9 @@ func TestPrepareFilterMapsFromPolicies(t *testing.T) {
 					eventFlags: []eventFlag{
 						writeEvtFlag,
 						{
-							full:              "write.context.pid!=1",
+							full:              "write.scope.pid!=1",
 							eventName:         "write",
-							eventFilter:       "write.context.pid",
+							eventFilter:       "write.scope.pid",
 							operatorAndValues: "!=1",
 						},
 					},
@@ -948,9 +986,9 @@ func TestPrepareFilterMapsFromPolicies(t *testing.T) {
 					eventFlags: []eventFlag{
 						writeEvtFlag,
 						{
-							full:              "write.context.processId=1387",
+							full:              "write.scope.processId=1387",
 							eventName:         "write",
-							eventFilter:       "write.context.processId",
+							eventFilter:       "write.scope.processId",
 							operatorAndValues: "=1387",
 						},
 					},
@@ -981,9 +1019,9 @@ func TestPrepareFilterMapsFromPolicies(t *testing.T) {
 					eventFlags: []eventFlag{
 						writeEvtFlag,
 						{
-							full:              "write.context.tid=1388",
+							full:              "write.scope.tid=1388",
 							eventName:         "write",
-							eventFilter:       "write.context.tid",
+							eventFilter:       "write.scope.tid",
 							operatorAndValues: "=1388",
 						},
 					},
@@ -1014,9 +1052,9 @@ func TestPrepareFilterMapsFromPolicies(t *testing.T) {
 					eventFlags: []eventFlag{
 						writeEvtFlag,
 						{
-							full:              "write.context.threadId!=1388",
+							full:              "write.scope.threadId!=1388",
 							eventName:         "write",
-							eventFilter:       "write.context.threadId",
+							eventFilter:       "write.scope.threadId",
 							operatorAndValues: "!=1388",
 						},
 					},
@@ -1047,9 +1085,9 @@ func TestPrepareFilterMapsFromPolicies(t *testing.T) {
 					eventFlags: []eventFlag{
 						writeEvtFlag,
 						{
-							full:              "write.context.ppid=1",
+							full:              "write.scope.ppid=1",
 							eventName:         "write",
-							eventFilter:       "write.context.ppid",
+							eventFilter:       "write.scope.ppid",
 							operatorAndValues: "=1",
 						},
 					},
@@ -1080,9 +1118,9 @@ func TestPrepareFilterMapsFromPolicies(t *testing.T) {
 					eventFlags: []eventFlag{
 						writeEvtFlag,
 						{
-							full:              "write.context.parentProcessId>1455",
+							full:              "write.scope.parentProcessId>1455",
 							eventName:         "write",
-							eventFilter:       "write.context.parentProcessId",
+							eventFilter:       "write.scope.parentProcessId",
 							operatorAndValues: ">1455",
 						},
 					},
@@ -1113,9 +1151,9 @@ func TestPrepareFilterMapsFromPolicies(t *testing.T) {
 					eventFlags: []eventFlag{
 						readEvtFlag,
 						{
-							full:              "read.context.hostTid=2455",
+							full:              "read.scope.hostTid=2455",
 							eventName:         "read",
-							eventFilter:       "read.context.hostTid",
+							eventFilter:       "read.scope.hostTid",
 							operatorAndValues: "=2455",
 						},
 					},
@@ -1146,9 +1184,9 @@ func TestPrepareFilterMapsFromPolicies(t *testing.T) {
 					eventFlags: []eventFlag{
 						readEvtFlag,
 						{
-							full:              "read.context.hostThreadId!=2455",
+							full:              "read.scope.hostThreadId!=2455",
 							eventName:         "read",
-							eventFilter:       "read.context.hostThreadId",
+							eventFilter:       "read.scope.hostThreadId",
 							operatorAndValues: "!=2455",
 						},
 					},
@@ -1179,9 +1217,9 @@ func TestPrepareFilterMapsFromPolicies(t *testing.T) {
 					eventFlags: []eventFlag{
 						readEvtFlag,
 						{
-							full:              "read.context.hostPid=333",
+							full:              "read.scope.hostPid=333",
 							eventName:         "read",
-							eventFilter:       "read.context.hostPid",
+							eventFilter:       "read.scope.hostPid",
 							operatorAndValues: "=333",
 						},
 					},
@@ -1212,9 +1250,9 @@ func TestPrepareFilterMapsFromPolicies(t *testing.T) {
 					eventFlags: []eventFlag{
 						readEvtFlag,
 						{
-							full:              "read.context.hostParentProcessId!=333",
+							full:              "read.scope.hostParentProcessId!=333",
 							eventName:         "read",
-							eventFilter:       "read.context.hostParentProcessId",
+							eventFilter:       "read.scope.hostParentProcessId",
 							operatorAndValues: "!=333",
 						},
 					},
@@ -1245,9 +1283,9 @@ func TestPrepareFilterMapsFromPolicies(t *testing.T) {
 					eventFlags: []eventFlag{
 						readEvtFlag,
 						{
-							full:              "read.context.userId=1000",
+							full:              "read.scope.userId=1000",
 							eventName:         "read",
-							eventFilter:       "read.context.userId",
+							eventFilter:       "read.scope.userId",
 							operatorAndValues: "=1000",
 						},
 					},
@@ -1278,9 +1316,9 @@ func TestPrepareFilterMapsFromPolicies(t *testing.T) {
 					eventFlags: []eventFlag{
 						readEvtFlag,
 						{
-							full:              "read.context.mntns=4026531840",
+							full:              "read.scope.mntns=4026531840",
 							eventName:         "read",
-							eventFilter:       "read.context.mntns",
+							eventFilter:       "read.scope.mntns",
 							operatorAndValues: "=4026531840",
 						},
 					},
@@ -1311,9 +1349,9 @@ func TestPrepareFilterMapsFromPolicies(t *testing.T) {
 					eventFlags: []eventFlag{
 						readEvtFlag,
 						{
-							full:              "read.context.mountNamespace!=4026531840",
+							full:              "read.scope.mountNamespace!=4026531840",
 							eventName:         "read",
-							eventFilter:       "read.context.mountNamespace",
+							eventFilter:       "read.scope.mountNamespace",
 							operatorAndValues: "!=4026531840",
 						},
 					},
@@ -1344,9 +1382,9 @@ func TestPrepareFilterMapsFromPolicies(t *testing.T) {
 					eventFlags: []eventFlag{
 						readEvtFlag,
 						{
-							full:              "read.context.pidns=4026531836",
+							full:              "read.scope.pidns=4026531836",
 							eventName:         "read",
-							eventFilter:       "read.context.pidns",
+							eventFilter:       "read.scope.pidns",
 							operatorAndValues: "=4026531836",
 						},
 					},
@@ -1377,9 +1415,9 @@ func TestPrepareFilterMapsFromPolicies(t *testing.T) {
 					eventFlags: []eventFlag{
 						readEvtFlag,
 						{
-							full:              "read.context.pidNamespace!=4026531836",
+							full:              "read.scope.pidNamespace!=4026531836",
 							eventName:         "read",
-							eventFilter:       "read.context.pidNamespace",
+							eventFilter:       "read.scope.pidNamespace",
 							operatorAndValues: "!=4026531836",
 						},
 					},
@@ -1410,9 +1448,9 @@ func TestPrepareFilterMapsFromPolicies(t *testing.T) {
 					eventFlags: []eventFlag{
 						readEvtFlag,
 						{
-							full:              "read.context.processName=uname",
+							full:              "read.scope.processName=uname",
 							eventName:         "read",
-							eventFilter:       "read.context.processName",
+							eventFilter:       "read.scope.processName",
 							operatorAndValues: "=uname",
 						},
 					},
@@ -1443,9 +1481,9 @@ func TestPrepareFilterMapsFromPolicies(t *testing.T) {
 					eventFlags: []eventFlag{
 						readEvtFlag,
 						{
-							full:              "read.context.comm!=uname",
+							full:              "read.scope.comm!=uname",
 							eventName:         "read",
-							eventFilter:       "read.context.comm",
+							eventFilter:       "read.scope.comm",
 							operatorAndValues: "!=uname",
 						},
 					},
@@ -1476,9 +1514,9 @@ func TestPrepareFilterMapsFromPolicies(t *testing.T) {
 					eventFlags: []eventFlag{
 						readEvtFlag,
 						{
-							full:              "read.context.hostName=test",
+							full:              "read.scope.hostName=test",
 							eventName:         "read",
-							eventFilter:       "read.context.hostName",
+							eventFilter:       "read.scope.hostName",
 							operatorAndValues: "=test",
 						},
 					},
@@ -1509,9 +1547,9 @@ func TestPrepareFilterMapsFromPolicies(t *testing.T) {
 					eventFlags: []eventFlag{
 						readEvtFlag,
 						{
-							full:              "read.context.cgroupId=test",
+							full:              "read.scope.cgroupId=test",
 							eventName:         "read",
-							eventFilter:       "read.context.cgroupId",
+							eventFilter:       "read.scope.cgroupId",
 							operatorAndValues: "=test",
 						},
 					},
@@ -1542,9 +1580,9 @@ func TestPrepareFilterMapsFromPolicies(t *testing.T) {
 					eventFlags: []eventFlag{
 						readEvtFlag,
 						{
-							full:              "read.context.host=test",
+							full:              "read.scope.host=test",
 							eventName:         "read",
-							eventFilter:       "read.context.host",
+							eventFilter:       "read.scope.host",
 							operatorAndValues: "=test",
 						},
 					},
@@ -1575,9 +1613,9 @@ func TestPrepareFilterMapsFromPolicies(t *testing.T) {
 					eventFlags: []eventFlag{
 						readEvtFlag,
 						{
-							full:              "read.context.container=c",
+							full:              "read.scope.container=c",
 							eventName:         "read",
-							eventFilter:       "read.context.container",
+							eventFilter:       "read.scope.container",
 							operatorAndValues: "=c",
 						},
 					},
@@ -1608,9 +1646,9 @@ func TestPrepareFilterMapsFromPolicies(t *testing.T) {
 					eventFlags: []eventFlag{
 						readEvtFlag,
 						{
-							full:              "read.context.containerId=da91bf3df3dc",
+							full:              "read.scope.containerId=da91bf3df3dc",
 							eventName:         "read",
-							eventFilter:       "read.context.containerId",
+							eventFilter:       "read.scope.containerId",
 							operatorAndValues: "=da91bf3df3dc",
 						},
 					},
@@ -1641,9 +1679,9 @@ func TestPrepareFilterMapsFromPolicies(t *testing.T) {
 					eventFlags: []eventFlag{
 						readEvtFlag,
 						{
-							full:              "read.context.containerImage=tracker:latest",
+							full:              "read.scope.containerImage=tracker:latest",
 							eventName:         "read",
-							eventFilter:       "read.context.containerImage",
+							eventFilter:       "read.scope.containerImage",
 							operatorAndValues: "=tracker:latest",
 						},
 					},
@@ -1674,9 +1712,9 @@ func TestPrepareFilterMapsFromPolicies(t *testing.T) {
 					eventFlags: []eventFlag{
 						readEvtFlag,
 						{
-							full:              "read.context.containerName=tracker",
+							full:              "read.scope.containerName=tracker",
 							eventName:         "read",
-							eventFilter:       "read.context.containerName",
+							eventFilter:       "read.scope.containerName",
 							operatorAndValues: "=tracker",
 						},
 					},
@@ -1707,9 +1745,9 @@ func TestPrepareFilterMapsFromPolicies(t *testing.T) {
 					eventFlags: []eventFlag{
 						readEvtFlag,
 						{
-							full:              "read.context.podName=daemonset/tracker",
+							full:              "read.scope.podName=daemonset/tracker",
 							eventName:         "read",
-							eventFilter:       "read.context.podName",
+							eventFilter:       "read.scope.podName",
 							operatorAndValues: "=daemonset/tracker",
 						},
 					},
@@ -1740,9 +1778,9 @@ func TestPrepareFilterMapsFromPolicies(t *testing.T) {
 					eventFlags: []eventFlag{
 						readEvtFlag,
 						{
-							full:              "read.context.podNamespace=production",
+							full:              "read.scope.podNamespace=production",
 							eventName:         "read",
-							eventFilter:       "read.context.podNamespace",
+							eventFilter:       "read.scope.podNamespace",
 							operatorAndValues: "=production",
 						},
 					},
@@ -1773,9 +1811,9 @@ func TestPrepareFilterMapsFromPolicies(t *testing.T) {
 					eventFlags: []eventFlag{
 						readEvtFlag,
 						{
-							full:              "read.context.podUid=poduid",
+							full:              "read.scope.podUid=poduid",
 							eventName:         "read",
-							eventFilter:       "read.context.podUid",
+							eventFilter:       "read.scope.podUid",
 							operatorAndValues: "=poduid",
 						},
 					},
@@ -1836,34 +1874,40 @@ func TestCreatePolicies(t *testing.T) {
 		expectPolicyErr error
 	}{
 		{
-			testName:        "invalid argfilter 1",
-			evtFlags:        []string{"open.args"},
+			testName:        "invalid datafilter 1",
+			evtFlags:        []string{"open.data"},
 			expectPolicyErr: filters.InvalidExpression("open."),
 		},
 		{
-			testName:        "invalid argfilter 2",
-			evtFlags:        []string{"open.args.bla=5"},
-			expectPolicyErr: filters.InvalidEventArgument("bla"),
+			testName:        "invalid datafilter 2",
+			evtFlags:        []string{"open.data.bla=5"},
+			expectPolicyErr: filters.InvalidEventData("bla"),
 		},
 		{
-			testName:        "invalid argfilter 3",
+			testName:        "invalid datafilter 3",
 			evtFlags:        []string{"open.bla=5"},
 			expectPolicyErr: InvalidFilterFlagFormat("open.bla=5"),
 		},
+		// keep a single args (deprecated) filter test that shall break on future removal
 		{
-			testName:        "invalid context filter 1",
-			evtFlags:        []string{"open.context"},
-			expectPolicyErr: filters.InvalidExpression("open.context"),
+			testName:        "invalid argsfilter 1",
+			evtFlags:        []string{"open.args.bla=5"},
+			expectPolicyErr: filters.InvalidEventData("bla"),
 		},
 		{
-			testName:        "invalid context filter 2",
-			evtFlags:        []string{"bla.context.processName=ls"},
+			testName:        "invalid scope filter 1",
+			evtFlags:        []string{"open.scope"},
+			expectPolicyErr: filters.InvalidExpression("open.scope"),
+		},
+		{
+			testName:        "invalid scope filter 2",
+			evtFlags:        []string{"bla.scope.processName=ls"},
 			expectPolicyErr: filters.InvalidEventName("bla"),
 		},
 		{
-			testName:        "invalid context filter 3",
-			evtFlags:        []string{"openat.context.procName=ls"},
-			expectPolicyErr: filters.InvalidContextField("procName"),
+			testName:        "invalid scope filter 3",
+			evtFlags:        []string{"openat.scope.procName=ls"},
+			expectPolicyErr: filters.InvalidScopeField("procName"),
 		},
 		{
 			testName:        "invalid filter",
@@ -1986,7 +2030,7 @@ func TestCreatePolicies(t *testing.T) {
 		},
 		{
 			testName: "argfilter",
-			evtFlags: []string{"openat.args.pathname=/bin/ls,/tmp/tracker", "openat.args.pathname!=/etc/passwd"},
+			evtFlags: []string{"openat.data.pathname=/bin/ls,/tmp/tracker", "openat.data.pathname!=/etc/passwd"},
 		},
 		{
 			testName: "retfilter",
@@ -2022,7 +2066,7 @@ func TestCreatePolicies(t *testing.T) {
 		},
 		{
 			testName: "adding retval filter then argfilter",
-			evtFlags: []string{"open.retval=5", "security_file_open.args.pathname=/etc/shadow"},
+			evtFlags: []string{"open.retval=5", "security_file_open.data.pathname=/etc/shadow"},
 		},
 
 		{

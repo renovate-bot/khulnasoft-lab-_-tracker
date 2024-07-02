@@ -101,7 +101,14 @@ ifeq ($(BTFHUB),)
 BTFHUB=0
 endif
 
-TRACKER_CONT_NAME = tracker:latest
+SNAPSHOT ?= 0
+TAG ?= latest
+
+ifeq ($(SNAPSHOT),1)
+	TAG=dev
+endif
+
+TRACKER_CONT_NAME = tracker:$(TAG)
 TRACKER_CONT_DOCKERFILE = builder/Dockerfile.alpine-tracker-container
 
 .PHONY: build-tracker

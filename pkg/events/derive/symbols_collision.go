@@ -1,6 +1,8 @@
 package derive
 
 import (
+	"errors"
+
 	"github.com/hashicorp/golang-lru/simplelru"
 	"golang.org/x/exp/maps"
 
@@ -24,13 +26,16 @@ import (
 // `sched_process_exec` event for handling.
 //
 
-func SymbolsCollision(soLoader sharedobjs.DynamicSymbolsLoader, policies *policy.Policies,
+func SymbolsCollision(
+	soLoader sharedobjs.DynamicSymbolsLoader,
+	pManager *policy.PolicyManager,
 ) DeriveFunction {
-	symbolsCollisionFilters := map[string]filters.Filter{}
+	symbolsCollisionFilters := map[string]filters.Filter[*filters.StringFilter]{}
 
 	// pick white and black lists from the filters (TODO: change this)
-	for policies := range policies.Map() {
-		f := policies.ArgFilter.GetEventFilters(events.SymbolsCollision)
+	for it := pManager.CreateAllIterator(); it.HasNext(); {
+		p := it.Next()
+		f := p.DataFilter.GetEventFilters(events.SymbolsCollision)
 		maps.Copy(symbolsCollisionFilters, f)
 	}
 
@@ -181,15 +186,19 @@ func (gen *SymbolsCollisionArgsGenerator) findShObjsCollisions(
 		// get exported symbols from the shared object BEING loaded
 		loadingShObj.exportedSymbols, err = gen.soLoader.GetExportedSymbols(loadingShObj.ObjInfo)
 		if err != nil {
+			// High level languages like Java might load non-ELF files
+			// There is no need to log errors for such cases
+			var notElfErr *sharedobjs.UnsupportedFileError
+			if errors.As(err, &notElfErr) {
+				return nil, nil
+			}
 			// TODO: rate limit frequent errors for overloaded envs
 			_, ok := gen.returnedErrorsMap[err.Error()]
 			if !ok {
 				gen.returnedErrorsMap[err.Error()] = true
-				logger.Warnw("symbols_loaded", "object loaded", loadingShObj.ObjInfo, "error", err.Error())
-			} else {
 				logger.Debugw("symbols_loaded", "object loaded", loadingShObj.ObjInfo, "error", err.Error())
 			}
-			return nil, errfmt.WrapError(err)
+			return nil, nil
 		}
 		loadingShObj.FilterSymbols(gen.symbolsBlacklistMap)    // del symbols NOT in blacklist
 		loadingShObj.FilterOutSymbols(gen.symbolsWhitelistMap) // del symbols IN the white list
@@ -252,8 +261,10 @@ func (procLoadedObjsCache *loadedObjsPerProcessCache) GetLoadedObjsPerProcess(
 
 	loadedObjsIface, ok := procLoadedObjsCache.cache.Get(pid) // loaded objs per process (ObjInfo)
 	if ok {
-		loadedObjs = loadedObjsIface.([]sharedobjs.ObjInfo)
-		return loadedObjs, true // true if process existed in the cache
+		if objs, ok := loadedObjsIface.([]sharedobjs.ObjInfo); ok {
+			loadedObjs = objs
+			return loadedObjs, true
+		}
 	}
 
 	return nil, false
@@ -329,8 +340,9 @@ func (socCache collisionChecksCache) getObjCollisionsAndCollisionKey(
 		collisionsIface, ok = socCache.cache.Get(key)
 	}
 	if ok {
-		collisions := collisionsIface.([]string)
-		return key, collisions, true
+		if collisions, ok := collisionsIface.([]string); ok {
+			return key, collisions, true
+		}
 	}
 
 	return collisionsKey{}, nil, false // no collisions found

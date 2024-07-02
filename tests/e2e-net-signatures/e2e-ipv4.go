@@ -21,6 +21,7 @@ func (sig *e2eIPv4) Init(ctx detect.SignatureContext) error {
 func (sig *e2eIPv4) GetMetadata() (detect.SignatureMetadata, error) {
 	return detect.SignatureMetadata{
 		ID:          "IPv4",
+		EventName:   "IPv4",
 		Version:     "0.1.0",
 		Name:        "Network IPv4 Test",
 		Description: "Network E2E Tests: IPv4",
@@ -42,6 +43,11 @@ func (sig *e2eIPv4) OnEvent(event protocol.Event) error {
 
 	switch eventObj.EventName {
 	case "net_packet_ipv4":
+		// validate tast context
+		if eventObj.HostName == "" {
+			return nil
+		}
+
 		src, err := helpers.GetTrackerStringArgumentByName(eventObj, "src")
 		if err != nil {
 			return err
@@ -71,7 +77,7 @@ func (sig *e2eIPv4) OnEvent(event protocol.Event) error {
 
 		m, _ := sig.GetMetadata()
 
-		sig.cb(detect.Finding{
+		sig.cb(&detect.Finding{
 			SigMetadata: m,
 			Event:       event,
 			Data:        map[string]interface{}{},

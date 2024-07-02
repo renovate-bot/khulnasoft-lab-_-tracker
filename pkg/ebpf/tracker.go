@@ -2,11 +2,8 @@ package ebpf
 
 import (
 	gocontext "context"
-	"crypto/sha256"
 	"encoding/binary"
-	"encoding/hex"
 	"fmt"
-	"io"
 	"os"
 	"strconv"
 	"strings"
@@ -14,11 +11,9 @@ import (
 	"sync/atomic"
 	"unsafe"
 
-	lru "github.com/hashicorp/golang-lru/v2"
 	"kernel.org/pub/linux/libs/security/libcap/cap"
 
 	bpf "github.com/khulnasoft-lab/libbpfgo"
-	"github.com/khulnasoft-lab/libbpfgo/helpers"
 
 	"github.com/khulnasoft-lab/tracker/pkg/bucketscache"
 	"github.com/khulnasoft-lab/tracker/pkg/bufferdecoder"
@@ -32,9 +27,11 @@ import (
 	"github.com/khulnasoft-lab/tracker/pkg/ebpf/probes"
 	"github.com/khulnasoft-lab/tracker/pkg/errfmt"
 	"github.com/khulnasoft-lab/tracker/pkg/events"
+	"github.com/khulnasoft-lab/tracker/pkg/events/dependencies"
 	"github.com/khulnasoft-lab/tracker/pkg/events/derive"
 	"github.com/khulnasoft-lab/tracker/pkg/events/sorting"
 	"github.com/khulnasoft-lab/tracker/pkg/events/trigger"
+	"github.com/khulnasoft-lab/tracker/pkg/filehash"
 	"github.com/khulnasoft-lab/tracker/pkg/filters"
 	"github.com/khulnasoft-lab/tracker/pkg/logger"
 	"github.com/khulnasoft-lab/tracker/pkg/metrics"
@@ -44,6 +41,7 @@ import (
 	"github.com/khulnasoft-lab/tracker/pkg/signatures/engine"
 	"github.com/khulnasoft-lab/tracker/pkg/streams"
 	"github.com/khulnasoft-lab/tracker/pkg/utils"
+	"github.com/khulnasoft-lab/tracker/pkg/utils/environment"
 	"github.com/khulnasoft-lab/tracker/pkg/utils/proc"
 	"github.com/khulnasoft-lab/tracker/pkg/utils/sharedobjs"
 	"github.com/khulnasoft-lab/tracker/types/trace"
@@ -53,11 +51,6 @@ const (
 	pkgName          = "tracker"
 	maxMemDumpLength = 127
 )
-
-type fileExecInfo struct {
-	LastCtime int64
-	Hash      string
-}
 
 // Tracker traces system calls and system events using eBPF
 type Tracker struct {
@@ -74,18 +67,19 @@ type Tracker struct {
 	// Events
 	eventsSorter     *sorting.EventsChronologicalSorter
 	eventsPool       *sync.Pool
+	eventsParamTypes map[events.ID][]bufferdecoder.ArgType
 	eventProcessor   map[events.ID][]func(evt *trace.Event) error
 	eventDerivations derive.Table
 	eventSignatures  map[events.ID]bool
 	// Artifacts
-	fileHashes     *lru.Cache[string, fileExecInfo]
+	fileHashes     *filehash.Cache
 	capturedFiles  map[string]int64
 	writtenFiles   map[string]string
 	netCapturePcap *pcaps.Pcaps
 	// Internal Data
 	readFiles     map[string]string
 	pidsInMntns   bucketscache.BucketsCache // first n PIDs in each mountns
-	kernelSymbols helpers.KernelSymbolTable
+	kernelSymbols *environment.KernelSymbolTable
 	// eBPF
 	bpfModule *bpf.Module
 	probes    *probes.ProbeGroup
@@ -124,11 +118,20 @@ type Tracker struct {
 	// Streams
 	streamsManager *streams.StreamsManager
 	// policyManager manages policy state
-	policyManager *policyManager
+	policyManager *policy.PolicyManager
+
+	// Ksymbols needed to be kept alive in table.
+	// This does not mean they are required for tracker to function.
+	// TODO: remove this in favor of dependency manager nodes
+	requiredKsyms []string
 }
 
 func (t *Tracker) Stats() *metrics.Stats {
 	return &t.stats
+}
+
+func (t *Tracker) Engine() *engine.Engine {
+	return t.sigEngine
 }
 
 // GetCaptureEventsList sets events used to capture data.
@@ -164,25 +167,52 @@ func GetCaptureEventsList(cfg config.Config) map[events.ID]events.EventState {
 	return captureEvents
 }
 
-// handleEventsDependencies handles all events dependencies recursively.
-func (t *Tracker) handleEventsDependencies(givenEvtId events.ID, givenEvtState events.EventState) {
-	givenEventDefinition := events.Core.GetDefinitionByID(givenEvtId)
-	for _, depEventId := range givenEventDefinition.GetDependencies().GetIDs() {
-		depEventState, ok := t.eventsState[depEventId]
-		if !ok {
-			depEventState = events.EventState{}
-			t.handleEventsDependencies(depEventId, givenEvtState)
-		}
+func (t *Tracker) addEventState(eventID events.ID, chosenState events.EventState) {
+	currentState := t.eventsState[eventID]
+	currentState.Submit |= chosenState.Submit
+	currentState.Emit |= chosenState.Emit
+	t.eventsState[eventID] = currentState
+}
 
-		// Make sure dependencies are submitted if the given event is submitted.
-		depEventState.Submit |= givenEvtState.Submit
-		t.eventsState[depEventId] = depEventState
-
-		// If the given event is a signature, mark all dependencies as signatures.
-		if events.Core.GetDefinitionByID(givenEvtId).IsSignature() {
-			t.eventSignatures[depEventId] = true
+func (t *Tracker) addDependenciesToStateRecursive(eventNode *dependencies.EventNode) {
+	eventID := eventNode.GetID()
+	for _, dependencyEventID := range eventNode.GetDependencies().GetIDs() {
+		t.addDependencyEventToState(dependencyEventID, []events.ID{eventID})
+		dependencyNode, err := dependencies.GetManagerInstance().GetEvent(dependencyEventID)
+		if err == nil {
+			t.addDependenciesToStateRecursive(dependencyNode)
 		}
 	}
+}
+
+func (t *Tracker) selectEvent(eventID events.ID, chosenState events.EventState) {
+	t.addEventState(eventID, chosenState)
+	eventNode, err := dependencies.GetManagerInstance().SelectEvent(eventID)
+	if err != nil {
+		logger.Errorw("Event selection failed",
+			"event", events.Core.GetDefinitionByID(eventID).GetName())
+		return
+	}
+	t.addDependenciesToStateRecursive(eventNode)
+}
+
+// addDependencyEventToState adds to tracker's state an event that is a dependency of other events.
+// The difference from chosen events is that it doesn't affect its eviction.
+func (t *Tracker) addDependencyEventToState(evtID events.ID, dependentEvts []events.ID) {
+	newState := events.EventState{}
+	for _, dependentEvent := range dependentEvts {
+		newState.Submit |= t.eventsState[dependentEvent].Submit
+	}
+	t.addEventState(evtID, newState)
+	if events.Core.GetDefinitionByID(evtID).IsSignature() {
+		t.eventSignatures[evtID] = true
+	}
+}
+
+func (t *Tracker) removeEventFromState(evtID events.ID) {
+	logger.Debugw("Remove event from state", "event", events.Core.GetDefinitionByID(evtID).GetName())
+	delete(t.eventsState, evtID)
+	delete(t.eventSignatures, evtID)
 }
 
 // New creates a new Tracker instance based on a given valid Config. It is expected that it won't
@@ -192,8 +222,6 @@ func New(cfg config.Config) (*Tracker, error) {
 	if err != nil {
 		return nil, errfmt.Errorf("validation error: %v", err)
 	}
-
-	policyManager := newPolicyManager()
 
 	// Create Tracker
 
@@ -206,8 +234,44 @@ func New(cfg config.Config) (*Tracker, error) {
 		eventsState:     make(map[events.ID]events.EventState),
 		eventSignatures: make(map[events.ID]bool),
 		streamsManager:  streams.NewStreamsManager(),
-		policyManager:   policyManager,
+		policyManager:   policy.NewPolicyManager(cfg.Policies),
+		requiredKsyms:   []string{},
 	}
+
+	// In the future Tracker Config will be changed in runtime, and will demand a proper
+	// object to manage it. config.Config is currently a transient object that should be
+	// used only to create the Tracker instance.
+	t.config.Policies = nil // policies must be managed by the policy manager
+
+	eventsDependencies := dependencies.NewDependenciesManager(
+		func(id events.ID) events.Dependencies {
+			return events.Core.GetDefinitionByID(id).GetDependencies()
+		})
+
+	// TODO: As dynamic event addition or removal becomes a thing, we should subscribe all the watchers
+	// before selecting them. There is no reason to select the event in the New function anyhow.
+	eventsDependencies.SubscribeAdd(
+		dependencies.EventNodeType,
+		func(node interface{}) []dependencies.Action {
+			eventNode, ok := node.(*dependencies.EventNode)
+			if !ok {
+				logger.Errorw("Got node from type not requested")
+				return nil
+			}
+			t.addDependencyEventToState(eventNode.GetID(), eventNode.GetDependents())
+			return nil
+		})
+	eventsDependencies.SubscribeRemove(
+		dependencies.EventNodeType,
+		func(node interface{}) []dependencies.Action {
+			eventNode, ok := node.(*dependencies.EventNode)
+			if !ok {
+				logger.Errorw("Got node from type not requested")
+				return nil
+			}
+			t.removeEventFromState(eventNode.GetID())
+			return nil
+		})
 
 	// Initialize capabilities rings soon
 
@@ -219,32 +283,32 @@ func New(cfg config.Config) (*Tracker, error) {
 
 	// Initialize events state with mandatory events (TODO: review this need for sched exec)
 
-	t.eventsState[events.SchedProcessFork] = events.EventState{}
-	t.eventsState[events.SchedProcessExec] = events.EventState{}
-	t.eventsState[events.SchedProcessExit] = events.EventState{}
+	t.selectEvent(events.SchedProcessFork, events.EventState{})
+	t.selectEvent(events.SchedProcessExec, events.EventState{})
+	t.selectEvent(events.SchedProcessExit, events.EventState{})
 
 	// Control Plane Events
 
-	t.eventsState[events.SignalCgroupMkdir] = policy.AlwaysSubmit
-	t.eventsState[events.SignalCgroupRmdir] = policy.AlwaysSubmit
+	t.selectEvent(events.SignalCgroupMkdir, policy.AlwaysSubmit)
+	t.selectEvent(events.SignalCgroupRmdir, policy.AlwaysSubmit)
 
 	// Control Plane Process Tree Events
 
 	pipeEvts := func() {
-		t.eventsState[events.SchedProcessFork] = policy.AlwaysSubmit
-		t.eventsState[events.SchedProcessExec] = policy.AlwaysSubmit
-		t.eventsState[events.SchedProcessExit] = policy.AlwaysSubmit
+		t.selectEvent(events.SchedProcessFork, policy.AlwaysSubmit)
+		t.selectEvent(events.SchedProcessExec, policy.AlwaysSubmit)
+		t.selectEvent(events.SchedProcessExit, policy.AlwaysSubmit)
 	}
 	signalEvts := func() {
-		t.eventsState[events.SignalSchedProcessFork] = policy.AlwaysSubmit
-		t.eventsState[events.SignalSchedProcessExec] = policy.AlwaysSubmit
-		t.eventsState[events.SignalSchedProcessExit] = policy.AlwaysSubmit
+		t.selectEvent(events.SignalSchedProcessFork, policy.AlwaysSubmit)
+		t.selectEvent(events.SignalSchedProcessExec, policy.AlwaysSubmit)
+		t.selectEvent(events.SignalSchedProcessExit, policy.AlwaysSubmit)
 	}
 
 	// DNS Cache events
 
 	if t.config.DNSCacheConfig.Enable {
-		t.eventsState[events.NetPacketDNS] = policy.AlwaysSubmit
+		t.selectEvent(events.NetPacketDNS, policy.AlwaysSubmit)
 	}
 
 	switch t.config.ProcTree.Source {
@@ -260,12 +324,15 @@ func New(cfg config.Config) (*Tracker, error) {
 	// Pseudo events added by capture (if enabled by the user)
 
 	for eventID, eCfg := range GetCaptureEventsList(cfg) {
-		t.eventsState[eventID] = eCfg
+		t.selectEvent(eventID, eCfg)
 	}
 
 	// Events chosen by the user
 
-	for p := range t.config.Policies.Map() {
+	// TODO: extract this to a function to be called from here and from
+	// policies changes.
+	for it := t.policyManager.CreateAllIterator(); it.HasNext(); {
+		p := it.Next()
 		for e := range p.EventsToTrace {
 			var submit, emit uint64
 			if _, ok := t.eventsState[e]; ok {
@@ -274,32 +341,32 @@ func New(cfg config.Config) (*Tracker, error) {
 			}
 			utils.SetBit(&submit, uint(p.ID))
 			utils.SetBit(&emit, uint(p.ID))
-			t.eventsState[e] = events.EventState{Submit: submit, Emit: emit}
+			t.selectEvent(e, events.EventState{Submit: submit, Emit: emit})
 
-			policyManager.EnableRule(p.ID, e)
+			t.policyManager.EnableRule(p.ID, e)
 		}
-	}
-
-	// Handle all essential events dependencies
-
-	for id, state := range t.eventsState {
-		t.handleEventsDependencies(id, state)
 	}
 
 	// Update capabilities rings with all events dependencies
 
+	// TODO: extract this to a function to be called from here and from
+	// policies changes.
 	for id := range t.eventsState {
 		if !events.Core.IsDefined(id) {
 			return t, errfmt.Errorf("event %d is not defined", id)
 		}
-		evtCaps := events.Core.GetDefinitionByID(id).GetDependencies().GetCapabilities()
-		err = caps.BaseRingAdd(evtCaps.GetBase()...)
-		if err != nil {
-			return t, errfmt.WrapError(err)
-		}
-		err = caps.BaseRingAdd(evtCaps.GetEBPF()...)
-		if err != nil {
-			return t, errfmt.WrapError(err)
+		depsNode, err := eventsDependencies.GetEvent(id)
+		if err == nil {
+			deps := depsNode.GetDependencies()
+			evtCaps := deps.GetCapabilities()
+			err = caps.BaseRingAdd(evtCaps.GetBase()...)
+			if err != nil {
+				return t, errfmt.WrapError(err)
+			}
+			err = caps.BaseRingAdd(evtCaps.GetEBPF()...)
+			if err != nil {
+				return t, errfmt.WrapError(err)
+			}
 		}
 	}
 
@@ -335,32 +402,11 @@ func New(cfg config.Config) (*Tracker, error) {
 }
 
 // Init initialize tracker instance and it's various subsystems, potentially
-// performing external system operations to initialize them. NOTE: any
-// initialization logic, especially one that causes side effects, should go
-// here and not New().
+// performing external system operations to initialize them.
+// NOTE: any initialization logic, especially one that causes side effects
+// should go here and not New().
 func (t *Tracker) Init(ctx gocontext.Context) error {
-	// Initialize needed values
-
-	initReq, err := t.generateInitValues()
-	if err != nil {
-		return errfmt.Errorf("failed to generate required init values: %s", err)
-	}
-
-	// Init kernel symbols map
-
-	if initReq.Kallsyms {
-		err = capabilities.GetInstance().Specific(
-			func() error {
-				return t.NewKernelSymbols()
-			},
-			cap.SYSLOG,
-		)
-		if err != nil {
-			return errfmt.WrapError(err)
-		}
-	}
-
-	t.validateKallsymsDependencies() // Canceling events missing kernel symbols
+	var err error
 
 	// Initialize buckets cache
 
@@ -433,11 +479,58 @@ func (t *Tracker) Init(ctx gocontext.Context) error {
 	t.contPathResolver = containers.InitContainerPathResolver(&t.pidsInMntns)
 	t.contSymbolsLoader = sharedobjs.InitContainersSymbolsLoader(t.contPathResolver, 1024)
 
+	// Initialize eBPF probes
+
+	err = capabilities.GetInstance().EBPF(
+		func() error {
+			return t.initBPFProbes()
+		},
+	)
+	if err != nil {
+		t.Close()
+		return errfmt.WrapError(err)
+	}
+
+	// Init kernel symbols map
+
+	err = t.initKsymTableRequiredSyms()
+	if err != nil {
+		return err
+	}
+
+	err = capabilities.GetInstance().Specific(
+		func() error {
+			t.kernelSymbols, err = environment.NewKernelSymbolTable(
+				environment.WithRequiredSymbols(t.requiredKsyms),
+			)
+			// Cleanup memory in list
+			t.requiredKsyms = []string{}
+			return err
+		},
+		cap.SYSLOG,
+	)
+	if err != nil {
+		return errfmt.WrapError(err)
+	}
+
+	t.validateKallsymsDependencies() // disable events w/ missing ksyms dependencies
+
 	// Initialize event derivation logic
 
 	err = t.initDerivationTable()
 	if err != nil {
 		return errfmt.Errorf("error initializing event derivation map: %v", err)
+	}
+
+	// Initialize events parameter types map
+
+	t.eventsParamTypes = make(map[events.ID][]bufferdecoder.ArgType)
+	for _, eventDefinition := range events.Core.GetDefinitions() {
+		id := eventDefinition.GetID()
+		params := eventDefinition.GetParams()
+		for _, param := range params {
+			t.eventsParamTypes[id] = append(t.eventsParamTypes[id], bufferdecoder.GetParamType(param.Type))
+		}
 	}
 
 	// Initialize eBPF programs and maps
@@ -454,7 +547,7 @@ func (t *Tracker) Init(ctx gocontext.Context) error {
 
 	// Initialize hashes for files
 
-	t.fileHashes, err = lru.New[string, fileExecInfo](1024)
+	t.fileHashes, err = filehash.NewCache(t.config.Output.CalcHashes, t.contPathResolver)
 	if err != nil {
 		t.Close()
 		return errfmt.WrapError(err)
@@ -524,25 +617,6 @@ func (t *Tracker) Init(ctx gocontext.Context) error {
 	return nil
 }
 
-// InitValues determines if to initialize values that might be needed by eBPF programs
-type InitValues struct {
-	Kallsyms bool
-}
-
-func (t *Tracker) generateInitValues() (InitValues, error) {
-	initVals := InitValues{}
-	for evt := range t.eventsState {
-		if !events.Core.IsDefined(evt) {
-			return initVals, errfmt.Errorf("event %d is undefined", evt)
-		}
-		for range events.Core.GetDefinitionByID(evt).GetDependencies().GetKSymbols() {
-			initVals.Kallsyms = true // only if length > 0
-		}
-	}
-
-	return initVals, nil
-}
-
 // initTailCall initializes a given tailcall.
 func (t *Tracker) initTailCall(tailCall events.TailCall) error {
 	tailCallMapName := tailCall.GetMapName()
@@ -573,11 +647,11 @@ func (t *Tracker) initTailCall(tailCall events.TailCall) error {
 		if events.Core.GetDefinitionByID(events.ID(index)).IsSyscall() {
 			// Optimization: enable enter/exit probes only if at least one syscall is enabled.
 			once.Do(func() {
-				err := t.probes.Attach(probes.SyscallEnter__Internal)
+				err := t.probes.Attach(probes.SyscallEnter__Internal, t.kernelSymbols)
 				if err != nil {
 					logger.Errorw("error attaching to syscall enter", "error", err)
 				}
-				err = t.probes.Attach(probes.SyscallExit__Internal)
+				err = t.probes.Attach(probes.SyscallExit__Internal, t.kernelSymbols)
 				if err != nil {
 					logger.Errorw("error attaching to syscall enter", "error", err)
 				}
@@ -603,6 +677,13 @@ func (t *Tracker) initTailCall(tailCall events.TailCall) error {
 func (t *Tracker) initDerivationTable() error {
 	shouldSubmit := func(id events.ID) func() bool {
 		return func() bool { return t.eventsState[id].Submit > 0 }
+	}
+	symbolsCollisions := derive.SymbolsCollision(t.contSymbolsLoader, t.policyManager)
+
+	executeFailedGen, err := derive.InitProcessExecuteFailedGenerator()
+	if err != nil {
+		logger.Errorw("failed to init derive function for ProcessExecuteFiled", "error", err)
+		return nil
 	}
 
 	t.eventDerivations = derive.Table{
@@ -641,28 +722,42 @@ func (t *Tracker) initDerivationTable() error {
 				Enabled: shouldSubmit(events.SymbolsLoaded),
 				DeriveFunction: derive.SymbolsLoaded(
 					t.contSymbolsLoader,
-					t.config.Policies,
+					t.policyManager,
 				),
 			},
 			events.SymbolsCollision: {
-				Enabled: shouldSubmit(events.SymbolsCollision),
-				DeriveFunction: derive.SymbolsCollision(
-					t.contSymbolsLoader,
-					t.config.Policies,
-				),
+				Enabled:        shouldSubmit(events.SymbolsCollision),
+				DeriveFunction: symbolsCollisions,
 			},
 		},
 		events.SchedProcessExec: {
 			events.SymbolsCollision: {
-				Enabled: shouldSubmit(events.SymbolsCollision),
-				DeriveFunction: derive.SymbolsCollision(
-					t.contSymbolsLoader,
-					t.config.Policies,
+				Enabled:        shouldSubmit(events.SymbolsCollision),
+				DeriveFunction: symbolsCollisions,
+			},
+		},
+		events.SecuritySocketConnect: {
+			events.NetTCPConnect: {
+				Enabled: shouldSubmit(events.NetTCPConnect),
+				DeriveFunction: derive.NetTCPConnect(
+					t.dnsCache,
 				),
 			},
 		},
+		events.ExecuteFinished: {
+			events.ProcessExecuteFailed: {
+				Enabled:        shouldSubmit(events.ProcessExecuteFailed),
+				DeriveFunction: executeFailedGen.ProcessExecuteFailed(),
+			},
+		},
+		events.SecurityBprmCredsForExec: {
+			events.ProcessExecuteFailed: {
+				Enabled:        shouldSubmit(events.ProcessExecuteFailed),
+				DeriveFunction: executeFailedGen.ProcessExecuteFailed(),
+			},
+		},
 		//
-		// Network Derivations
+		// Network Packet Derivations
 		//
 		events.NetPacketIPBase: {
 			events.NetPacketIPv4: {
@@ -726,18 +821,26 @@ func (t *Tracker) initDerivationTable() error {
 				DeriveFunction: derive.NetPacketHTTPResponse(),
 			},
 		},
+		//
+		// Network Flow Derivations
+		//
+		events.NetPacketFlow: {
+			events.NetFlowTCPBegin: {
+				Enabled: shouldSubmit(events.NetFlowTCPBegin),
+				DeriveFunction: derive.NetFlowTCPBegin(
+					t.dnsCache,
+				),
+			},
+			events.NetFlowTCPEnd: {
+				Enabled: shouldSubmit(events.NetFlowTCPEnd),
+				DeriveFunction: derive.NetFlowTCPEnd(
+					t.dnsCache,
+				),
+			},
+		},
 	}
 
 	return nil
-}
-
-// RegisterEventDerivation registers an event derivation handler for tracker to use in the event pipeline
-func (t *Tracker) RegisterEventDerivation(deriveFrom events.ID, deriveTo events.ID, deriveCondition func() bool, deriveLogic derive.DeriveFunction) error {
-	if t.eventDerivations == nil {
-		return errfmt.Errorf("tracker not initialized yet")
-	}
-
-	return t.eventDerivations.Register(deriveFrom, deriveTo, deriveCondition, deriveLogic)
 }
 
 // options config should match defined values in ebpf code
@@ -748,7 +851,6 @@ const (
 	optStackAddresses
 	optCaptureModules
 	optCgroupV1
-	optProcessInfo
 	optTranslateFDFilePath
 	optCaptureBpf
 	optCaptureFileRead
@@ -794,256 +896,199 @@ func (t *Tracker) getOptionsConfig() uint32 {
 	return cOptVal
 }
 
-func (t *Tracker) computeConfigValues() []byte {
-	// config_entry
-	configVal := make([]byte, 256)
-
-	// tracker_pid
-	binary.LittleEndian.PutUint32(configVal[0:4], uint32(os.Getpid()))
-	// options
-	binary.LittleEndian.PutUint32(configVal[4:8], t.getOptionsConfig())
-	// cgroup_v1_hid
-	binary.LittleEndian.PutUint32(configVal[8:12], uint32(t.cgroups.GetDefaultCgroupHierarchyID()))
-	// padding
-	binary.LittleEndian.PutUint32(configVal[12:16], 0)
-
-	for p := range t.config.Policies.Map() {
-		byteIndex := p.ID / 8
-		bitOffset := p.ID % 8
-
-		// filter enabled policies bitmap
-		if p.UIDFilter.Enabled() {
-			// uid_filter_enabled_scopes
-			configVal[16+byteIndex] |= 1 << bitOffset
-		}
-		if p.PIDFilter.Enabled() {
-			// pid_filter_enabled_scopes
-			configVal[24+byteIndex] |= 1 << bitOffset
-		}
-		if p.MntNSFilter.Enabled() {
-			// mnt_ns_filter_enabled_scopes
-			configVal[32+byteIndex] |= 1 << bitOffset
-		}
-		if p.PidNSFilter.Enabled() {
-			// pid_ns_filter_enabled_scopes
-			configVal[40+byteIndex] |= 1 << bitOffset
-		}
-		if p.UTSFilter.Enabled() {
-			// uts_ns_filter_enabled_scopes
-			configVal[48+byteIndex] |= 1 << bitOffset
-		}
-		if p.CommFilter.Enabled() {
-			// comm_filter_enabled_scopes
-			configVal[56+byteIndex] |= 1 << bitOffset
-		}
-		if p.ContIDFilter.Enabled() {
-			// cgroup_id_filter_enabled_scopes
-			configVal[64+byteIndex] |= 1 << bitOffset
-		}
-		if p.ContFilter.Enabled() {
-			// cont_filter_enabled_scopes
-			configVal[72+byteIndex] |= 1 << bitOffset
-		}
-		if p.NewContFilter.Enabled() {
-			// new_cont_filter_enabled_scopes
-			configVal[80+byteIndex] |= 1 << bitOffset
-		}
-		if p.NewPidFilter.Enabled() {
-			// new_pid_filter_enabled_scopes
-			configVal[88+byteIndex] |= 1 << bitOffset
-		}
-		if p.ProcessTreeFilter.Enabled() {
-			// proc_tree_filter_enabled_scopes
-			configVal[96+byteIndex] |= 1 << bitOffset
-		}
-		if p.BinaryFilter.Enabled() {
-			// bin_path_filter_enabled_scopes
-			configVal[104+byteIndex] |= 1 << bitOffset
-		}
-		if p.Follow {
-			// follow_filter_enabled_scopes
-			configVal[112+byteIndex] |= 1 << bitOffset
-		}
-
-		// filter out scopes bitmap
-		if p.UIDFilter.FilterOut() {
-			// uid_filter_out_scopes
-			configVal[120+byteIndex] |= 1 << bitOffset
-		}
-		if p.PIDFilter.FilterOut() {
-			// pid_filter_out_scopes
-			configVal[128+byteIndex] |= 1 << bitOffset
-		}
-		if p.MntNSFilter.FilterOut() {
-			// mnt_ns_filter_out_scopes
-			configVal[136+byteIndex] |= 1 << bitOffset
-		}
-		if p.PidNSFilter.FilterOut() {
-			// pid_ns_filter_out_scopes
-			configVal[144+byteIndex] |= 1 << bitOffset
-		}
-		if p.UTSFilter.FilterOut() {
-			// uts_ns_filter_out_scopes
-			configVal[152+byteIndex] |= 1 << bitOffset
-		}
-		if p.CommFilter.FilterOut() {
-			// comm_filter_out_scopes
-			configVal[160+byteIndex] |= 1 << bitOffset
-		}
-		if p.ContIDFilter.FilterOut() {
-			// cgroup_id_filter_out_scopes
-			configVal[168+byteIndex] |= 1 << bitOffset
-		}
-		if p.ContFilter.FilterOut() {
-			// cont_filter_out_scopes
-			configVal[176+byteIndex] |= 1 << bitOffset
-		}
-		if p.NewContFilter.FilterOut() {
-			// new_cont_filter_out_scopes
-			configVal[184+byteIndex] |= 1 << bitOffset
-		}
-		if p.NewPidFilter.FilterOut() {
-			// new_pid_filter_out_scopes
-			configVal[192+byteIndex] |= 1 << bitOffset
-		}
-		if p.ProcessTreeFilter.FilterOut() {
-			// proc_tree_filter_out_scopes
-			configVal[200+byteIndex] |= 1 << bitOffset
-		}
-		if p.BinaryFilter.FilterOut() {
-			// bin_path_filter_out_scopes
-			configVal[208+byteIndex] |= 1 << bitOffset
-		}
-
-		// enabled_scopes
-		configVal[216+byteIndex] |= 1 << bitOffset
+// newConfig returns a new Config instance based on the current Tracker state and
+// the given policies config and version.
+func (t *Tracker) newConfig(cfg *policy.PoliciesConfig) *Config {
+	return &Config{
+		TrackerPid:      uint32(os.Getpid()),
+		Options:         t.getOptionsConfig(),
+		CgroupV1Hid:     uint32(t.cgroups.GetDefaultCgroupHierarchyID()),
+		PoliciesVersion: 1, // version will be removed soon
+		PoliciesConfig:  *cfg,
 	}
-
-	// compute all policies internals
-	t.config.Policies.Compute()
-
-	// uid_max
-	binary.LittleEndian.PutUint64(configVal[224:232], t.config.Policies.UIDFilterMax())
-	// uid_min
-	binary.LittleEndian.PutUint64(configVal[232:240], t.config.Policies.UIDFilterMin())
-	// pid_max
-	binary.LittleEndian.PutUint64(configVal[240:248], t.config.Policies.PIDFilterMax())
-	// pid_min
-	binary.LittleEndian.PutUint64(configVal[248:256], t.config.Policies.PIDFilterMin())
-
-	return configVal
 }
 
-// TODO: move this to Event Definition type, so can be reused by other components
-// checkUnavailableKSymbols checks if all kernel symbols required by events are available.
-func (t *Tracker) checkUnavailableKSymbols() map[events.ID][]string {
-	reqKSyms := []string{}
-
-	kSymbolsToEvents := make(map[string][]events.ID)
-
-	// Build a map of kernel symbols to events that require them
+func (t *Tracker) initKsymTableRequiredSyms() error {
+	// Get all required symbols needed in the table
+	// 1. all event ksym dependencies
+	// 2. specific cases (hooked_seq_ops, hooked_symbols, print_mem_dump)
 	for id := range t.eventsState {
-		evtDefinition := events.Core.GetDefinitionByID(id)
-		for _, symDep := range evtDefinition.GetDependencies().GetKSymbols() {
-			if !symDep.IsRequired() {
-				continue
-			}
-			symbol := symDep.GetSymbol()
-			reqKSyms = append(reqKSyms, symbol)
-			kSymbolsToEvents[symbol] = append(kSymbolsToEvents[symbol], id)
+		if !events.Core.IsDefined(id) {
+			return errfmt.Errorf("event %d is not defined", id)
 		}
-	}
 
-	kallsymsValues := LoadKallsymsValues(t.kernelSymbols, reqKSyms)
-	unavailableKSymsForEventID := make(map[events.ID][]string)
-
-	// Build a map of events that require unavailable kernel symbols
-	for symName, evtsIDs := range kSymbolsToEvents {
-		ksym, ok := kallsymsValues[symName]
-		if ok && ksym.Address != 0 {
+		depsNode, err := dependencies.GetManagerInstance().GetEvent(id)
+		if err != nil {
+			logger.Warnw("failed to extract required ksymbols from event", "event_id", id, "error", err)
 			continue
 		}
-		for _, evtID := range evtsIDs {
-			unavailableKSymsForEventID[evtID] = append(unavailableKSymsForEventID[evtID], symName)
+		// Add directly dependant symbols
+		deps := depsNode.GetDependencies()
+		ksyms := deps.GetKSymbols()
+		ksymNames := make([]string, 0, len(ksyms))
+		for _, sym := range ksyms {
+			ksymNames = append(ksymNames, sym.GetSymbolName())
+		}
+		t.requiredKsyms = append(t.requiredKsyms, ksymNames...)
+
+		// If kprobe/kretprobe, the event name itself is a required symbol
+		depsProbes := deps.GetProbes()
+		for _, probeDep := range depsProbes {
+			probe := t.probes.GetProbeByHandle(probeDep.GetHandle())
+			traceProbe, ok := probe.(*probes.TraceProbe)
+			if !ok {
+				continue
+			}
+			probeType := traceProbe.GetProbeType()
+			switch probeType {
+			case probes.KProbe, probes.KretProbe:
+				t.requiredKsyms = append(t.requiredKsyms, traceProbe.GetEventName())
+			}
 		}
 	}
 
-	return unavailableKSymsForEventID
+	// Specific cases
+	if _, ok := t.eventsState[events.HookedSeqOps]; ok {
+		for _, seqName := range derive.NetSeqOps {
+			t.requiredKsyms = append(t.requiredKsyms, seqName)
+		}
+	}
+	if _, ok := t.eventsState[events.HookedSyscall]; ok {
+		t.requiredKsyms = append(t.requiredKsyms, events.SyscallPrefix+"ni_syscall", "sys_ni_syscall")
+		for i, kernelRestrictionArr := range events.SyscallSymbolNames {
+			syscallName := t.getSyscallNameByKerVer(kernelRestrictionArr)
+			if syscallName == "" || strings.HasPrefix(syscallName, events.SyscallNotImplemented) {
+				logger.Debugw("hooked_syscall (symbol): skipping syscall", "index", i)
+				continue
+			}
+
+			t.requiredKsyms = append(t.requiredKsyms, events.SyscallPrefix+syscallName)
+		}
+	}
+	if _, ok := t.eventsState[events.PrintMemDump]; ok {
+		for it := t.policyManager.CreateAllIterator(); it.HasNext(); {
+			p := it.Next()
+			// This might break in the future if PrintMemDump will become a dependency of another event.
+			_, isChosen := p.EventsToTrace[events.PrintMemDump]
+			if !isChosen {
+				continue
+			}
+			printMemDumpFilters := p.DataFilter.GetEventFilters(events.PrintMemDump)
+			if len(printMemDumpFilters) == 0 {
+				continue
+			}
+			symbolsFilter, ok := printMemDumpFilters["symbol_name"].(*filters.StringFilter)
+			if symbolsFilter == nil || !ok {
+				continue
+			}
+
+			for _, field := range symbolsFilter.Equal() {
+				symbolSlice := strings.Split(field, ":")
+				splittedLen := len(symbolSlice)
+				var name string
+				if splittedLen == 1 {
+					name = symbolSlice[0]
+				} else if splittedLen == 2 {
+					name = symbolSlice[1]
+				} else {
+					continue
+				}
+				t.requiredKsyms = append(
+					t.requiredKsyms,
+					// symbols
+					name,
+					"sys_"+name,
+					events.SyscallPrefix+name,
+				)
+			}
+		}
+	}
+	return nil
+}
+
+// getUnavailbaleKsymbols return all kernel symbols missing from given symbols
+func getUnavailbaleKsymbols(ksymbols []events.KSymbol, kernelSymbols *environment.KernelSymbolTable) []events.KSymbol {
+	var unavailableSymbols []events.KSymbol
+
+	for _, ksymbol := range ksymbols {
+		sym, err := kernelSymbols.GetSymbolByName(ksymbol.GetSymbolName())
+		if err != nil {
+			// If the symbol is not found, it means it's unavailable.
+			unavailableSymbols = append(unavailableSymbols, ksymbol)
+			continue
+		}
+		for _, s := range sym {
+			if s.Address == 0 {
+				// Same if the symbol is found but its address is 0.
+				unavailableSymbols = append(unavailableSymbols, ksymbol)
+			}
+		}
+	}
+	return unavailableSymbols
 }
 
 // validateKallsymsDependencies load all symbols required by events dependencies
 // from the kallsyms file to check for missing symbols. If some symbols are
 // missing, it will cancel their event with informative error message.
 func (t *Tracker) validateKallsymsDependencies() {
-	depsToCancel := make(map[events.ID]string)
+	depsInstance := dependencies.GetManagerInstance()
 
-	// Cancel events with unavailable symbols dependencies
-	for eventToCancel, missingDepSyms := range t.checkUnavailableKSymbols() {
-		eventNameToCancel := events.Core.GetDefinitionByID(eventToCancel).GetName()
-		logger.Debugw(
-			"Event canceled because of missing kernel symbol dependency",
-			"missing symbols", missingDepSyms, "event", eventNameToCancel,
-		)
-		delete(t.eventsState, eventToCancel)
+	evtDefSymDeps := func(id events.ID) []events.KSymbol {
+		depsNode, _ := depsInstance.GetEvent(id)
+		deps := depsNode.GetDependencies()
+		return deps.GetKSymbols()
+	}
 
-		// Find all events that depend on eventToCancel
-		for eventID := range t.eventsState {
-			depsIDs := events.Core.GetDefinitionByID(eventID).GetDependencies().GetIDs()
-			for _, depID := range depsIDs {
-				if depID == eventToCancel {
-					depsToCancel[eventID] = eventNameToCancel
-				}
+	validateEvent := func(eventId events.ID) bool {
+		missingDepSyms := getUnavailbaleKsymbols(evtDefSymDeps(eventId), t.kernelSymbols)
+		shouldFailEvent := false
+		for _, symDep := range missingDepSyms {
+			if symDep.IsRequired() {
+				shouldFailEvent = true
+				break
 			}
 		}
-
-		// Cancel all events that require eventToCancel
-		for eventID, depEventName := range depsToCancel {
-			logger.Debugw(
-				"Event canceled because it depends on an previously canceled event",
-				"event", events.Core.GetDefinitionByID(eventID).GetName(),
-				"dependency", depEventName,
+		if shouldFailEvent {
+			eventNameToCancel := events.Core.GetDefinitionByID(eventId).GetName()
+			var missingSymsNames []string
+			for _, symDep := range missingDepSyms {
+				missingSymsNames = append(missingSymsNames, symDep.GetSymbolName())
+			}
+			logger.Warnw(
+				"Event canceled because of missing kernel symbol dependency",
+				"missing symbols", missingSymsNames, "event", eventNameToCancel,
 			)
-			delete(t.eventsState, eventID)
+			return false
+		}
+		return true
+	}
+
+	depsInstance.SubscribeAdd(
+		dependencies.EventNodeType,
+		func(node interface{}) []dependencies.Action {
+			eventNode, ok := node.(*dependencies.EventNode)
+			if !ok {
+				logger.Errorw("Got node from type not requested")
+				return nil
+			}
+			if !validateEvent(eventNode.GetID()) {
+				return []dependencies.Action{dependencies.NewCancelNodeAddAction(fmt.Errorf("event is missing ksymbols"))}
+			}
+			return nil
+		})
+
+	for eventId := range t.eventsState {
+		if !validateEvent(eventId) {
+			// Cancel the event, its dependencies and its dependent events
+			err := depsInstance.RemoveEvent(eventId)
+			if err != nil {
+				logger.Warnw("Failed to remove event from dependencies manager", "remove reason", "missing ksymbols", "error", err)
+			}
 		}
 	}
 }
 
 func (t *Tracker) populateBPFMaps() error {
-	// Initialize events parameter types map
-	eventsParams := make(map[events.ID][]bufferdecoder.ArgType)
-	for _, eventDefinition := range events.Core.GetDefinitions() {
-		id := eventDefinition.GetID()
-		params := eventDefinition.GetParams()
-		for _, param := range params {
-			eventsParams[id] = append(eventsParams[id], bufferdecoder.GetParamType(param.Type))
-		}
-	}
-
-	// Prepare events map
-	eventsMap, err := t.bpfModule.GetMap("events_map")
-	if err != nil {
-		return errfmt.WrapError(err)
-	}
-	for id, ecfg := range t.eventsState {
-		eventConfigVal := make([]byte, 16)
-
-		// bitmap of policies that require this event to be submitted
-		binary.LittleEndian.PutUint64(eventConfigVal[0:8], ecfg.Submit)
-
-		// encoded event's parameter types
-		var paramTypes uint64
-		params := eventsParams[id]
-		for n, paramType := range params {
-			paramTypes = paramTypes | (uint64(paramType) << (8 * n))
-		}
-		binary.LittleEndian.PutUint64(eventConfigVal[8:16], paramTypes)
-
-		err := eventsMap.Update(unsafe.Pointer(&id), unsafe.Pointer(&eventConfigVal[0]))
-		if err != nil {
-			return errfmt.WrapError(err)
-		}
-	}
-
 	// Prepare 32bit to 64bit syscall number mapping
 	sys32to64BPFMap, err := t.bpfModule.GetMap("sys_32_to_64_map") // u32, u32
 	if err != nil {
@@ -1058,26 +1103,22 @@ func (t *Tracker) populateBPFMaps() error {
 		}
 	}
 
-	if t.kernelSymbols != nil {
-		err = t.UpdateBPFKsymbolsMap()
-		if err != nil {
-			return errfmt.WrapError(err)
-		}
+	// Update the kallsyms eBPF map with all symbols from the kallsyms file.
+	err = t.UpdateKallsyms()
+	if err != nil {
+		return errfmt.WrapError(err)
 	}
 
-	// Initialize kconfig variables (map used instead of relying in libbpf's .kconfig automated maps)
-	// Note: this allows libbpf not to rely on the system kconfig file, tracker does the kconfig var identification job
-
+	// Initialize kconfig ebpf map with values from the kernel config file.
+	// TODO: remove this from libbpf and try to rely in libbpf only for kconfig vars.
 	bpfKConfigMap, err := t.bpfModule.GetMap("kconfig_map") // u32, u32
 	if err != nil {
 		return errfmt.WrapError(err)
 	}
-
 	kconfigValues, err := initialization.LoadKconfigValues(t.config.KernelConfig)
 	if err != nil {
 		return errfmt.WrapError(err)
 	}
-
 	for key, value := range kconfigValues {
 		keyU32 := uint32(key)
 		valueU32 := uint32(value)
@@ -1087,59 +1128,29 @@ func (t *Tracker) populateBPFMaps() error {
 		}
 	}
 
-	cZero := uint32(0)
-
-	// net_packet configuration map
+	// Initialize the net_packet configuration eBPF map.
 	if pcaps.PcapsEnabled(t.config.Capture.Net) {
 		bpfNetConfigMap, err := t.bpfModule.GetMap("netconfig_map")
 		if err != nil {
 			return errfmt.WrapError(err)
 		}
 
-		netConfigVal := make([]byte, 8) // u32 capture_options, u32 capture_length
-
+		netConfigVal := make([]byte, 8) // u32 capture_options + u32 capture_length
 		options := pcaps.GetPcapOptions(t.config.Capture.Net)
-
 		binary.LittleEndian.PutUint32(netConfigVal[0:4], uint32(options))
 		binary.LittleEndian.PutUint32(netConfigVal[4:8], t.config.Capture.Net.CaptureLength)
 
-		if err = bpfNetConfigMap.Update(
-			unsafe.Pointer(&cZero),
-			unsafe.Pointer(&netConfigVal[0]),
-		); err != nil {
+		cZero := uint32(0)
+		err = bpfNetConfigMap.Update(unsafe.Pointer(&cZero), unsafe.Pointer(&netConfigVal[0]))
+		if err != nil {
 			return errfmt.Errorf("error updating net config eBPF map: %v", err)
 		}
 	}
 
-	// Initialize config map
-	bpfConfigMap, err := t.bpfModule.GetMap("config_map")
+	// Initialize config and filter maps
+	err = t.populateFilterMaps(false)
 	if err != nil {
 		return errfmt.WrapError(err)
-	}
-
-	configVal := t.computeConfigValues()
-	if err = bpfConfigMap.Update(unsafe.Pointer(&cZero), unsafe.Pointer(&configVal[0])); err != nil {
-		return errfmt.WrapError(err)
-	}
-
-	for p := range t.config.Policies.Map() {
-		policyID := uint(p.ID)
-		errMap := make(map[string]error, 0)
-
-		errMap[policy.UIDFilterMap] = p.UIDFilter.UpdateBPF(t.bpfModule, policyID)
-		errMap[policy.PIDFilterMap] = p.PIDFilter.UpdateBPF(t.bpfModule, policyID)
-		errMap[policy.MntNSFilterMap] = p.MntNSFilter.UpdateBPF(t.bpfModule, policyID)
-		errMap[policy.PidNSFilterMap] = p.PidNSFilter.UpdateBPF(t.bpfModule, policyID)
-		errMap[policy.UTSFilterMap] = p.UTSFilter.UpdateBPF(t.bpfModule, policyID)
-		errMap[policy.CommFilterMap] = p.CommFilter.UpdateBPF(t.bpfModule, policyID)
-		errMap[policy.ContIdFilter] = p.ContIDFilter.UpdateBPF(t.bpfModule, t.containers, policyID)
-		errMap[policy.BinaryFilterMap] = p.BinaryFilter.UpdateBPF(t.bpfModule, policyID)
-
-		for k, v := range errMap {
-			if v != nil {
-				return errfmt.Errorf("error setting %v filter: %v", k, v)
-			}
-		}
 	}
 
 	// Populate containers map with existing containers
@@ -1208,60 +1219,117 @@ func (t *Tracker) populateBPFMaps() error {
 	return nil
 }
 
-// attachProbes attaches selected events probes to their respective eBPF progs
-func (t *Tracker) attachProbes() error {
-	var err error
-	probesToEvents := make(map[events.Probe][]events.ID)
-
-	// attach all probes for the events being filtered
-	for id := range t.eventsState {
-		if !events.Core.IsDefined(id) {
-			continue
-		}
-
-		eventDefinition := events.Core.GetDefinitionByID(id)
-
-		// attach internal syscall probes for selected syscall events, if any
-		if eventDefinition.IsSyscall() {
-			err := t.probes.Attach(probes.SyscallEnter__Internal)
-			if err != nil {
-				return errfmt.WrapError(err)
-			}
-			err = t.probes.Attach(probes.SyscallExit__Internal)
-			if err != nil {
-				return errfmt.WrapError(err)
-			}
-		}
-
-		// save required probes for later attachment
-		for _, probeDep := range eventDefinition.GetDependencies().GetProbes() {
-			probesToEvents[probeDep] = append(probesToEvents[probeDep], id)
-		}
+// populateFilterMaps populates the eBPF maps with the given policies
+func (t *Tracker) populateFilterMaps(updateProcTree bool) error {
+	polCfg, err := t.policyManager.UpdateBPF(
+		t.bpfModule,
+		t.containers,
+		t.eventsState,
+		t.eventsParamTypes,
+		true,
+		updateProcTree,
+	)
+	if err != nil {
+		return errfmt.WrapError(err)
 	}
 
-	for probe, evtsIDs := range probesToEvents {
-		// attach probes for selected events
-		err = t.probes.Attach(probe.GetHandle(), t.cgroups)
-		if err != nil && probe.IsRequired() {
-			// if a required probe fails to attach, cancel all events that depend on it
-			for _, evtID := range evtsIDs {
-				evtName := events.Core.GetDefinitionByID(evtID).GetName()
-				logger.Errorw(
-					"Event canceled because of missing probe dependency",
-					"missing probe", probe.GetHandle(), "event", evtName,
-				)
+	// Create new config with updated policies and update eBPF map
 
-				delete(t.eventsState, evtID)
-			}
-		}
+	cfg := t.newConfig(polCfg)
+	if err := cfg.UpdateBPF(t.bpfModule); err != nil {
+		return errfmt.WrapError(err)
 	}
 
 	return nil
 }
 
-func (t *Tracker) initBPF() error {
-	var err error
+// attachEvent attaches the probes of the given event to their respective eBPF programs.
+// Calling attachment of probes if a supported behavior, and will do nothing
+// if it has been attached already.
+// Return whether the event was successfully attached or not.
+func (t *Tracker) attachEvent(id events.ID) error {
+	evtName := events.Core.GetDefinitionByID(id).GetName()
+	depsNode, err := dependencies.GetManagerInstance().GetEvent(id)
+	if err != nil {
+		logger.Errorw("Missing event in dependencies", "event", evtName)
+		return err
+	}
+	for _, probe := range depsNode.GetDependencies().GetProbes() {
+		err := t.probes.Attach(probe.GetHandle(), t.cgroups, t.kernelSymbols)
+		if err == nil {
+			continue
+		}
+		if probe.IsRequired() {
+			logger.Warnw(
+				"Cancelling event and its dependencies because of a missing probe",
+				"missing probe", probe.GetHandle(), "event", evtName,
+				"error", err,
+			)
+			return err
+		}
+		logger.Debugw(
+			"Failed to attach non-required probe for event",
+			"event", evtName,
+			"probe", probe.GetHandle(), "error", err,
+		)
+	}
+	return nil
+}
 
+// attachProbes attaches selected events probes to their respective eBPF programs.
+func (t *Tracker) attachProbes() error {
+	depsInstance := dependencies.GetManagerInstance()
+
+	// Subscribe to all watchers on the dependencies to attach and/or detach
+	// probes upon changes
+	depsInstance.SubscribeAdd(
+		dependencies.ProbeNodeType,
+		func(node interface{}) []dependencies.Action {
+			probeNode, ok := node.(*dependencies.ProbeNode)
+			if !ok {
+				logger.Errorw("Got node from type not requested")
+				return nil
+			}
+			err := t.probes.Attach(probeNode.GetHandle(), t.cgroups, t.kernelSymbols)
+			if err != nil {
+				return []dependencies.Action{dependencies.NewCancelNodeAddAction(err)}
+			}
+			return nil
+		})
+
+	depsInstance.SubscribeRemove(
+		dependencies.ProbeNodeType,
+		func(node interface{}) []dependencies.Action {
+			probeNode, ok := node.(*dependencies.ProbeNode)
+			if !ok {
+				logger.Errorw("Got node from type not requested")
+				return nil
+			}
+			err := t.probes.Detach(probeNode.GetHandle())
+			if err != nil {
+				logger.Debugw("Failed to detach probe",
+					"probe", probeNode.GetHandle(),
+					"error", err)
+			}
+			return nil
+		})
+
+	// Attach probes to their respective eBPF programs or cancel events if a required probe is missing.
+	for eventID := range t.eventsState {
+		err := t.attachEvent(eventID)
+		if err != nil {
+			err := depsInstance.RemoveEvent(eventID)
+			if err != nil {
+				logger.Warnw("Failed to remove event from dependencies manager", "remove reason", "failed probes attachment", "error", err)
+			}
+		}
+	}
+	// TODO: Update the eBPF maps according to events state after failure of attachments
+	return nil
+}
+
+func (t *Tracker) initBPFProbes() error {
+	var err error
 	// Execute code with higher privileges: ring1 (required)
 
 	newModuleArgs := bpf.NewModuleArgs{
@@ -1284,6 +1352,12 @@ func (t *Tracker) initBPF() error {
 		return errfmt.WrapError(err)
 	}
 
+	return nil
+}
+
+func (t *Tracker) initBPF() error {
+	var err error
+
 	// Load the eBPF object into kernel
 
 	err = t.bpfModule.BPFLoadObject()
@@ -1299,6 +1373,7 @@ func (t *Tracker) initBPF() error {
 	}
 
 	// Initialize Control Plane
+
 	t.controlPlane, err = controlplane.NewController(
 		t.bpfModule,
 		t.containers,
@@ -1309,22 +1384,10 @@ func (t *Tracker) initBPF() error {
 		return errfmt.WrapError(err)
 	}
 
-	// Attach eBPF programs to selected event's probes
-
-	err = t.attachProbes()
+	// returned PoliciesConfig is not used here, therefore it's discarded
+	_, err = t.policyManager.UpdateBPF(t.bpfModule, t.containers, t.eventsState, t.eventsParamTypes, false, true)
 	if err != nil {
 		return errfmt.WrapError(err)
-	}
-
-	// Update all ProcessTreeFilters after probes are attached: reduce the
-	// possible race window between the bpf programs updating the maps and
-	// userland reading procfs and also dealing with same maps.
-
-	for p := range t.config.Policies.Map() {
-		err = p.ProcessTreeFilter.UpdateBPF(t.bpfModule, uint(p.ID))
-		if err != nil {
-			return errfmt.Errorf("error building process tree: %v", err)
-		}
 	}
 
 	// Initialize perf buffers and needed channels
@@ -1384,6 +1447,14 @@ func (t *Tracker) initBPF() error {
 		return errfmt.Errorf("error initializing logs perf map: %v", err)
 	}
 
+	// Attach eBPF programs to selected event's probes
+
+	// TODO: Solve race window between ProcessTreeFilters initialization through procfs and the
+	// attachment of the probes that update the filters from the eBPF side. Maybe perform another
+	// iteration on procfs to fill in any missing data.
+
+	err = t.attachProbes()
+
 	return errfmt.WrapError(err)
 }
 
@@ -1411,21 +1482,22 @@ func (t *Tracker) Run(ctx gocontext.Context) error {
 
 	t.eventsPerfMap.Poll(pollTimeout)
 
+	pipelineReady := make(chan struct{}, 1)
 	go t.processLostEvents() // termination signaled by closing t.done
-	go t.handleEvents(ctx)
+	go t.handleEvents(ctx, pipelineReady)
 
 	// Parallel perf buffer with file writes events
 
 	if t.config.BlobPerfBufferSize > 0 {
 		t.fileWrPerfMap.Poll(pollTimeout)
-		go t.processFileCaptures(ctx)
+		go t.handleFileCaptures(ctx)
 	}
 
 	// Network capture perf buffer (similar to regular pipeline)
 
 	if pcaps.PcapsEnabled(t.config.Capture.Net) {
 		t.netCapPerfMap.Poll(pollTimeout)
-		go t.processNetCaptureEvents(ctx)
+		go t.handleNetCaptureEvents(ctx)
 	}
 
 	// Logging perf buffer
@@ -1435,6 +1507,7 @@ func (t *Tracker) Run(ctx gocontext.Context) error {
 
 	// Management
 
+	<-pipelineReady
 	t.running.Store(true) // set running state after writing pid file
 	t.ready(ctx)          // executes ready callback, non blocking
 	<-ctx.Done()          // block until ctx is cancelled elsewhere
@@ -1554,29 +1627,7 @@ func (t *Tracker) computeOutFileHash(fileName string) (string, error) {
 			logger.Errorw("Closing file", "error", err)
 		}
 	}()
-	return computeFileHash(f)
-}
-
-func computeFileHashAtPath(fileName string) (string, error) {
-	f, err := os.Open(fileName)
-	if err != nil {
-		return "", errfmt.WrapError(err)
-	}
-	defer func() {
-		if err := f.Close(); err != nil {
-			logger.Errorw("Closing file", "error", err)
-		}
-	}()
-	return computeFileHash(f)
-}
-
-func computeFileHash(file *os.File) (string, error) {
-	h := sha256.New()
-	_, err := io.Copy(h, file)
-	if err != nil {
-		return "", errfmt.WrapError(err)
-	}
-	return hex.EncodeToString(h.Sum(nil)), nil
+	return filehash.ComputeFileHash(f)
 }
 
 // getSelfLoadedPrograms returns a map of all programs loaded by tracker.
@@ -1587,6 +1638,24 @@ func (t *Tracker) getSelfLoadedPrograms(kprobesOnly bool) map[string]int {
 		logger.Debugw("self loaded program", "event", event, "program", program)
 	}
 
+	type probeMapKey struct {
+		programName string
+		eventName   string
+		probeType   probes.ProbeType
+	}
+	// We need to count how many ftrace based hooks will be placed on each symbol.
+	// eventsState may contain duplicate events due to dependencies.
+	// To get the real count, we consider the program name and the prob type.
+	// For example:
+	// event state may contain the following entries:
+	// eventName: do_init_module, programName: trace_do_init_module, probtype: 0, definitionID: 778
+	// eventName: do_init_module, programName: trace_ret_do_init_module, probtype: 1, definitionID: 778
+	// eventName: do_init_module, programName: trace_do_init_module, probtype: 0, definitionID: 760
+	// eventName: do_init_module, programName: trace_ret_do_init_module, probtype: 1, definitionID: 760
+	// Even though there are 4 entries, we can see that only 2 hooks are going to be placed in practice.
+	// The symbol is do_init_module: kprobe with the program trace_do_init_module, kretprobe with the program trace_ret_do_init_module
+	uniqueHooksMap := map[probeMapKey]struct{}{}
+
 	for tr := range t.eventsState {
 		if !events.Core.IsDefined(tr) {
 			continue
@@ -1596,7 +1665,6 @@ func (t *Tracker) getSelfLoadedPrograms(kprobesOnly bool) map[string]int {
 
 		for _, depProbes := range definition.GetDependencies().GetProbes() {
 			currProbe := t.probes.GetProbeByHandle(depProbes.GetHandle())
-
 			name := ""
 			switch p := currProbe.(type) {
 			case *probes.TraceProbe:
@@ -1608,6 +1676,23 @@ func (t *Tracker) getSelfLoadedPrograms(kprobesOnly bool) map[string]int {
 						continue
 					}
 				}
+				if !p.IsAttached() {
+					// Don't fill the map with entries that didn't get hook (missing symbol etc)
+					continue
+				}
+				key := probeMapKey{
+					programName: p.GetProgramName(),
+					probeType:   p.GetProbeType(),
+					eventName:   p.GetEventName(),
+				}
+
+				_, found := uniqueHooksMap[key]
+				if found { // Already counted this hook
+					continue
+				}
+
+				uniqueHooksMap[key] = struct{}{}
+
 				log(definition.GetName(), p.GetProgramName())
 				name = p.GetEventName()
 			case *probes.Uprobe:
@@ -1615,6 +1700,8 @@ func (t *Tracker) getSelfLoadedPrograms(kprobesOnly bool) map[string]int {
 				continue
 			case *probes.CgroupProbe:
 				log(definition.GetName(), p.GetProgramName())
+				continue
+			default:
 				continue
 			}
 
@@ -1629,41 +1716,48 @@ func (t *Tracker) getSelfLoadedPrograms(kprobesOnly bool) map[string]int {
 // userland process itself, and not from the kernel. These events usually serve as informational
 // events for the signatures engine/logic.
 func (t *Tracker) invokeInitEvents(out chan *trace.Event) {
-	var emit uint64
+	var matchedPolicies uint64
 
-	setMatchedPolicies := func(event *trace.Event, matchedPolicies uint64) {
+	setMatchedPolicies := func(event *trace.Event, matchedPolicies uint64, pManager *policy.PolicyManager) {
+		event.PoliciesVersion = 1 // version will be removed soon
 		event.MatchedPoliciesKernel = matchedPolicies
 		event.MatchedPoliciesUser = matchedPolicies
-		event.MatchedPolicies = t.config.Policies.MatchedNames(matchedPolicies)
+		event.MatchedPolicies = pManager.MatchedNames(matchedPolicies)
+	}
+
+	policiesMatch := func(state events.EventState) uint64 {
+		return state.Emit | state.Submit
 	}
 
 	// Initial namespace events
 
-	emit = t.eventsState[events.InitNamespaces].Emit
-	if emit > 0 {
+	matchedPolicies = policiesMatch(t.eventsState[events.InitNamespaces])
+	if matchedPolicies > 0 {
 		systemInfoEvent := events.InitNamespacesEvent()
-		setMatchedPolicies(&systemInfoEvent, emit)
+		setMatchedPolicies(&systemInfoEvent, matchedPolicies, t.policyManager)
 		out <- &systemInfoEvent
 		_ = t.stats.EventCount.Increment()
 	}
 
 	// Initial existing containers events (1 event per container)
 
-	emit = t.eventsState[events.ExistingContainer].Emit
-	if emit > 0 {
-		for _, e := range events.ExistingContainersEvents(t.containers, t.config.NoContainersEnrich) {
-			setMatchedPolicies(&e, emit)
-			out <- &e
+	matchedPolicies = policiesMatch(t.eventsState[events.ExistingContainer])
+	if matchedPolicies > 0 {
+		existingContainerEvents := events.ExistingContainersEvents(t.containers, t.config.NoContainersEnrich)
+		for i := range existingContainerEvents {
+			event := &(existingContainerEvents[i])
+			setMatchedPolicies(event, matchedPolicies, t.policyManager)
+			out <- event
 			_ = t.stats.EventCount.Increment()
 		}
 	}
 
 	// Ftrace hook event
 
-	emit = t.eventsState[events.FtraceHook].Emit
-	if emit > 0 {
+	matchedPolicies = policiesMatch(t.eventsState[events.FtraceHook])
+	if matchedPolicies > 0 {
 		ftraceBaseEvent := events.GetFtraceBaseEvent()
-		setMatchedPolicies(ftraceBaseEvent, emit)
+		setMatchedPolicies(ftraceBaseEvent, matchedPolicies, t.policyManager)
 		logger.Debugw("started ftraceHook goroutine")
 
 		// TODO: Ideally, this should be inside the goroutine and be computed before each run,
@@ -1703,11 +1797,11 @@ func (t *Tracker) triggerSeqOpsIntegrityCheck(event trace.Event) {
 	}
 	var seqOpsPointers [len(derive.NetSeqOps)]uint64
 	for i, seqName := range derive.NetSeqOps {
-		seqOpsStruct, err := t.kernelSymbols.GetSymbolByName("system", seqName)
+		seqOpsStruct, err := t.kernelSymbols.GetSymbolByOwnerAndName("system", seqName)
 		if err != nil {
 			continue
 		}
-		seqOpsPointers[i] = seqOpsStruct.Address
+		seqOpsPointers[i] = seqOpsStruct[0].Address
 	}
 	eventHandle := t.triggerContexts.Store(event)
 	_ = t.triggerSeqOpsIntegrityCheckCall(
@@ -1730,15 +1824,21 @@ func (t *Tracker) triggerMemDump(event trace.Event) []error {
 		return nil
 	}
 
-	errs := []error{}
+	var errs []error
 
-	for p := range t.config.Policies.Map() {
-		printMemDumpFilters := p.ArgFilter.GetEventFilters(events.PrintMemDump)
+	for it := t.policyManager.CreateAllIterator(); it.HasNext(); {
+		p := it.Next()
+		// This might break in the future if PrintMemDump will become a dependency of another event.
+		_, isChosen := p.EventsToTrace[events.PrintMemDump]
+		if !isChosen {
+			continue
+		}
+		printMemDumpFilters := p.DataFilter.GetEventFilters(events.PrintMemDump)
 		if len(printMemDumpFilters) == 0 {
 			errs = append(errs, errfmt.Errorf("policy %d: no address or symbols were provided to print_mem_dump event. "+
-				"please provide it via -e print_mem_dump.args.address=<hex address>"+
-				", -e print_mem_dump.args.symbol_name=<owner>:<symbol> or "+
-				"-e print_mem_dump.args.symbol_name=<symbol> if specifying a system owned symbol", p.ID))
+				"please provide it via -e print_mem_dump.data.address=<hex address>"+
+				", -e print_mem_dump.data.symbol_name=<owner>:<symbol> or "+
+				"-e print_mem_dump.data.symbol_name=<symbol> if specifying a system owned symbol", p.ID))
 
 			continue
 		}
@@ -1791,7 +1891,7 @@ func (t *Tracker) triggerMemDump(event trace.Event) []error {
 
 					continue
 				}
-				symbol, err := t.kernelSymbols.GetSymbolByName(owner, name)
+				symbol, err := t.kernelSymbols.GetSymbolByOwnerAndName(owner, name)
 				if err != nil {
 					if owner != "system" {
 						errs = append(errs, errfmt.Errorf("policy %d: invalid symbols provided to print_mem_dump event: %s - %v", p.ID, field, err))
@@ -1803,7 +1903,7 @@ func (t *Tracker) triggerMemDump(event trace.Event) []error {
 					prefixes := []string{"sys_", "__x64_sys_", "__arm64_sys_"}
 					var errSyscall error
 					for _, prefix := range prefixes {
-						symbol, errSyscall = t.kernelSymbols.GetSymbolByName(owner, prefix+name)
+						symbol, errSyscall = t.kernelSymbols.GetSymbolByOwnerAndName(owner, prefix+name)
 						if errSyscall == nil {
 							err = nil
 							break
@@ -1827,7 +1927,7 @@ func (t *Tracker) triggerMemDump(event trace.Event) []error {
 					}
 				}
 				eventHandle := t.triggerContexts.Store(event)
-				_ = t.triggerMemDumpCall(symbol.Address, length, uint64(eventHandle))
+				_ = t.triggerMemDumpCall(symbol[0].Address, length, uint64(eventHandle))
 			}
 		}
 	}
@@ -1856,7 +1956,7 @@ func (t *Tracker) triggerMemDumpCall(address uint64, length uint64, eventHandle 
 
 // SubscribeAll returns a stream subscribed to all policies
 func (t *Tracker) SubscribeAll() *streams.Stream {
-	return t.subscribe(policy.AllPoliciesOn)
+	return t.subscribe(policy.PolicyAll)
 }
 
 // Subscribe returns a stream subscribed to selected policies
@@ -1864,7 +1964,7 @@ func (t *Tracker) Subscribe(policyNames []string) (*streams.Stream, error) {
 	var policyMask uint64
 
 	for _, policyName := range policyNames {
-		p, err := t.config.Policies.LookupByName(policyName)
+		p, err := t.policyManager.LookupByName(policyName)
 		if err != nil {
 			return nil, err
 		}
@@ -1915,7 +2015,7 @@ func (t *Tracker) EnableRule(policyNames []string, ruleId string) error {
 	}
 
 	for _, policyName := range policyNames {
-		p, err := t.config.Policies.LookupByName(policyName)
+		p, err := t.policyManager.LookupByName(policyName)
 		if err != nil {
 			return err
 		}
@@ -1934,7 +2034,7 @@ func (t *Tracker) DisableRule(policyNames []string, ruleId string) error {
 	}
 
 	for _, policyName := range policyNames {
-		p, err := t.config.Policies.LookupByName(policyName)
+		p, err := t.policyManager.LookupByName(policyName)
 		if err != nil {
 			return err
 		}

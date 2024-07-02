@@ -79,10 +79,6 @@ output:
     #     files:
     #         - stdout
 
-    # gob:
-    #     files:
-    #     - /path/to/gob1.out
-
     # gotemplate:
     #     template: /path/to/my_template1.tmpl
     #     files:
@@ -126,7 +122,7 @@ output:
     #     stack-addresses: true
     #     exec-env: false
     #     relative-time: true
-    #     exec-hash: false
+    #     exec-hash: dev-inode
     #     parse-arguments: true
     #     sort-events: false
 

@@ -71,8 +71,8 @@ set -e
 make -j$(nproc) all
 make e2e-net-signatures
 set +e
-if [[ ! -x ./dist/tracker-ebpf || ! -x ./dist/tracker-rules ]]; then
-    error_exit "could not find tracker executables"
+if [[ ! -x ./dist/tracker ]]; then
+    error_exit "could not find tracker executable"
 fi
 
 # if any test has failed
@@ -86,34 +86,23 @@ for TEST in $TESTS; do
     info
 
     rm -f $SCRIPT_TMP_DIR/build-$$
-    rm -f $SCRIPT_TMP_DIR/ebpf-$$
 
-    events=$(./dist/tracker-rules --allcaps --rules-dir ./dist/e2e-net-signatures/ --rules $TEST --list-events)
-
-    ./dist/tracker-ebpf \
+    ./dist/tracker \
         --install-path $TRACKER_TMP_DIR \
         --cache cache-type=mem \
         --cache mem-cache-size=512 \
-        --output format:json \
-        --output option:parse-arguments \
+        --output json \
         --scope comm=ping,nc,nslookup,isc-net-0000,isc-worker0000,curl \
-        --events $events \
-        2>$SCRIPT_TMP_DIR/ebpf-$$ |
-        ./dist/tracker-rules \
-            --rules-dir ./dist/e2e-net-signatures/ \
-            --input-tracker=file:stdin \
-            --input-tracker format:json \
-            --rules $TEST \
-            --allcaps 2>&1 |
-        tee $SCRIPT_TMP_DIR/build-$$ 2>&1 &
+        --signatures-dir ./dist/e2e-net-signatures/ 2>&1 \
+        | tee "$SCRIPT_TMP_DIR/build-$$" &
 
-    # wait tracker-ebpf to be started (30 sec most)
+    # wait tracker to be started (30 sec most)
     times=0
     timedout=0
     while true; do
         times=$(($times + 1))
         sleep 1
-        if [[ -f $TRACKER_TMP_DIR/out/tracker.pid ]]; then
+        if [[ -f $TRACKER_TMP_DIR/tracker.pid ]]; then
             info
             info "UP AND RUNNING"
             info
@@ -126,12 +115,12 @@ for TEST in $TESTS; do
         fi
     done
 
-    # tracker-ebpf could not start for some reason, check stderr
+    # tracker could not start for some reason, check stderr
     if [[ $timedout -eq 1 ]]; then
         info
         info "$TEST: FAILED. ERRORS:"
         info
-        cat $SCRIPT_TMP_DIR/ebpf-$$
+        cat $SCRIPT_TMP_DIR/build-$$
 
         anyerror="${anyerror}$TEST,"
         continue
@@ -150,34 +139,30 @@ for TEST in $TESTS; do
     ## cleanup at EXIT
 
     found=0
-    cat $SCRIPT_TMP_DIR/build-$$ | grep "Signature ID: $TEST" -B2 | head -3 | grep -q "\*\*\* Detection" && found=1
+    cat $SCRIPT_TMP_DIR/build-$$ | grep "\"signatureID\":\"$TEST\"" -B2 && found=1
     info
     if [[ $found -eq 1 ]]; then
         info "$TEST: SUCCESS"
     else
         anyerror="${anyerror}$TEST,"
-        info "$TEST: FAILED, stderr from tracker-ebpf:"
-        cat $SCRIPT_TMP_DIR/ebpf-$$
+        info "$TEST: FAILED, stderr from tracker:"
+        cat $SCRIPT_TMP_DIR/build-$$
         info
     fi
     info
 
     rm -f $SCRIPT_TMP_DIR/build-$$
-    rm -f $SCRIPT_TMP_DIR/ebpf-$$
 
     # make sure we exit both to start them again
 
-    pid_rules=$(pidof tracker-rules)
-    pid_ebpf=$(pidof tracker-ebpf)
+    pid_tracker=$(pidof tracker)
 
-    kill -2 $pid_rules
-    kill -2 $pid_ebpf
+    kill -SIGINT $pid_tracker
 
     sleep $TRACKER_SHUTDOWN_TIMEOUT
 
     # make sure tracker is exited with SIGKILL
-    kill -9 $pid_rules >/dev/null 2>&1
-    kill -9 $pid_ebpf >/dev/null 2>&1
+    kill -SIGKILL $pid_tracker >/dev/null 2>&1
 
     # give a little break for OS noise to reduce
     sleep 3

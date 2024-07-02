@@ -25,7 +25,7 @@ const noSyscall int32 = -1
 // handleEvents is the main pipeline of tracker. It receives events from the perf buffer
 // and passes them through a series of stages, each stage is a goroutine that performs a
 // specific task on the event. The pipeline is started in a separate goroutine.
-func (t *Tracker) handleEvents(ctx context.Context) {
+func (t *Tracker) handleEvents(ctx context.Context, initialized chan<- struct{}) {
 	logger.Debugw("Starting handleEvents goroutine")
 	defer logger.Debugw("Stopped handleEvents goroutine")
 
@@ -78,6 +78,8 @@ func (t *Tracker) handleEvents(ctx context.Context) {
 
 	errc = t.sinkEvents(ctx, eventsChan)
 	errcList = append(errcList, errc)
+
+	initialized <- struct{}{}
 
 	// Pipeline started. Waiting for pipeline to complete
 
@@ -177,8 +179,10 @@ func (t *Tracker) decodeEvents(ctx context.Context, sourceChan chan []byte) (<-c
 				continue
 			}
 			eventDefinition := events.Core.GetDefinitionByID(eventId)
-			args := make([]trace.Argument, len(eventDefinition.GetParams()))
-			err := ebpfMsgDecoder.DecodeArguments(args, int(argnum), eventDefinition, eventId)
+			evtParams := eventDefinition.GetParams()
+			evtName := eventDefinition.GetName()
+			args := make([]trace.Argument, len(evtParams))
+			err := ebpfMsgDecoder.DecodeArguments(args, int(argnum), evtParams, evtName, eventId)
 			if err != nil {
 				t.handleError(err)
 				continue
@@ -214,7 +218,11 @@ func (t *Tracker) decodeEvents(ctx context.Context, sourceChan chan []byte) (<-c
 			}
 
 			// get an event pointer from the pool
-			evt := t.eventsPool.Get().(*trace.Event)
+			evt, ok := t.eventsPool.Get().(*trace.Event)
+			if !ok {
+				t.handleError(errfmt.Errorf("failed to get event from pool"))
+				continue
+			}
 
 			// populate all the fields of the event used in this stage, and reset the rest
 
@@ -237,7 +245,8 @@ func (t *Tracker) decodeEvents(ctx context.Context, sourceChan chan []byte) (<-c
 			evt.Container = containerData
 			evt.Kubernetes = kubernetesData
 			evt.EventID = int(eCtx.EventID)
-			evt.EventName = eventDefinition.GetName()
+			evt.EventName = evtName
+			evt.PoliciesVersion = eCtx.PoliciesVersion
 			evt.MatchedPoliciesKernel = eCtx.MatchedPolicies
 			evt.MatchedPoliciesUser = 0
 			evt.MatchedPolicies = []string{}
@@ -287,12 +296,14 @@ func (t *Tracker) matchPolicies(event *trace.Event) uint64 {
 	bitmap := event.MatchedPoliciesKernel
 
 	// Short circuit if there are no policies in userland that need filtering.
-	if bitmap&t.config.Policies.FilterableInUserland() == 0 {
-		event.MatchedPoliciesUser = bitmap // store untoched bitmap to be used in sink stage
+	if !t.policyManager.FilterableInUserland(bitmap) {
+		event.MatchedPoliciesUser = bitmap // store untouched bitmap to be used in sink stage
 		return bitmap
 	}
 
-	for p := range t.config.Policies.FilterableInUserlandMap() { // range through each userland filterable policy
+	// range through each userland filterable policy
+	for it := t.policyManager.CreateUserlandIterator(); it.HasNext(); {
+		p := it.Next()
 		// Policy ID is the bit offset in the bitmap.
 		bitOffset := uint(p.ID)
 
@@ -313,8 +324,8 @@ func (t *Tracker) matchPolicies(event *trace.Event) uint64 {
 		// Do the userland filtering
 		//
 
-		// 1. event context filters
-		if !p.ContextFilter.Filter(*event) {
+		// 1. event scope filters
+		if !p.ScopeFilter.Filter(*event) {
 			utils.ClearBit(&bitmap, bitOffset)
 			continue
 		}
@@ -325,8 +336,8 @@ func (t *Tracker) matchPolicies(event *trace.Event) uint64 {
 			continue
 		}
 
-		// 3. event arguments filters
-		if !p.ArgFilter.Filter(eventID, event.Args) {
+		// 3. event data filters
+		if !p.DataFilter.Filter(eventID, event.Args) {
 			utils.ClearBit(&bitmap, bitOffset)
 			continue
 		}
@@ -448,7 +459,7 @@ func (t *Tracker) processEvents(ctx context.Context, in <-chan *trace.Event) (
 			}
 
 			// Get a bitmap with all policies containing container filters
-			policiesWithContainerFilter := t.config.Policies.ContainerFilterEnabled()
+			policiesWithContainerFilter := t.policyManager.WithContainerFilterEnabled()
 
 			// Filter out events that don't have a container ID from all the policies that
 			// have container filters. This will guarantee that any of those policies
@@ -593,7 +604,7 @@ func (t *Tracker) sinkEvents(ctx context.Context, in <-chan *trace.Event) <-chan
 			}
 
 			// Populate the event with the names of the matched policies.
-			event.MatchedPolicies = t.config.Policies.MatchedNames(event.MatchedPoliciesUser)
+			event.MatchedPolicies = t.policyManager.MatchedNames(event.MatchedPoliciesUser)
 
 			// Parse args here if the rule engine is not enabled (parsed there if it is).
 			if !t.config.EngineConfig.Enabled {

@@ -226,7 +226,6 @@ detections to the standard output and send them over to Postee webhook on
 http://postee-svc:8082:
 
 ```console
-helm repo add khulnasoft https://khulnasoft-lab.github.io/helm-charts
 helm install tracker ./deploy/helm/tracker \
   --namespace tracker-system \
   --set hostPID=true \

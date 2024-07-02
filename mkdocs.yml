@@ -46,7 +46,6 @@ nav:
                             - Dropped Executable: docs/events/builtin/signatures/dropped_executable.md
                             - Dynamic Code Loading: docs/events/builtin/signatures/dynamic_code_loading.md
                             - Fileless Execution: docs/events/builtin/signatures/fileless_execution.md
-                            - Format: docs/events/builtin/signatures/format.md
                             - Hidden File Created: docs/events/builtin/signatures/hidden_file_created.md
                             - Illegitimate Shell: docs/events/builtin/signatures/illegitimate_shell.md
                             - K8S API Connection: docs/events/builtin/signatures/kubernetes_api_connection.md
@@ -68,6 +67,8 @@ nav:
                             - SysRQ Modification: docs/events/builtin/signatures/system_request_key_config_modification.md
                       - Network Events:
                             - Overview: docs/events/builtin/network/index.md
+                            - net_flow_tcp_begin: docs/events/builtin/network/net_flow_tcp_begin.md
+                            - net_flow_tcp_end: docs/events/builtin/network/net_flow_tcp_end.md
                             - net_packet_ipv4: docs/events/builtin/network/net_packet_ipv4.md
                             - net_packet_ipv6: docs/events/builtin/network/net_packet_ipv6.md
                             - net_packet_tcp: docs/events/builtin/network/net_packet_tcp.md
@@ -95,6 +96,7 @@ nav:
                             - kallsysm_lookup_name: docs/events/builtin/extra/kallsyms_lookup_name.md
                             - magic_write: docs/events/builtin/extra/magic_write.md
                             - mem_prot_alert: docs/events/builtin/extra/mem_prot_alert.md
+                            - net_tcp_connect: docs/events/builtin/extra/net_tcp_connect.md
                             - process_execute_failed: docs/events/builtin/extra/process_execute_failed.md
                             - sched_process_exec: docs/events/builtin/extra/sched_process_exec.md
                             - security_bpf_prog: docs/events/builtin/extra/security_bpf_prog.md
@@ -102,6 +104,7 @@ nav:
                             - security_file_mprotect: docs/events/builtin/extra/security_file_mprotect.md
                             - security_inode_unlink: docs/events/builtin/extra/security_inode_unlink.md
                             - security_sb_mount: docs/events/builtin/extra/security_sb_mount.md
+                            - security_task_setrlimit: docs/events/builtin/extra/security_task_setrlimit.md
                             - security_socket_accept: docs/events/builtin/extra/security_socket_accept.md
                             - security_socket_bind: docs/events/builtin/extra/security_socket_bind.md
                             - security_socket_connect: docs/events/builtin/extra/security_socket_connect.md
@@ -586,8 +589,12 @@ nav:
                 - Forensics: docs/advanced/forensics.md
                 - Data Sources:
                     - Overview: docs/advanced/data-sources/overview.md
-                    - Containers: docs/advanced/data-sources/containers.md
-                    - Process Tree: docs/advanced/data-sources/process-tree.md
+                    - Custom: docs/advanced/data-sources/custom.md
+                    - Write to a Data Source: docs/advanced/data-sources/write.md
+                    - Builtin: 
+                        - Containers: docs/advanced/data-sources/builtin/containers.md
+                        - Process Tree: docs/advanced/data-sources/builtin/process-tree.md
+                        - DNS Cache: docs/advanced/data-sources/builtin/dns.md
           - CLI Flags:
                 - scope: docs/flags/scope.1.md
                 - events: docs/flags/events.1.md

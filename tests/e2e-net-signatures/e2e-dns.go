@@ -36,6 +36,7 @@ func (sig *e2eDNS) Init(ctx detect.SignatureContext) error {
 func (sig *e2eDNS) GetMetadata() (detect.SignatureMetadata, error) {
 	return detect.SignatureMetadata{
 		ID:          "DNS",
+		EventName:   "DNS",
 		Version:     "0.1.0",
 		Name:        "Network DNS Test",
 		Description: "Network E2E Tests: DNS",
@@ -56,6 +57,11 @@ func (sig *e2eDNS) OnEvent(event protocol.Event) error {
 	}
 
 	if eventObj.EventName == "net_packet_dns" {
+		// validate tast context
+		if eventObj.HostName == "" {
+			return nil
+		}
+
 		dns, err := helpers.GetProtoDNSByName(eventObj, "proto_dns")
 		if err != nil {
 			return err
@@ -91,7 +97,7 @@ func (sig *e2eDNS) OnEvent(event protocol.Event) error {
 
 		m, _ := sig.GetMetadata()
 
-		sig.cb(detect.Finding{
+		sig.cb(&detect.Finding{
 			SigMetadata: m,
 			Event:       event,
 			Data:        map[string]interface{}{},

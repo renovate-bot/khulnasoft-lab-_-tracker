@@ -10,12 +10,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/khulnasoft-lab/libbpfgo/helpers"
-
 	"github.com/khulnasoft-lab/tracker/pkg/cmd/initialize"
 	"github.com/khulnasoft-lab/tracker/pkg/config"
 	tracker "github.com/khulnasoft-lab/tracker/pkg/ebpf"
 	"github.com/khulnasoft-lab/tracker/pkg/proctree"
+	"github.com/khulnasoft-lab/tracker/pkg/utils/environment"
 	uproc "github.com/khulnasoft-lab/tracker/pkg/utils/proc"
 	"github.com/khulnasoft-lab/tracker/types/trace"
 )
@@ -78,7 +77,7 @@ func startTracker(ctx context.Context, t *testing.T, cfg config.Config, output *
 
 	cfg.KernelConfig = kernelConfig
 
-	osInfo, err := helpers.GetOSInfo()
+	osInfo, err := environment.GetOSInfo()
 	if err != nil {
 		return nil, err
 	}

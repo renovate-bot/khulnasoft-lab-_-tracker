@@ -3,11 +3,9 @@
 Tracker has an events caching (in-memory) mechanism. In order to check latest
 caching options you may execute:
 
-<!-- TODO: build man page -->
-<!-- ```console
-man tracker-cache
-``` -->
-
+```console
+./dist/tracker man cache
+```
 
 <!-- TODO: reference the architecture page again-->
 

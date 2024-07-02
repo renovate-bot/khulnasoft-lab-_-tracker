@@ -63,19 +63,22 @@ func (s SourceType) String() string {
 }
 
 type ProcTreeConfig struct {
-	Source           SourceType
-	ProcessCacheSize int
-	ThreadCacheSize  int
+	Source               SourceType
+	ProcessCacheSize     int
+	ThreadCacheSize      int
+	ProcfsInitialization bool // Determine whether to scan procfs data for process tree initialization
+	ProcfsQuerying       bool // Determine whether to query procfs for missing information during runtime
 }
 
 // ProcessTree is a tree of processes and threads.
 type ProcessTree struct {
-	processes  *lru.Cache[uint32, *Process] // hash -> process
-	threads    *lru.Cache[uint32, *Thread]  // hash -> threads
-	procfsChan chan int                     // channel of pids to read from procfs
-	procfsOnce *sync.Once                   // busy loop debug message throttling
-	ctx        context.Context              // context for the process tree
-	mutex      *sync.RWMutex                // mutex for the process tree
+	processes   *lru.Cache[uint32, *Process] // hash -> process
+	threads     *lru.Cache[uint32, *Thread]  // hash -> threads
+	procfsChan  chan int                     // channel of pids to read from procfs
+	procfsOnce  *sync.Once                   // busy loop debug message throttling
+	ctx         context.Context              // context for the process tree
+	mutex       *sync.RWMutex                // mutex for the process tree
+	procfsQuery bool
 }
 
 // NewProcessTree creates a new process tree.
@@ -133,14 +136,17 @@ func NewProcessTree(ctx context.Context, config ProcTreeConfig) (*ProcessTree, e
 	}()
 
 	procTree := &ProcessTree{
-		processes: processes,
-		threads:   threads,
-		ctx:       ctx,
-		mutex:     &sync.RWMutex{},
+		processes:   processes,
+		threads:     threads,
+		ctx:         ctx,
+		mutex:       &sync.RWMutex{},
+		procfsQuery: config.ProcfsQuerying,
 	}
 
-	// Walk procfs and feed the process tree with data.
-	procTree.FeedFromProcFSAsync(AllPIDs)
+	if config.ProcfsInitialization {
+		// Walk procfs and feed the process tree with data.
+		procTree.FeedFromProcFSAsync(AllPIDs)
+	}
 
 	return procTree, nil
 }
@@ -164,8 +170,20 @@ func (pt *ProcessTree) GetOrCreateProcessByHash(hash uint32) *Process {
 
 	process, ok := pt.processes.Get(hash)
 	if !ok {
-		process = NewProcess(hash) // create a new process
+		// Each process must have a thread with thread ID matching its process ID.
+		// Both share the same info as both represent the same task in the kernel.
+		thread, ok := pt.threads.Get(hash)
+		if !ok {
+			process = NewProcess(hash) // create a new process
+			thread = NewThreadWithInfo(hash, process.GetInfo())
+			pt.threads.Add(hash, thread)
+		} else {
+			process = NewProcessWithInfo(hash, thread.GetInfo())
+		}
 		pt.processes.Add(hash, process)
+		process.AddThread(hash)
+		thread.SetLeaderHash(hash)
+
 		return process
 	}
 
@@ -191,7 +209,14 @@ func (pt *ProcessTree) GetOrCreateThreadByHash(hash uint32) *Thread {
 
 	thread, ok := pt.threads.Get(hash)
 	if !ok {
-		thread = NewThread(hash) // create a new thread
+		// Create a new thread
+		// If the thread is a leader task, sync its info with the process instance info.
+		process, ok := pt.processes.Get(hash)
+		if ok {
+			thread = NewThreadWithInfo(hash, process.GetInfo())
+		} else {
+			thread = NewThread(hash)
+		}
 		pt.threads.Add(hash, thread)
 		return thread
 	}

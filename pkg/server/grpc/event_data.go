@@ -1,24 +1,24 @@
 package grpc
 
 import (
+	"fmt"
 	"net"
 	"net/http"
 	"strconv"
 
-	"github.com/golang/protobuf/ptypes/wrappers"
+	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	pb "github.com/khulnasoft-lab/tracker/api/v1beta1"
 	"github.com/khulnasoft-lab/tracker/pkg/errfmt"
 	"github.com/khulnasoft-lab/tracker/pkg/events"
+	"github.com/khulnasoft-lab/tracker/pkg/logger"
+	"github.com/khulnasoft-lab/tracker/types/detect"
 	"github.com/khulnasoft-lab/tracker/types/trace"
 )
 
-func getEventData(e trace.Event) (map[string]*pb.EventValue, error) {
-	data := make(map[string]*pb.EventValue)
-
-	// for syscaslls
-	args := make([]*pb.EventValue, 0)
+func getEventData(e trace.Event) ([]*pb.EventValue, error) {
+	data := make([]*pb.EventValue, 0)
 
 	for _, arg := range e.Args {
 		if arg.ArgMeta.Name == "triggeredBy" {
@@ -26,11 +26,13 @@ func getEventData(e trace.Event) (map[string]*pb.EventValue, error) {
 			if err != nil {
 				return nil, err
 			}
-			data["triggeredBy"] = &pb.EventValue{
+
+			data = append(data, &pb.EventValue{
+				Name: "triggeredBy",
 				Value: &pb.EventValue_TriggeredBy{
 					TriggeredBy: triggerEvent,
 				},
-			}
+			})
 
 			continue
 		}
@@ -40,38 +42,36 @@ func getEventData(e trace.Event) (map[string]*pb.EventValue, error) {
 			return nil, err
 		}
 
-		if events.Core.GetDefinitionByID(events.ID(e.EventID)).IsSyscall() {
-			args = append(args, eventValue)
+		// if convertStruct was not able to convert an argument is because we don't support the conversion
+		if eventValue == nil {
+			logger.Errorw(
+				"Can't convert event argument. Please add it as a GRPC event data type or implement detect.FindingDataStruct interface.",
+				"name",
+				arg.Name,
+				"type",
+				fmt.Sprintf("%T", arg.Value),
+			)
+
 			continue
 		}
 
-		data[arg.ArgMeta.Name] = eventValue
+		eventValue.Name = arg.ArgMeta.Name
+		data = append(data, eventValue)
 	}
 
-	if len(args) > 0 {
-		data["args"] = &pb.EventValue{
-			Value: &pb.EventValue_Args{
-				Args: &pb.ArgsValue{
-					Value: args,
-				},
-			},
-		}
-
-		data["returnValue"] = &pb.EventValue{
+	if events.Core.GetDefinitionByID(events.ID(e.EventID)).IsSyscall() {
+		data = append(data, &pb.EventValue{
+			Name: "returnValue",
 			Value: &pb.EventValue_Int64{
-				Int64: wrapperspb.Int64(int64(e.ReturnValue)),
+				Int64: int64(e.ReturnValue),
 			},
-		}
+		})
 	}
 
 	return data, nil
 }
 
 func getEventValue(arg trace.Argument) (*pb.EventValue, error) {
-	if arg.Value == nil {
-		return nil, nil
-	}
-
 	var eventValue *pb.EventValue
 
 	eventValue, err := parseArgument(arg)
@@ -86,71 +86,69 @@ func getEventValue(arg trace.Argument) (*pb.EventValue, error) {
 // based on the value type
 func parseArgument(arg trace.Argument) (*pb.EventValue, error) {
 	switch v := arg.Value.(type) {
+	case nil:
+		return &pb.EventValue{
+			Value: nil,
+		}, nil
 	case int:
 		return &pb.EventValue{
 			Value: &pb.EventValue_Int64{
-				Int64: wrapperspb.Int64(int64(v)),
+				Int64: int64(v),
 			},
 		}, nil
 	case int32:
 		return &pb.EventValue{
 			Value: &pb.EventValue_Int32{
-				Int32: wrapperspb.Int32(v),
+				Int32: v,
 			},
 		}, nil
 	case uint8:
 		return &pb.EventValue{
 			Value: &pb.EventValue_UInt32{
-				UInt32: wrapperspb.UInt32(uint32(v)),
+				UInt32: uint32(v),
 			},
 		}, nil
 	case uint16:
 		return &pb.EventValue{
 			Value: &pb.EventValue_UInt32{
-				UInt32: wrapperspb.UInt32(uint32(v)),
+				UInt32: uint32(v),
 			},
 		}, nil
 	case uint32:
 		return &pb.EventValue{
 			Value: &pb.EventValue_UInt32{
-				UInt32: wrapperspb.UInt32(v),
+				UInt32: v,
 			},
 		}, nil
 	case int64:
 		return &pb.EventValue{
 			Value: &pb.EventValue_Int64{
-				Int64: wrapperspb.Int64(v),
+				Int64: v,
 			},
 		}, nil
 	case uint64:
 		return &pb.EventValue{
 			Value: &pb.EventValue_UInt64{
-				UInt64: wrapperspb.UInt64(v),
+				UInt64: v,
 			},
 		}, nil
 	case bool:
 		return &pb.EventValue{
 			Value: &pb.EventValue_Bool{
-				Bool: wrapperspb.Bool(v),
+				Bool: v,
 			},
 		}, nil
 	case string:
 		return &pb.EventValue{
 			Value: &pb.EventValue_Str{
-				Str: wrapperspb.String(v),
+				Str: v,
 			},
 		}, nil
 	case []string:
-		strArray := make([]*wrappers.StringValue, 0, len(v))
-
-		for _, str := range v {
-			strArray = append(strArray, &wrappers.StringValue{Value: str})
-		}
-
 		return &pb.EventValue{
 			Value: &pb.EventValue_StrArray{
-				StrArray: &pb.StringArrayValue{
-					Value: strArray,
+				StrArray: &pb.StringArray{
+					Value: v,
 				},
 			},
 		}, nil
@@ -163,29 +161,27 @@ func parseArgument(arg trace.Argument) (*pb.EventValue, error) {
 	case []byte:
 		return &pb.EventValue{
 			Value: &pb.EventValue_Bytes{
-				Bytes: &wrappers.BytesValue{
-					Value: v,
-				},
+				Bytes: v,
 			},
 		}, nil
 	case [2]int32:
-		intArray := make([]*wrappers.Int32Value, 0, len(v))
+		intArray := make([]int32, 0, len(v))
 
 		for _, i := range v {
-			intArray = append(intArray, &wrappers.Int32Value{Value: i})
+			intArray = append(intArray, i)
 		}
 
 		return &pb.EventValue{
 			Value: &pb.EventValue_Int32Array{
-				Int32Array: &pb.Int32ArrayValue{
+				Int32Array: &pb.Int32Array{
 					Value: intArray,
 				},
 			},
 		}, nil
 	case trace.SlimCred:
 		return &pb.EventValue{
-			Value: &pb.EventValue_Cred{
-				Cred: &pb.CredValue{
+			Value: &pb.EventValue_Credentials{
+				Credentials: &pb.Credentials{
 					Uid:            wrapperspb.UInt32(v.Uid),
 					Gid:            wrapperspb.UInt32(v.Gid),
 					Suid:           wrapperspb.UInt32(v.Suid),
@@ -204,23 +200,17 @@ func parseArgument(arg trace.Argument) (*pb.EventValue, error) {
 				},
 			}}, nil
 	case []uint64:
-		uintArray := make([]*wrappers.UInt64Value, 0, len(v))
-
-		for _, i := range v {
-			uintArray = append(uintArray, &wrappers.UInt64Value{Value: i})
-		}
-
 		return &pb.EventValue{
 			Value: &pb.EventValue_UInt64Array{
-				UInt64Array: &pb.UInt64ArrayValue{
-					Value: uintArray,
+				UInt64Array: &pb.UInt64Array{
+					Value: v,
 				},
 			},
 		}, nil
 	case float64:
 		return &pb.EventValue{
 			Value: &pb.EventValue_Timespec{
-				Timespec: &pb.TimespecValue{
+				Timespec: &pb.Timespec{
 					Value: wrapperspb.Double(v),
 				},
 			},
@@ -228,7 +218,7 @@ func parseArgument(arg trace.Argument) (*pb.EventValue, error) {
 	case uintptr:
 		return &pb.EventValue{
 			Value: &pb.EventValue_UInt64{
-				UInt64: wrapperspb.UInt64(uint64(v)),
+				UInt64: uint64(v),
 			},
 		}, nil
 	case trace.ProtoIPv4:
@@ -263,6 +253,10 @@ func parseArgument(arg trace.Argument) (*pb.EventValue, error) {
 		return convertPktMeta(&v)
 	case *trace.PktMeta:
 		return convertPktMeta(v)
+	case trace.PacketMetadata:
+		return convertPacketMetadata(&v)
+	case *trace.PacketMetadata:
+		return convertPacketMetadata(v)
 	case trace.ProtoHTTP:
 		return converProtoHttp(&v)
 	case *trace.ProtoHTTP:
@@ -356,12 +350,12 @@ func parseArgument(arg trace.Argument) (*pb.EventValue, error) {
 	case net.IP: // dns events use net.IP on src/dst
 		return &pb.EventValue{
 			Value: &pb.EventValue_Str{
-				Str: wrapperspb.String(v.String()),
+				Str: v.String(),
 			},
 		}, nil
 	}
 
-	return nil, errfmt.Errorf("unknown arg type: %s - %v", arg.Name, arg.Type)
+	return convertToStruct(arg)
 }
 
 func getCaps(c uint64) []pb.Capability {
@@ -382,7 +376,7 @@ func getCaps(c uint64) []pb.Capability {
 }
 
 func getSockaddr(v map[string]string) (*pb.EventValue, error) {
-	var sockaddr *pb.SockAddrValue
+	var sockaddr *pb.SockAddr
 	switch v["sa_family"] {
 	case "AF_INET":
 		sinport, err := strconv.ParseUint(v["sin_port"], 10, 32)
@@ -390,13 +384,13 @@ func getSockaddr(v map[string]string) (*pb.EventValue, error) {
 			return nil, err
 		}
 
-		sockaddr = &pb.SockAddrValue{
+		sockaddr = &pb.SockAddr{
 			SaFamily: pb.SaFamilyT_AF_INET,
 			SinPort:  uint32(sinport),
 			SinAddr:  v["sin_addr"],
 		}
 	case "AF_UNIX":
-		sockaddr = &pb.SockAddrValue{
+		sockaddr = &pb.SockAddr{
 			SaFamily: pb.SaFamilyT_AF_UNIX,
 			SunPath:  v["sun_path"],
 		}
@@ -416,7 +410,7 @@ func getSockaddr(v map[string]string) (*pb.EventValue, error) {
 			return nil, err
 		}
 
-		sockaddr = &pb.SockAddrValue{
+		sockaddr = &pb.SockAddr{
 			SaFamily:     pb.SaFamilyT_AF_INET6,
 			Sin6Port:     uint32(sinport),
 			Sin6Flowinfo: uint32(sin6Flowinfo),
@@ -459,10 +453,7 @@ func getTriggerBy(triggeredByArg trace.Argument) (*pb.TriggeredBy, error) {
 		return nil, errfmt.Errorf("error getting args of triggering event: %v", m)
 	}
 
-	data := make(map[string]*pb.EventValue)
-
-	// for syscaslls
-	args := make([]*pb.EventValue, 0)
+	data := make([]*pb.EventValue, 0)
 
 	for _, arg := range triggerEventArgs {
 		eventValue, err := getEventValue(arg)
@@ -470,28 +461,17 @@ func getTriggerBy(triggeredByArg trace.Argument) (*pb.TriggeredBy, error) {
 			return nil, err
 		}
 
-		if events.Core.GetDefinitionByID(events.ID(id)).IsSyscall() {
-			args = append(args, eventValue)
-			continue
-		}
-
-		data[arg.ArgMeta.Name] = eventValue
+		eventValue.Name = arg.ArgMeta.Name
+		data = append(data, eventValue)
 	}
 
-	if len(args) > 0 {
-		data["args"] = &pb.EventValue{
-			Value: &pb.EventValue_Args{
-				Args: &pb.ArgsValue{
-					Value: args,
-				},
-			},
-		}
-
-		data["returnValue"] = &pb.EventValue{
+	if events.Core.GetDefinitionByID(events.ID(id)).IsSyscall() {
+		data = append(data, &pb.EventValue{
+			Name: "returnValue",
 			Value: &pb.EventValue_Int64{
-				Int64: wrapperspb.Int64(int64(m["returnValue"].(int))),
+				Int64: int64(m["returnValue"].(int)),
 			},
-		}
+		})
 	}
 
 	triggerEvent.Data = data
@@ -751,7 +731,7 @@ func convertDns(v *trace.ProtoDNS) (*pb.EventValue, error) {
 func convertPktMeta(v *trace.PktMeta) (*pb.EventValue, error) {
 	return &pb.EventValue{
 		Value: &pb.EventValue_PacketMetadata{
-			PacketMetadata: &pb.PktMeta{
+			PacketMetadata: &pb.PacketMetadata{
 				SrcIp:     v.SrcIP,
 				DstIp:     v.DstIP,
 				SrcPort:   uint32(v.SrcPort),
@@ -761,4 +741,36 @@ func convertPktMeta(v *trace.PktMeta) (*pb.EventValue, error) {
 				Iface:     v.Iface,
 			},
 		}}, nil
+}
+
+func convertPacketMetadata(v *trace.PacketMetadata) (*pb.EventValue, error) {
+	return &pb.EventValue{
+		Value: &pb.EventValue_PacketMetadata{
+			PacketMetadata: &pb.PacketMetadata{
+				Direction: pb.PacketDirection(v.Direction),
+			},
+		}}, nil
+}
+
+func convertToStruct(arg trace.Argument) (*pb.EventValue, error) {
+	i, ok := arg.Value.(detect.FindingDataStruct)
+	if !ok {
+		return nil, nil
+	}
+
+	if m := i.ToMap(); m != nil {
+		structValue, err := structpb.NewStruct(m)
+
+		if err != nil {
+			return nil, err
+		}
+
+		return &pb.EventValue{
+			Value: &pb.EventValue_Struct{
+				Struct: structValue,
+			},
+		}, nil
+	}
+
+	return nil, nil
 }

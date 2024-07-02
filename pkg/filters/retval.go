@@ -5,12 +5,16 @@ import (
 
 	"github.com/khulnasoft-lab/tracker/pkg/errfmt"
 	"github.com/khulnasoft-lab/tracker/pkg/events"
+	"github.com/khulnasoft-lab/tracker/pkg/utils"
 )
 
 type RetFilter struct {
 	filters map[events.ID]*IntFilter[int64]
 	enabled bool
 }
+
+// Compile-time check to ensure that RetFilter implements the Cloner interface
+var _ utils.Cloner[*RetFilter] = &RetFilter{}
 
 func NewRetFilter() *RetFilter {
 	return &RetFilter{
@@ -82,4 +86,19 @@ func (filter *RetFilter) Parse(filterName string, operatorAndValues string, even
 	filter.Enable()
 
 	return nil
+}
+
+func (filter *RetFilter) Clone() *RetFilter {
+	if filter == nil {
+		return nil
+	}
+
+	n := NewRetFilter()
+
+	for k, v := range filter.filters {
+		n.filters[k] = v.Clone()
+	}
+	n.enabled = filter.enabled
+
+	return n
 }

@@ -6,7 +6,7 @@ Below are several examples on configuring events in the Tracker Policy.
 
 ## Events
 
-Every event that is specified within the `rules` section supports three types of filters: `context`, `arguments` and `return value`. 
+Every event that is specified within the `rules` section supports three types of filters: `scope`, `data` and `return value`.
 
 ### Type of Events
 
@@ -64,17 +64,17 @@ spec:
 	    event: do_sigaction
 ```
 
-## Context filters
+## Scope filters
 
-Context is data which is collected along the event. They can be filtered like:
+Further refinement of the policy's scope is achievable through the application of scope filters:
 
 ```yaml
 apiVersion: tracker.khulnasoft.com/v1beta1
 kind: Policy
 metadata:
-	name: sample-context-filter
+	name: sample-scope-filter
 	annotations:
-		description: sample context filter
+		description: sample scope filter
 spec:
 	scope:
 	    - global
@@ -84,7 +84,7 @@ spec:
 		- pid=1000
 ```
 
-The context filters supported are:
+The scope filters supported are:
 
 #### p, pid, processId
 
@@ -239,27 +239,29 @@ filters:
 ```
 
         
-## Argument filter
+## Data filter
 
-Events have arguments, which can be filtered. 
+Events contain data that can be filtered.
 
 ```yaml
 apiVersion: tracker.khulnasoft.com/v1beta1
 kind: Policy
 metadata:
-	name: sample-argument-filter
+	name: sample-data-filter
 	annotations:
-		description: sample argument filter
+		description: sample data filter
 spec:
 	scope:
 	    - global
 	rules:
 	    event: security_file_open
 	    filters:
-		- args.pathname=/tmp*
+		- data.pathname=/tmp*
 ```
 
-Arguments can be found on the respective event definition, in this case [security_file_open](https://github.com/khulnasoft-lab/tracker/blob/main/pkg/events/events.goL5293-L529), or the user can test the event output in CLI before defining a policy, e.g:
+Data fields can be found on the respective event definition, in this case [security_file_open](https://github.com/khulnasoft-lab/tracker/blob/656eb976fbb66aba54c5f306019258e436d4814a/pkg/events/core.go#L11502-L11533) - be aware of possible changes to the definition linked above, so always check the main branch.
+
+ Or the user can test the event output in CLI before defining a policy, e.g:
 
 ```console
 tracker -e security_file_open --output json

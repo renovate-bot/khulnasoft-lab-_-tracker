@@ -45,6 +45,16 @@ func (d Dependencies) GetKSymbols() []KSymbol {
 	return d.kSymbols
 }
 
+func (d Dependencies) GetRequiredKSymbols() []KSymbol {
+	var requiredKSymbols []KSymbol
+	for _, kSymbol := range d.kSymbols {
+		if kSymbol.required {
+			requiredKSymbols = append(requiredKSymbols, kSymbol)
+		}
+	}
+	return requiredKSymbols
+}
+
 func (d Dependencies) GetProbes() []Probe {
 	if d.probes == nil {
 		return []Probe{}
@@ -70,6 +80,10 @@ type Probe struct {
 	required bool // tracker fails if probe can't be attached
 }
 
+func NewProbe(handle probes.Handle, required bool) Probe {
+	return Probe{handle: handle, required: required}
+}
+
 func (p Probe) GetHandle() probes.Handle {
 	return p.handle
 }
@@ -85,7 +99,11 @@ type KSymbol struct {
 	required bool // tracker fails if symbol is not found
 }
 
-func (ks KSymbol) GetSymbol() string {
+func NewKSymbol(symbol string, required bool) KSymbol {
+	return KSymbol{symbol: symbol, required: required}
+}
+
+func (ks KSymbol) GetSymbolName() string {
 	return ks.symbol
 }
 
@@ -98,6 +116,10 @@ func (ks KSymbol) IsRequired() bool {
 type Capabilities struct {
 	base []cap.Value // always effective
 	ebpf []cap.Value // effective when using eBPF
+}
+
+func NewCapabilities(base []cap.Value, ebpf []cap.Value) Capabilities {
+	return Capabilities{base: base, ebpf: ebpf}
 }
 
 func (c Capabilities) GetBase() []cap.Value {
@@ -125,8 +147,8 @@ const (
 	TailSchedProcessExecEventSubmit
 	TailVfsRead
 	TailVfsReadv
-	TailExecBinprm1
-	TailExecBinprm2
+	TailProcessExecuteFailed1
+	TailProcessExecuteFailed2
 	TailHiddenKernelModuleProc
 	TailHiddenKernelModuleKset
 	TailHiddenKernelModuleModTree

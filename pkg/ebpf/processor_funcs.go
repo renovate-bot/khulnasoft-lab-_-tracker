@@ -2,17 +2,21 @@ package ebpf
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"golang.org/x/sys/unix"
-	"kernel.org/pub/linux/libs/security/libcap/cap"
 
 	"github.com/khulnasoft-lab/tracker/pkg/capabilities"
+	"github.com/khulnasoft-lab/tracker/pkg/config"
+	"github.com/khulnasoft-lab/tracker/pkg/containers"
 	"github.com/khulnasoft-lab/tracker/pkg/errfmt"
 	"github.com/khulnasoft-lab/tracker/pkg/events"
 	"github.com/khulnasoft-lab/tracker/pkg/events/parse"
+	"github.com/khulnasoft-lab/tracker/pkg/filehash"
 	"github.com/khulnasoft-lab/tracker/pkg/logger"
 	"github.com/khulnasoft-lab/tracker/pkg/utils"
 	"github.com/khulnasoft-lab/tracker/types/trace"
@@ -119,8 +123,9 @@ func (t *Tracker) processSchedProcessExec(event *trace.Event) error {
 	} else {
 		t.pidsInMntns.AddBucketItem(uint32(event.MountNS), uint32(event.HostProcessID))
 	}
+
 	// capture executed files
-	if t.config.Capture.Exec || t.config.Output.ExecHash {
+	if t.config.Capture.Exec || t.config.Output.CalcHashes != config.CalcHashesNone {
 		filePath, err := parse.ArgVal[string](event.Args, "pathname")
 		if err != nil {
 			return errfmt.Errorf("error parsing sched_process_exec args: %v", err)
@@ -145,7 +150,8 @@ func (t *Tracker) processSchedProcessExec(event *trace.Event) error {
 			if containerId == "" {
 				containerId = "host"
 			}
-			capturedFileID := fmt.Sprintf("%s:%s", containerId, sourceFilePath)
+
+			capturedFileID := fmt.Sprintf("%s:%s", containerId, filePath)
 			// capture exec'ed files ?
 			if t.config.Capture.Exec {
 				destinationDirPath := containerId
@@ -175,35 +181,26 @@ func (t *Tracker) processSchedProcessExec(event *trace.Event) error {
 				}
 			}
 			// check exec'ed hash ?
-			if t.config.Output.ExecHash {
-				var hashInfoObj fileExecInfo
-				var currentHash string
-				hashInfoObj, ok := t.fileHashes.Get(capturedFileID)
-				// check if cache can be used
-				if ok && hashInfoObj.LastCtime == castedSourceFileCtime {
-					currentHash = hashInfoObj.Hash
-				} else {
-					// if ExecHash is enabled, we need to make sure base ring has the needed
-					// capabilities (cap.SYS_PTRACE), since it might not always have been enabled by
-					// event capabilities requirements (there is no "exec hash" event) from
-					// SchedProcessExec event.
-					onceExecHash.Do(func() {
-						err = capabilities.GetInstance().BaseRingAdd(cap.SYS_PTRACE)
-						if err != nil {
-							logger.Errorw("error adding cap.SYS_PTRACE to base ring", "error", err)
-						}
-					})
-					currentHash, err = computeFileHashAtPath(sourceFilePath)
-					if err == nil {
-						hashInfoObj = fileExecInfo{castedSourceFileCtime, currentHash}
-						t.fileHashes.Add(capturedFileID, hashInfoObj)
-					}
+			if t.config.Output.CalcHashes != config.CalcHashesNone {
+				dev, err := parse.ArgVal[uint32](event.Args, "dev")
+				if err != nil {
+					return errfmt.Errorf("error parsing sched_process_exec args: %v", err)
 				}
-				event.Args = append(event.Args, trace.Argument{
-					ArgMeta: trace.ArgMeta{Name: "sha256", Type: "const char*"},
-					Value:   currentHash,
-				})
-				event.ArgsNum++
+				ino, err := parse.ArgVal[uint64](event.Args, "inode")
+				if err != nil {
+					return errfmt.Errorf("error parsing sched_process_exec args: %v", err)
+				}
+
+				fileKey := filehash.NewKey(filePath, event.MountNS,
+					filehash.WithDevice(dev),
+					filehash.WithInode(ino, castedSourceFileCtime),
+					filehash.WithDigest(event.Container.ImageDigest),
+				)
+
+				err = t.addHashArg(event, &fileKey)
+				if err != nil {
+					return err
+				}
 			}
 			if true { // so loop is conditionally terminated (#SA4044)
 				break
@@ -216,36 +213,45 @@ func (t *Tracker) processSchedProcessExec(event *trace.Event) error {
 
 // processDoFinitModule handles a do_finit_module event and triggers other hooking detection logic.
 func (t *Tracker) processDoInitModule(event *trace.Event) error {
+	// Check if related events are being traced.
 	_, okSyscalls := t.eventsState[events.HookedSyscall]
 	_, okSeqOps := t.eventsState[events.HookedSeqOps]
 	_, okProcFops := t.eventsState[events.HookedProcFops]
 	_, okMemDump := t.eventsState[events.PrintMemDump]
+	_, okFtrace := t.eventsState[events.FtraceHook]
 
-	if okSyscalls || okSeqOps || okProcFops || okMemDump {
-		err := capabilities.GetInstance().EBPF(
-			func() error {
-				return t.UpdateKallsyms()
-			},
-		)
-		if err != nil {
-			return errfmt.WrapError(err)
-		}
-		if err != nil {
-			return errfmt.WrapError(err)
-		}
-		if okSyscalls && expectedSyscallTableInit {
-			t.triggerSyscallTableIntegrityCheckCall()
-		}
-		if okSeqOps {
-			// Trigger seq_ops hooking detection
-			t.triggerSeqOpsIntegrityCheck(*event)
-		}
-		if okMemDump {
-			errs := t.triggerMemDump(*event)
-			for _, err := range errs {
-				logger.Warnw("Memory dump", "error", err)
+	if !okSyscalls && !okSeqOps && !okProcFops && !okMemDump && !okFtrace {
+		return nil
+	}
+
+	err := capabilities.GetInstance().EBPF(
+		func() error {
+			err := t.kernelSymbols.Refresh()
+			if err != nil {
+				return errfmt.WrapError(err)
 			}
+			return t.UpdateKallsyms()
+		},
+	)
+	if err != nil {
+		return errfmt.WrapError(err)
+	}
+	if okSyscalls && expectedSyscallTableInit {
+		// Trigger syscall table hooking detection.
+		t.triggerSyscallTableIntegrityCheckCall()
+	}
+	if okSeqOps {
+		// Trigger seq_ops hooking detection
+		t.triggerSeqOpsIntegrityCheck(*event)
+	}
+	if okMemDump {
+		errs := t.triggerMemDump(*event)
+		for _, err := range errs {
+			logger.Warnw("Memory dump", "error", err)
 		}
+	}
+	if okFtrace {
+		events.FtraceWakeupChan <- struct{}{}
 	}
 
 	return nil
@@ -258,7 +264,8 @@ const (
 
 // processHookedProcFops processes a hooked_proc_fops event.
 func (t *Tracker) processHookedProcFops(event *trace.Event) error {
-	fopsAddresses, err := parse.ArgVal[[]uint64](event.Args, "hooked_fops_pointers")
+	const hookedFopsPointersArgName = "hooked_fops_pointers"
+	fopsAddresses, err := parse.ArgVal[[]uint64](event.Args, hookedFopsPointersArgName)
 	if err != nil || fopsAddresses == nil {
 		return errfmt.Errorf("error parsing hooked_proc_fops args: %v", err)
 	}
@@ -280,7 +287,10 @@ func (t *Tracker) processHookedProcFops(event *trace.Event) error {
 		}
 		hookedFops = append(hookedFops, trace.HookedSymbolData{SymbolName: functionName, ModuleOwner: hookingFunction.Owner})
 	}
-	event.Args[0].Value = hookedFops
+	err = events.SetArgValue(event, hookedFopsPointersArgName, hookedFops)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -316,9 +326,18 @@ func (t *Tracker) processPrintMemDump(event *trace.Event) error {
 		return errfmt.WrapError(err)
 	}
 	arch = string(bytes.TrimRight(utsName.Machine[:], "\x00"))
-	event.Args[4].Value = arch
-	event.Args[5].Value = symbol.Name
-	event.Args[6].Value = symbol.Owner
+	err = events.SetArgValue(event, "arch", arch)
+	if err != nil {
+		return err
+	}
+	err = events.SetArgValue(event, "symbol_name", symbol.Name)
+	if err != nil {
+		return err
+	}
+	err = events.SetArgValue(event, "symbol_owner", symbol.Owner)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -329,6 +348,12 @@ func (t *Tracker) processPrintMemDump(event *trace.Event) error {
 // normalizeEventCtxTimes normalizes the event context timings to be relative to tracker start time
 // or current time in nanoseconds.
 func (t *Tracker) normalizeEventCtxTimes(event *trace.Event) error {
+	eventId := events.ID(event.EventID)
+	if eventId > events.MaxCommonID && eventId < events.MaxUserSpace {
+		// derived events are normalized from their base event, skip the processing
+		return nil
+	}
+
 	//
 	// Currently, the timestamp received from the bpf code is of the monotonic clock.
 	//
@@ -384,5 +409,73 @@ func (t *Tracker) normalizeEventArgTime(event *trace.Event, argName string) erro
 		// current ("wall") time: add boot time to timestamp
 		arg.Value = argTime + t.bootTime
 	}
+	return nil
+}
+
+// addHashArg calculate file hash (in a best-effort efficiency manner) and add it as an argument
+func (t *Tracker) addHashArg(event *trace.Event, fileKey *filehash.Key) error {
+	// Currently Tracker does not support hash calculation of memfd files
+	if strings.HasPrefix(fileKey.Pathname(), "memfd") {
+		return nil
+	}
+
+	hashArg := trace.Argument{
+		ArgMeta: trace.ArgMeta{Name: "sha256", Type: "const char*"},
+	}
+
+	hash, err := t.fileHashes.Get(fileKey)
+	if hash == "" {
+		hashArg.Value = nil
+	} else {
+		hashArg.Value = hash
+	}
+
+	event.Args = append(event.Args, hashArg)
+	event.ArgsNum++
+
+	// Container FS unreachable can happen because of race condition on any system,
+	// so there is no reason to return an error on it
+	if errors.Is(err, containers.ErrContainerFSUnreachable) {
+		logger.Debugw("failed to calculate hash", "error", err, "mount NS", event.MountNS)
+		err = nil
+	}
+
+	return err
+}
+
+func (t *Tracker) processSharedObjectLoaded(event *trace.Event) error {
+	filePath, err := parse.ArgVal[string](event.Args, "pathname")
+	if err != nil {
+		logger.Debugw("Error parsing argument", "error", err)
+		return nil
+	}
+	fileCtime, err := parse.ArgVal[uint64](event.Args, "ctime")
+	if err != nil {
+		logger.Debugw("Error parsing argument", "error", err)
+		return nil
+	}
+	dev, err := parse.ArgVal[uint32](event.Args, "dev")
+	if err != nil {
+		return errfmt.Errorf("error parsing sched_process_exec args: %v", err)
+	}
+	ino, err := parse.ArgVal[uint64](event.Args, "inode")
+	if err != nil {
+		return errfmt.Errorf("error parsing sched_process_exec args: %v", err)
+	}
+
+	containerId := event.Container.ID
+	if containerId == "" {
+		containerId = "host"
+	}
+	if t.config.Output.CalcHashes != config.CalcHashesNone {
+		fileKey := filehash.NewKey(filePath, event.MountNS,
+			filehash.WithDevice(dev),
+			filehash.WithInode(ino, int64(fileCtime)),
+			filehash.WithDigest(event.Container.ImageDigest),
+		)
+
+		return t.addHashArg(event, &fileKey)
+	}
+
 	return nil
 }

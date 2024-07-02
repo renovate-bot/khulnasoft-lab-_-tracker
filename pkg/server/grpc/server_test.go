@@ -33,7 +33,7 @@ func TestServer(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	go grpcServer.Start(ctx, nil)
+	go grpcServer.Start(ctx, nil, nil)
 
 	c := grpcClient("unix", unixSock)
 
@@ -43,7 +43,7 @@ func TestServer(t *testing.T) {
 
 func grpcClient(protocol, addr string) pb.TrackerServiceClient {
 	sock := protocol + ":" + addr
-	conn, err := grpc.Dial(sock, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(sock, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Fatalf("did not connect: %v", err)
 	}

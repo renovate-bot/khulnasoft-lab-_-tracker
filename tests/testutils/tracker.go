@@ -14,9 +14,9 @@ import (
 //
 
 const (
-	readinessPollTime     = 200 * time.Millisecond
-	httpRequestTimeout    = 1 * time.Second
-	trackerStartupTimeout = 5 * time.Second
+	readinessPollTime            = 200 * time.Millisecond
+	httpRequestTimeout           = 1 * time.Second
+	TrackerDefaultStartupTimeout = 5 * time.Second
 )
 
 var (
@@ -63,7 +63,7 @@ func NewRunningTracker(givenCtx context.Context, cmdLine string) *RunningTracker
 }
 
 // Start starts the tracker process.
-func (r *RunningTracker) Start() (<-chan TrackerStatus, error) {
+func (r *RunningTracker) Start(timeout time.Duration) (<-chan TrackerStatus, error) {
 	var err error
 
 	imReady := func(s TrackerStatus) {
@@ -80,9 +80,8 @@ func (r *RunningTracker) Start() (<-chan TrackerStatus, error) {
 		goto exit
 	}
 
-	r.pid, r.cmdStatus = ExecCmdBgWithSudoAndCtx(r.ctx, r.cmdLine)
-	if r.pid < 0 {
-		err = <-r.cmdStatus    // receive error from the command
+	r.pid, r.cmdStatus, err = ExecCmdBgWithSudoAndCtx(r.ctx, r.cmdLine)
+	if err != nil {
 		imReady(TrackerFailed) // ready: failed
 		goto exit
 	}
@@ -93,7 +92,7 @@ func (r *RunningTracker) Start() (<-chan TrackerStatus, error) {
 			imReady(TrackerStarted) // ready: running
 			break
 		}
-		if time.Since(now) > trackerStartupTimeout {
+		if time.Since(now) > timeout {
 			imReady(TrackerTimedout) // ready: timedout
 			break
 		}
@@ -104,13 +103,17 @@ exit:
 }
 
 // Stop stops the tracker process.
-func (r *RunningTracker) Stop() error {
+func (r *RunningTracker) Stop() []error {
 	if r.pid == 0 {
 		return nil // cmd was never started
 	}
 
 	r.cancel()
-	return <-r.cmdStatus // will receive nil if the process exited successfully
+	var errs []error
+	for err := range r.cmdStatus {
+		errs = append(errs, err)
+	}
+	return errs
 }
 
 // IsReady checks if the tracker process is ready.

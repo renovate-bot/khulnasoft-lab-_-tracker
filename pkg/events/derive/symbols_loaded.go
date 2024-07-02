@@ -1,6 +1,7 @@
 package derive
 
 import (
+	"errors"
 	"path"
 	"strings"
 
@@ -19,12 +20,13 @@ import (
 
 func SymbolsLoaded(
 	soLoader sharedobjs.DynamicSymbolsLoader,
-	policies *policy.Policies,
+	pManager *policy.PolicyManager,
 ) DeriveFunction {
-	symbolsLoadedFilters := map[string]filters.Filter{}
+	symbolsLoadedFilters := map[string]filters.Filter[*filters.StringFilter]{}
 
-	for p := range policies.Map() {
-		f := p.ArgFilter.GetEventFilters(events.SymbolsLoaded)
+	for it := pManager.CreateAllIterator(); it.HasNext(); {
+		p := it.Next()
+		f := p.DataFilter.GetEventFilters(events.SymbolsLoaded)
 		maps.Copy(symbolsLoadedFilters, f)
 	}
 
@@ -122,7 +124,8 @@ func (symbsLoadedGen *symbolsLoadedEventGenerator) deriveArgs(
 	matchedSyms, ok := symbsLoadedGen.getSymbolsFromCache(loadingObjectInfo.Id)
 	if ok {
 		if len(matchedSyms) > 0 {
-			return []interface{}{loadingObjectInfo.Path, matchedSyms}, nil
+			hash, _ := parse.ArgVal[string](event.Args, "sha256")
+			return []interface{}{loadingObjectInfo.Path, matchedSyms, hash}, nil
 		}
 		return nil, nil
 	}
@@ -131,12 +134,16 @@ func (symbsLoadedGen *symbolsLoadedEventGenerator) deriveArgs(
 	// This error happens frequently in some environments, so we need to silence it to reduce spam.
 	// Either way, this is not a critical error so we don't return it.
 	if err != nil {
+		// High level languages like Java might load non-ELF files
+		// There is no need to log errors for such cases
+		var notElfErr *sharedobjs.UnsupportedFileError
+		if errors.As(err, &notElfErr) {
+			return nil, nil
+		}
 		// TODO: rate limit frequent errors for overloaded envs
 		_, ok := symbsLoadedGen.returnedErrors[err.Error()]
 		if !ok {
 			symbsLoadedGen.returnedErrors[err.Error()] = true
-			logger.Warnw("symbols_loaded", "object loaded", loadingObjectInfo, "error", err.Error())
-		} else {
 			logger.Debugw("symbols_loaded", "object loaded", loadingObjectInfo, "error", err.Error())
 		}
 		return nil, nil
@@ -152,7 +159,8 @@ func (symbsLoadedGen *symbolsLoadedEventGenerator) deriveArgs(
 
 	symbsLoadedGen.libsCache.Add(loadingObjectInfo.Id, exportedWatchSymbols)
 	if len(exportedWatchSymbols) > 0 {
-		return []interface{}{loadingObjectInfo.Path, exportedWatchSymbols}, nil
+		hash, _ := parse.ArgVal[string](event.Args, "sha256")
+		return []interface{}{loadingObjectInfo.Path, exportedWatchSymbols, hash}, nil
 	}
 
 	return nil, nil

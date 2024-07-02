@@ -19,13 +19,19 @@ func (t *Tracker) engineEvents(ctx context.Context, in <-chan *trace.Event) (<-c
 	out := make(chan *trace.Event)
 	errc := make(chan error, 1)
 
-	engineOutput := make(chan detect.Finding, 10000)
+	engineOutput := make(chan *detect.Finding, 10000)
 	engineInput := make(chan protocol.Event, 10000)
 	engineOutputEvents := make(chan *trace.Event, 10000)
 	source := engine.EventSources{Tracker: engineInput}
 
 	// Prepare built in data sources
-	t.config.EngineConfig.DataSources = t.PrepareBuiltinDataSources()
+	t.config.EngineConfig.DataSources = append(t.config.EngineConfig.DataSources, t.PrepareBuiltinDataSources()...)
+
+	// Share event states (by reference)
+	t.config.EngineConfig.ShouldDispatchEvent = func(eventIdInt32 int32) bool {
+		_, ok := t.eventsState[events.ID(eventIdInt32)]
+		return ok
+	}
 
 	sigEngine, err := engine.NewEngine(t.config.EngineConfig, source, engineOutput)
 	if err != nil {
@@ -102,6 +108,9 @@ func (t *Tracker) engineEvents(ctx context.Context, in <-chan *trace.Event) (<-c
 		for {
 			select {
 			case finding := <-engineOutput:
+				if finding == nil {
+					return // channel is closed
+				}
 				if finding.Event.Payload == nil {
 					continue // might happen during initialization (ctrl+c seg faults)
 				}

@@ -1,12 +1,11 @@
 package derive
 
 import (
-	"github.com/khulnasoft-lab/libbpfgo/helpers"
-
 	"github.com/khulnasoft-lab/tracker/pkg/errfmt"
 	"github.com/khulnasoft-lab/tracker/pkg/events"
 	"github.com/khulnasoft-lab/tracker/pkg/events/parse"
 	"github.com/khulnasoft-lab/tracker/pkg/utils"
+	"github.com/khulnasoft-lab/tracker/pkg/utils/environment"
 	"github.com/khulnasoft-lab/tracker/types/trace"
 )
 
@@ -28,11 +27,11 @@ var NetSeqOpsFuncs = [4]string{
 	"stop",
 }
 
-func HookedSeqOps(kernelSymbols helpers.KernelSymbolTable) DeriveFunction {
+func HookedSeqOps(kernelSymbols *environment.KernelSymbolTable) DeriveFunction {
 	return deriveSingleEvent(events.HookedSeqOps, deriveHookedSeqOpsArgs(kernelSymbols))
 }
 
-func deriveHookedSeqOpsArgs(kernelSymbols helpers.KernelSymbolTable) deriveArgsFunction {
+func deriveHookedSeqOpsArgs(kernelSymbols *environment.KernelSymbolTable) deriveArgsFunction {
 	return func(event trace.Event) ([]interface{}, error) {
 		seqOpsArr, err := parse.ArgVal[[]uint64](event.Args, "net_seq_ops")
 		if err != nil || len(seqOpsArr) < 1 {

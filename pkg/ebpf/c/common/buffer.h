@@ -3,6 +3,7 @@
 
 #include <vmlinux.h>
 
+#include <common/context.h>
 #include <common/hash.h>
 #include <common/network.h>
 
@@ -18,8 +19,8 @@ statfunc int save_str_arr_to_buf(args_buffer_t *, const char __user *const __use
 statfunc int save_args_str_arr_to_buf(args_buffer_t *, const char *, const char *, int, u8);
 statfunc int save_sockaddr_to_buf(args_buffer_t *, struct socket *, u8);
 statfunc int save_args_to_submit_buf(event_data_t *, args_t *);
-statfunc int events_perf_submit(program_data_t *, u32 id, long);
-statfunc int signal_perf_submit(void *, controlplane_signal_t *sig, u32 id);
+statfunc int events_perf_submit(program_data_t *, long);
+statfunc int signal_perf_submit(void *, controlplane_signal_t *);
 
 // FUNCTIONS
 
@@ -29,7 +30,7 @@ statfunc buf_t *get_buf(int idx)
 }
 
 // biggest elem to be saved with 'save_to_submit_buf' should be defined here:
-#define MAX_ELEMENT_SIZE sizeof(struct sockaddr_un)
+#define MAX_ELEMENT_SIZE bpf_core_type_size(struct sockaddr_un)
 
 statfunc int save_to_submit_buf(args_buffer_t *buf, void *ptr, u32 size, u8 index)
 {
@@ -319,7 +320,7 @@ statfunc int save_sockaddr_to_buf(args_buffer_t *buf, struct socket *sock, u8 in
         get_network_details_from_sock_v4(sk, &net_details, 0);
         get_local_sockaddr_in_from_network_details(&local, &net_details, family);
 
-        save_to_submit_buf(buf, (void *) &local, sizeof(struct sockaddr_in), index);
+        save_to_submit_buf(buf, (void *) &local, bpf_core_type_size(struct sockaddr_in), index);
     } else if (family == AF_INET6) {
         net_conn_v6_t net_details = {};
         struct sockaddr_in6 local;
@@ -327,11 +328,11 @@ statfunc int save_sockaddr_to_buf(args_buffer_t *buf, struct socket *sock, u8 in
         get_network_details_from_sock_v6(sk, &net_details, 0);
         get_local_sockaddr_in6_from_network_details(&local, &net_details, family);
 
-        save_to_submit_buf(buf, (void *) &local, sizeof(struct sockaddr_in6), index);
+        save_to_submit_buf(buf, (void *) &local, bpf_core_type_size(struct sockaddr_in6), index);
     } else if (family == AF_UNIX) {
         struct unix_sock *unix_sk = (struct unix_sock *) sk;
         struct sockaddr_un sockaddr = get_unix_sock_addr(unix_sk);
-        save_to_submit_buf(buf, (void *) &sockaddr, sizeof(struct sockaddr_un), index);
+        save_to_submit_buf(buf, (void *) &sockaddr, bpf_core_type_size(struct sockaddr_un), index);
     }
     return 0;
 }
@@ -345,13 +346,13 @@ statfunc int save_args_to_submit_buf(event_data_t *event, args_t *args)
     unsigned int arg_num = 0;
     short family = 0;
 
-    if (event->param_types == 0)
+    if (event->config.param_types == 0)
         return 0;
 
 #pragma unroll
     for (i = 0; i < 6; i++) {
         int size = 0;
-        u8 type = DEC_ARG(i, event->param_types);
+        u8 type = DEC_ARG(i, event->config.param_types);
         u8 index = i;
         switch (type) {
             case NONE_T:
@@ -397,13 +398,13 @@ statfunc int save_args_to_submit_buf(event_data_t *event, args_t *args)
                     bpf_probe_read(&family, sizeof(short), (void *) args->args[i]);
                     switch (family) {
                         case AF_UNIX:
-                            size = sizeof(struct sockaddr_un);
+                            size = bpf_core_type_size(struct sockaddr_un);
                             break;
                         case AF_INET:
-                            size = sizeof(struct sockaddr_in);
+                            size = bpf_core_type_size(struct sockaddr_in);
                             break;
                         case AF_INET6:
-                            size = sizeof(struct sockaddr_in6);
+                            size = bpf_core_type_size(struct sockaddr_in6);
                             break;
                         default:
                             size = sizeof(short);
@@ -419,7 +420,7 @@ statfunc int save_args_to_submit_buf(event_data_t *event, args_t *args)
                 rc = save_to_submit_buf(&(event->args_buf), (void *) (args->args[i]), size, index);
                 break;
             case TIMESPEC_T:
-                size = sizeof(struct __kernel_timespec);
+                size = bpf_core_type_size(struct __kernel_timespec);
                 rc = save_to_submit_buf(&(event->args_buf), (void *) (args->args[i]), size, index);
                 break;
         }
@@ -443,10 +444,14 @@ statfunc int save_args_to_submit_buf(event_data_t *event, args_t *args)
     return arg_num;
 }
 
-statfunc int events_perf_submit(program_data_t *p, u32 id, long ret)
+statfunc int events_perf_submit(program_data_t *p, long ret)
 {
-    p->event->context.eventid = id;
     p->event->context.retval = ret;
+
+    // enrich event with task context
+    init_task_context(&p->event->context.task, p->event->task, p->config->options);
+    // keep task_info updated
+    bpf_probe_read_kernel(&p->task_info->context, sizeof(task_context_t), &p->event->context.task);
 
     // Get Stack trace
     if (p->config->options & OPT_CAPTURE_STACK_TRACES) {
@@ -468,10 +473,8 @@ statfunc int events_perf_submit(program_data_t *p, u32 id, long ret)
     return bpf_perf_event_output(p->ctx, &events, BPF_F_CURRENT_CPU, p->event, size);
 }
 
-statfunc int signal_perf_submit(void *ctx, controlplane_signal_t *sig, u32 id)
+statfunc int signal_perf_submit(void *ctx, controlplane_signal_t *sig)
 {
-    sig->event_id = id;
-
     u32 size =
         sizeof(u32) + sizeof(u8) + sig->args_buf.offset; // signal id + argnum + arg buffer size
 

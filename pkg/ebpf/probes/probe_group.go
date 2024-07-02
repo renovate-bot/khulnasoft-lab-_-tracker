@@ -30,26 +30,17 @@ func NewProbeGroup(m *bpf.Module, p map[Handle]Probe) *ProbeGroup {
 }
 
 // GetProbe returns a probe type by its handle.
-func (p *ProbeGroup) GetProbeType(handle Handle) string {
+func (p *ProbeGroup) GetProbeType(handle Handle) ProbeType {
 	p.probesLock.Lock()
 	defer p.probesLock.Unlock()
 
 	if r, ok := p.probes[handle]; ok {
 		if probe, ok := r.(*TraceProbe); ok {
-			switch probe.probeType {
-			case KProbe:
-				return "kprobe"
-			case KretProbe:
-				return "kretprobe"
-			case Tracepoint:
-				return "tracepoint"
-			case RawTracepoint:
-				return "raw_tracepoint"
-			}
+			return probe.probeType
 		}
 	}
 
-	return ""
+	return InvalidProbeType
 }
 
 // Attach attaches a probe's program to its hook, by given handle.
@@ -124,6 +115,12 @@ func NewDefaultProbeGroup(module *bpf.Module, netEnabled bool) (*ProbeGroup, err
 		VfsWriteVRet:               NewTraceProbe(KretProbe, "vfs_writev", "trace_ret_vfs_writev"),
 		KernelWrite:                NewTraceProbe(KProbe, "__kernel_write", "trace_kernel_write"),
 		KernelWriteRet:             NewTraceProbe(KretProbe, "__kernel_write", "trace_ret_kernel_write"),
+		VfsWriteMagic:              NewTraceProbe(KProbe, "vfs_write", "vfs_write_magic_enter"),
+		VfsWriteMagicRet:           NewTraceProbe(KretProbe, "vfs_write", "vfs_write_magic_return"),
+		VfsWriteVMagic:             NewTraceProbe(KProbe, "vfs_writev", "vfs_writev_magic_enter"),
+		VfsWriteVMagicRet:          NewTraceProbe(KretProbe, "vfs_writev", "vfs_writev_magic_return"),
+		KernelWriteMagic:           NewTraceProbe(KProbe, "__kernel_write", "kernel_write_magic_enter"),
+		KernelWriteMagicRet:        NewTraceProbe(KretProbe, "__kernel_write", "kernel_write_magic_return"),
 		CgroupAttachTask:           NewTraceProbe(RawTracepoint, "cgroup:cgroup_attach_task", "tracepoint__cgroup__cgroup_attach_task"),
 		CgroupMkdir:                NewTraceProbe(RawTracepoint, "cgroup:cgroup_mkdir", "tracepoint__cgroup__cgroup_mkdir"),
 		CgroupRmdir:                NewTraceProbe(RawTracepoint, "cgroup:cgroup_rmdir", "tracepoint__cgroup__cgroup_rmdir"),
@@ -206,15 +203,30 @@ func NewDefaultProbeGroup(module *bpf.Module, netEnabled bool) (*ProbeGroup, err
 		BpfCheck:                   NewTraceProbe(KProbe, "bpf_check", "trace_bpf_check"),
 		ExecBinprm:                 NewTraceProbe(KProbe, "exec_binprm", "trace_exec_binprm"),
 		ExecBinprmRet:              NewTraceProbe(KretProbe, "exec_binprm", "trace_ret_exec_binprm"),
+		SecurityPathNotify:         NewTraceProbe(KProbe, "security_path_notify", "trace_security_path_notify"),
+		SecurityBprmCredsForExec:   NewTraceProbe(KProbe, "security_bprm_creds_for_exec", "trace_security_bprm_creds_for_exec"),
+		SetFsPwd:                   NewTraceProbe(KProbe, "set_fs_pwd", "trace_set_fs_pwd"),
 		TpProbeRegPrioMayExist:     NewTraceProbe(KProbe, "tracepoint_probe_register_prio_may_exist", "trace_tracepoint_probe_register_prio_may_exist"),
 		ModuleLoad:                 NewTraceProbe(RawTracepoint, "module:module_load", "tracepoint__module__module_load"),
 		ModuleFree:                 NewTraceProbe(RawTracepoint, "module:module_free", "tracepoint__module__module_free"),
-		LayoutAndAllocate:          NewTraceProbe(KretProbe, "layout_and_allocate", "trace_ret_layout_and_allocate"),
 		SignalCgroupMkdir:          NewTraceProbe(RawTracepoint, "cgroup:cgroup_mkdir", "cgroup_mkdir_signal"),
 		SignalCgroupRmdir:          NewTraceProbe(RawTracepoint, "cgroup:cgroup_rmdir", "cgroup_rmdir_signal"),
 		SignalSchedProcessFork:     NewTraceProbe(RawTracepoint, "sched:sched_process_fork", "sched_process_fork_signal"),
 		SignalSchedProcessExec:     NewTraceProbe(RawTracepoint, "sched:sched_process_exec", "sched_process_exec_signal"),
 		SignalSchedProcessExit:     NewTraceProbe(RawTracepoint, "sched:sched_process_exit", "sched_process_exit_signal"),
+		ExecuteFinishedX86:         NewTraceProbe(KretProbe, "__x64_sys_execve", "trace_execute_finished"),
+		ExecuteAtFinishedX86:       NewTraceProbe(KretProbe, "__x64_sys_execveat", "trace_execute_finished"),
+		ExecuteFinishedCompatX86:   NewTraceProbe(KretProbe, "__ia32_compat_sys_execve", "trace_execute_finished"),
+		ExecuteAtFinishedCompatX86: NewTraceProbe(KretProbe, "__ia32_compat_sys_execveat", "trace_execute_finished"),
+		ExecuteFinishedARM:         NewTraceProbe(KretProbe, "__arm64_sys_execve", "trace_execute_finished"),
+		ExecuteAtFinishedARM:       NewTraceProbe(KretProbe, "__arm64_sys_execveat", "trace_execute_finished"),
+		ExecuteFinishedCompatARM:   NewTraceProbe(KretProbe, "__arm64_compat_sys_execve", "trace_execute_finished"),
+		ExecuteAtFinishedCompatARM: NewTraceProbe(KretProbe, "__arm64_compat_sys_execveat", "trace_execute_finished"),
+		SecurityTaskSetrlimit:      NewTraceProbe(KProbe, "security_task_setrlimit", "trace_security_task_setrlimit"),
+
+		TestUnavailableHook: NewTraceProbe(KProbe, "non_existing_func", "empty_kprobe"),
+		ExecTest:            NewTraceProbe(RawTracepoint, "raw_syscalls:sched_process_exec", "tracepoint__exec_test"),
+		EmptyKprobe:         NewTraceProbe(KProbe, "security_bprm_check", "empty_kprobe"),
 	}
 
 	if !netEnabled {

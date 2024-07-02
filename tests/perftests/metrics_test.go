@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"go.uber.org/goleak"
 
 	"github.com/khulnasoft-lab/tracker/tests/testutils"
 )
@@ -97,7 +98,9 @@ func checkIfPprofExist() error {
 
 // TestMetricsExist tests if the metrics endpoint returns all metrics.
 func TestMetricsandPprofExist(t *testing.T) {
-	t.Parallel()
+	// Make sure we don't leak any goroutines since we run Tracker many times in this test.
+	// If a test case fails, ignore the leak since it's probably caused by the aborted test.
+	defer goleak.VerifyNone(t)
 
 	if !testutils.IsSudoCmdAvailableForThisUser() {
 		t.Skip("skipping: sudo command is not available for this user")
@@ -107,13 +110,8 @@ func TestMetricsandPprofExist(t *testing.T) {
 	running := testutils.NewRunningTracker(context.Background(), cmd)
 
 	// start tracker
-	ready, runErr := running.Start()
+	ready, runErr := running.Start(testutils.TrackerDefaultStartupTimeout)
 	require.NoError(t, runErr)
-
-	t.Cleanup(func() {
-		runErr = running.Stop() // stop tracker
-		require.NoError(t, runErr)
-	})
 
 	r := <-ready // block until tracker is ready (or not)
 	switch r {
@@ -132,4 +130,7 @@ func TestMetricsandPprofExist(t *testing.T) {
 	// check if all metrics exist
 	require.NoError(t, metricsErr)
 	require.NoError(t, pprofErr)
+
+	cmdErrs := running.Stop() // stop tracker
+	require.Empty(t, cmdErrs)
 }

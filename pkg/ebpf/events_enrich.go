@@ -4,9 +4,13 @@ import (
 	gocontext "context"
 	"sync"
 
+	"github.com/khulnasoft-lab/tracker/pkg/cgroup"
+	"github.com/khulnasoft-lab/tracker/pkg/containers"
 	"github.com/khulnasoft-lab/tracker/pkg/containers/runtime"
+	"github.com/khulnasoft-lab/tracker/pkg/errfmt"
 	"github.com/khulnasoft-lab/tracker/pkg/events"
 	"github.com/khulnasoft-lab/tracker/pkg/events/parse"
+	"github.com/khulnasoft-lab/tracker/pkg/logger"
 	"github.com/khulnasoft-lab/tracker/types/trace"
 )
 
@@ -89,14 +93,32 @@ func (t *Tracker) enrichContainerEvents(ctx gocontext.Context, in <-chan *trace.
 				}
 				eventID := events.ID(event.EventID)
 				// send out irrelevant events (non container or already enriched), don't skip the cgroup lifecycle events
-				if (event.Container.ID == "" || event.Container.Name != "") && eventID != events.CgroupMkdir && eventID != events.CgroupRmdir {
+				if (event.Container.ID == "" || event.Container.Name != "") &&
+					eventID != events.CgroupMkdir &&
+					eventID != events.CgroupRmdir {
 					out <- event
 					continue
 				}
 				cgroupId := uint64(event.CgroupID)
 				// CgroupMkdir: pick EventID from the event itself
 				if eventID == events.CgroupMkdir {
-					cgroupId, _ = parse.ArgVal[uint64](event.Args, "cgroup_id")
+					// avoid sending irrelevant cgroups
+					isHid, err := isCgroupEventInHid(event, t.containers)
+					if err != nil {
+						logger.Errorw("cgroup_mkdir event skipped enrichment: couldn't get cgroup hid", "error", err)
+						out <- event
+						continue
+					}
+					if !isHid {
+						out <- event
+						continue
+					}
+					cgroupId, err = parse.ArgVal[uint64](event.Args, "cgroup_id")
+					if err != nil {
+						logger.Errorw("cgroup_mkdir event failed to trigger enrichment: couldn't get cgroup_id", "error", err, "event_name", event.EventName)
+						out <- event
+						continue
+					}
 				}
 				// CgroupRmdir: clean up remaining events and maps
 				if eventID == events.CgroupRmdir {
@@ -113,6 +135,7 @@ func (t *Tracker) enrichContainerEvents(ctx gocontext.Context, in <-chan *trace.
 						bLock.Lock()
 						enrichInfo[cgroupId] = &enrichResult{metadata, err}
 						enrichDone[cgroupId] = true
+						logger.Debugw("async enrich request in pipeline done", "cgroup_id", cgroupId)
 						bLock.Unlock()
 					}(cgroupId)
 				}
@@ -133,10 +156,12 @@ func (t *Tracker) enrichContainerEvents(ctx gocontext.Context, in <-chan *trace.
 		for { // de-queue events
 			select {
 			case cgroupId := <-queueReady: // queue for received cgroupId is ready
+				logger.Debugw("triggered enrich check in enrich queue", "cgroup_id", cgroupId)
 				bLock.RLock()
 				if !enrichDone[cgroupId] {
 					// re-schedule the operation if queue is not enriched
 					queueReady <- cgroupId
+					logger.Debugw("rescheduled enrich trigger in enrich queue", "cgroup_id", cgroupId)
 				} else {
 					// de-queue event if queue is enriched
 					if _, ok := queues[cgroupId]; ok {
@@ -145,6 +170,16 @@ func (t *Tracker) enrichContainerEvents(ctx gocontext.Context, in <-chan *trace.
 							continue // might happen during initialization (ctrl+c seg faults)
 						}
 						eventID := events.ID(event.EventID)
+						if eventID == events.CgroupMkdir {
+							// only one cgroup_mkdir should make it here
+							// report enrich success or error once
+							i := enrichInfo[cgroupId]
+							if i.err == nil {
+								logger.Debugw("done enriching in enrich queue", "cgroup_id", cgroupId)
+							} else {
+								logger.Errorw("failed enriching in enrich queue", "error", i.err, "cgroup_id", cgroupId)
+							}
+						}
 						// check if not enriched, and only enrich regular non cgroup related events
 						if event.Container.Name == "" && eventID != events.CgroupMkdir && eventID != events.CgroupRmdir {
 							// event is not enriched: enrich if enrichment worked
@@ -170,11 +205,18 @@ func (t *Tracker) enrichContainerEvents(ctx gocontext.Context, in <-chan *trace.
 			select {
 			case event := <-queueClean:
 				bLock.Lock()
-				cgroupId, _ := parse.ArgVal[uint64](event.Args, "cgroup_id")
+				cgroupId, err := parse.ArgVal[uint64](event.Args, "cgroup_id")
+				if err != nil {
+					logger.Errorw("cgroup_rmdir event failed to trigger enrich queue clean: couldn't get cgroup_id", "error", err, "event_name", event.EventName)
+					out <- event
+					continue
+				}
+				logger.Debugw("triggered enrich queue clean", "cgroup_id", cgroupId)
 				if queue, ok := queues[cgroupId]; ok {
 					// if queue is still full reschedule cleanup
 					if len(queue) > 0 {
 						queueClean <- event
+						logger.Debugw("rescheduled enrich queue clean", "cgroup_id", cgroupId)
 					} else {
 						close(queue)
 						// start queue cleanup
@@ -185,6 +227,7 @@ func (t *Tracker) enrichContainerEvents(ctx gocontext.Context, in <-chan *trace.
 					}
 				}
 				bLock.Unlock()
+				logger.Debugw("enrich queue clean done", "cgroup_id", cgroupId)
 
 			case <-ctx.Done():
 				return
@@ -207,4 +250,18 @@ func enrichEvent(evt *trace.Event, enrichData runtime.ContainerMetadata) {
 		PodNamespace: enrichData.Pod.Namespace,
 		PodUID:       enrichData.Pod.UID,
 	}
+}
+
+// isCgroupEventInHid checks if cgroup event is relevant for deriving container event in its hierarchy id.
+// in tracker we only care about containers inside the cpuset controller, as such other hierarchy ids will lead
+// to a failed query.
+func isCgroupEventInHid(event *trace.Event, cts *containers.Containers) (bool, error) {
+	if cts.GetCgroupVersion() == cgroup.CgroupVersion2 {
+		return true, nil
+	}
+	hierarchyID, err := parse.ArgVal[uint32](event.Args, "hierarchy_id")
+	if err != nil {
+		return false, errfmt.WrapError(err)
+	}
+	return cts.GetDefaultCgroupHierarchyID() == int(hierarchyID), nil
 }

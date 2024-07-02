@@ -5,11 +5,10 @@ import (
 
 	lru "github.com/hashicorp/golang-lru/v2"
 
-	"github.com/khulnasoft-lab/libbpfgo/helpers"
-
 	"github.com/khulnasoft-lab/tracker/pkg/errfmt"
 	"github.com/khulnasoft-lab/tracker/pkg/events"
 	"github.com/khulnasoft-lab/tracker/pkg/events/parse"
+	"github.com/khulnasoft-lab/tracker/pkg/utils/environment"
 	"github.com/khulnasoft-lab/tracker/types/trace"
 )
 
@@ -28,11 +27,11 @@ func InitHookedSyscall() error {
 	return err
 }
 
-func DetectHookedSyscall(kernelSymbols helpers.KernelSymbolTable) DeriveFunction {
+func DetectHookedSyscall(kernelSymbols *environment.KernelSymbolTable) DeriveFunction {
 	return deriveSingleEvent(events.HookedSyscall, deriveDetectHookedSyscallArgs(kernelSymbols))
 }
 
-func deriveDetectHookedSyscallArgs(kernelSymbols helpers.KernelSymbolTable) deriveArgsFunction {
+func deriveDetectHookedSyscallArgs(kernelSymbols *environment.KernelSymbolTable) deriveArgsFunction {
 	return func(event trace.Event) ([]interface{}, error) {
 		syscallId, err := parse.ArgVal[int32](event.Args, "syscall_id")
 		if err != nil {
@@ -55,8 +54,8 @@ func deriveDetectHookedSyscallArgs(kernelSymbols helpers.KernelSymbolTable) deri
 		hookedOwner := ""
 		hookedFuncSymbol, err := kernelSymbols.GetSymbolByAddr(address)
 		if err == nil {
-			hookedFuncName = hookedFuncSymbol.Name
-			hookedOwner = hookedFuncSymbol.Owner
+			hookedFuncName = hookedFuncSymbol[0].Name
+			hookedOwner = hookedFuncSymbol[0].Owner
 		}
 
 		syscallName := convertToSyscallName(syscallId)

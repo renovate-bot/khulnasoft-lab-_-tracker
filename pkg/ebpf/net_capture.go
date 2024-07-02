@@ -29,9 +29,9 @@ const (
 	familyIpv6
 )
 
-func (t *Tracker) processNetCaptureEvents(ctx context.Context) {
-	logger.Debugw("Starting processNetCaptureEvents goroutine")
-	defer logger.Debugw("Stopped processNetCaptureEvents goroutine")
+func (t *Tracker) handleNetCaptureEvents(ctx context.Context) {
+	logger.Debugw("Starting handleNetCaptureEvents goroutine")
+	defer logger.Debugw("Stopped handleNetCaptureEvents goroutine")
 
 	var errChanList []<-chan error
 
@@ -58,8 +58,16 @@ func (t *Tracker) processNetCapEvents(ctx context.Context, in <-chan *trace.Even
 		for {
 			select {
 			case event := <-in:
+				// TODO: Support captures pipeline in t.processEvent
+				err := t.normalizeEventCtxTimes(event)
+				if err != nil {
+					t.handleError(err)
+					t.eventsPool.Put(event)
+					continue
+				}
 				t.processNetCapEvent(event)
 				_ = t.stats.NetCapCount.Increment()
+				t.eventsPool.Put(event)
 
 			case lost := <-t.lostNetCapChannel:
 				if err := t.stats.LostNtCapCount.Increment(lost); err != nil {

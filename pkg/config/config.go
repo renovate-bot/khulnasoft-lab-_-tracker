@@ -3,16 +3,14 @@ package config
 import (
 	"io"
 
-	"github.com/khulnasoft-lab/libbpfgo/helpers"
-
 	"github.com/khulnasoft-lab/tracker/pkg/containers/runtime"
 	"github.com/khulnasoft-lab/tracker/pkg/dnscache"
 	"github.com/khulnasoft-lab/tracker/pkg/errfmt"
-	"github.com/khulnasoft-lab/tracker/pkg/events"
 	"github.com/khulnasoft-lab/tracker/pkg/events/queue"
 	"github.com/khulnasoft-lab/tracker/pkg/policy"
 	"github.com/khulnasoft-lab/tracker/pkg/proctree"
 	"github.com/khulnasoft-lab/tracker/pkg/signatures/engine"
+	"github.com/khulnasoft-lab/tracker/pkg/utils/environment"
 )
 
 // Config is a struct containing user defined configuration of tracker
@@ -28,8 +26,8 @@ type Config struct {
 	MaxPidsCache       int // maximum number of pids to cache per mnt ns (in Tracker.pidsInMntns)
 	BTFObjPath         string
 	BPFObjBytes        []byte
-	KernelConfig       *helpers.KernelConfig
-	OSInfo             *helpers.OSInfo
+	KernelConfig       *environment.KernelConfig
+	OSInfo             *environment.OSInfo
 	Sockets            runtime.Sockets
 	NoContainersEnrich bool
 	EngineConfig       engine.Config
@@ -39,22 +37,6 @@ type Config struct {
 
 // Validate does static validation of the configuration
 func (c Config) Validate() error {
-	// Policies
-	for p := range c.Policies.Map() {
-		if p == nil {
-			return errfmt.Errorf("policy is nil")
-		}
-		if p.EventsToTrace == nil {
-			return errfmt.Errorf("policy [%d] has no events to trace", p.ID)
-		}
-
-		for e := range p.EventsToTrace {
-			if !events.Core.IsDefined(e) {
-				return errfmt.Errorf("invalid event [%d] to trace in policy [%d]", e, p.ID)
-			}
-		}
-	}
-
 	// Buffer sizes
 	if (c.PerfBufferSize & (c.PerfBufferSize - 1)) != 0 {
 		return errfmt.Errorf("invalid perf buffer size - must be a power of 2")
@@ -153,11 +135,35 @@ type CapabilitiesConfig struct {
 // Output
 //
 
+type CalcHashesOption int
+
+const (
+	CalcHashesNone CalcHashesOption = iota
+	CalcHashesInode
+	CalcHashesDevInode
+	CalcHashesDigestInode
+)
+
+func (c CalcHashesOption) String() string {
+	switch c {
+	case CalcHashesNone:
+		return "none"
+	case CalcHashesInode:
+		return "pathname"
+	case CalcHashesDevInode:
+		return "dev-inode"
+	case CalcHashesDigestInode:
+		return "digest-inode"
+	default:
+		return "unknown"
+	}
+}
+
 type OutputConfig struct {
 	StackAddresses bool
 	ExecEnv        bool
 	RelativeTime   bool
-	ExecHash       bool
+	CalcHashes     CalcHashesOption
 
 	ParseArguments    bool
 	ParseArgumentsFDs bool

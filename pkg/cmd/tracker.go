@@ -19,6 +19,7 @@ import (
 type Runner struct {
 	TrackerConfig config.Config
 	Printer       printer.EventPrinter
+	InstallPath   string
 	HTTPServer    *http.Server
 	GRPCServer    *grpc.Server
 }
@@ -47,7 +48,7 @@ func (r Runner) Run(ctx context.Context) error {
 
 			// start server if one is configured
 			if r.GRPCServer != nil {
-				go r.GRPCServer.Start(ctx, t)
+				go r.GRPCServer.Start(ctx, t, t.Engine())
 			}
 		},
 	)
@@ -61,11 +62,24 @@ func (r Runner) Run(ctx context.Context) error {
 
 	// Manage PID file
 
-	if err := writePidFile(t.OutDir); err != nil {
+	if err := os.MkdirAll(r.InstallPath, 0755); err != nil {
+		return errfmt.Errorf("could not create install path dir: %v", err)
+	}
+	installPathDir, err := utils.OpenExistingDir(r.InstallPath)
+	if err != nil {
+		return errfmt.Errorf("error initializing Tracker: error opening installation path: %v", err)
+	}
+	defer func() {
+		err := installPathDir.Close()
+		if err != nil {
+			logger.Warnw("error closing install path dir", "error", err)
+		}
+	}()
+	if err := writePidFile(installPathDir); err != nil {
 		return errfmt.WrapError(err)
 	}
 	defer func() {
-		if err := removePidFile(t.OutDir); err != nil {
+		if err := removePidFile(installPathDir); err != nil {
 			logger.Warnw("error removing pid file", "error", err)
 		}
 	}()
@@ -106,23 +120,18 @@ func (r Runner) Run(ctx context.Context) error {
 	return err
 }
 
-func GetContainerMode(cfg config.Config) config.ContainerMode {
-	containerMode := config.ContainerModeDisabled
-
-	for p := range cfg.Policies.Map() {
-		if p.ContainerFilterEnabled() {
-			// Container Enrichment is enabled by default ...
-			containerMode = config.ContainerModeEnriched
-			if cfg.NoContainersEnrich {
-				// ... but might be disabled as a safeguard measure.
-				containerMode = config.ContainerModeEnabled
-			}
-
-			break
-		}
+func GetContainerMode(containerFilterEnabled, noContainersEnrich bool) config.ContainerMode {
+	if !containerFilterEnabled {
+		return config.ContainerModeDisabled
 	}
 
-	return containerMode
+	// If "no-containers" enrichment is set, return just enabled mode ...
+	if noContainersEnrich {
+		return config.ContainerModeEnabled
+	}
+
+	// ... otherwise return enriched mode as default.
+	return config.ContainerModeEnriched
 }
 
 const pidFileName = "tracker.pid"

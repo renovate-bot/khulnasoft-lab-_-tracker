@@ -351,7 +351,7 @@ func TestSymbolsCollisionArgsGenerator_FindSOCollision(t *testing.T) {
 
 			for _, testCase := range testCases {
 				t.Run(testCase.name, func(t *testing.T) {
-					mockLoader := initLoaderMock(false)
+					mockLoader := initLoaderMock(nil)
 					gen := initSOCollisionsEventGenerator(
 						mockLoader,
 						filterTestCase.blackList,
@@ -403,7 +403,7 @@ func TestSymbolsCollisionArgsGenerator_deriveArgs(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			mockLoader := initLoaderMock(false)
+			mockLoader := initLoaderMock(nil)
 			gen := initSOCollisionsEventGenerator(
 				mockLoader,
 				testCase.blackList,
@@ -438,11 +438,17 @@ func TestSymbolsCollisionArgsGenerator_deriveArgs(t *testing.T) {
 						assert.Equal(t, testCase.loadingSO.Path, args[0])
 						path := args[1]
 						require.IsType(t, "", path)
-						path = path.(string)
+						path, ok := path.(string)
+						if !ok {
+							t.Error("Failed to cast path's value")
+						}
 						if path == lso.so.Path {
 							col := args[2]
 							require.IsType(t, []string{}, col)
-							col = col.([]string)
+							col, ok = col.([]string)
+							if !ok {
+								t.Error("Failed to cast path arg's value")
+							}
 							assert.ElementsMatch(t, col, lso.expectedCollisions)
 							found = true
 							break
@@ -465,11 +471,11 @@ func TestSymbolsCollision(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			mockLoader := initLoaderMock(false)
+			mockLoader := initLoaderMock(nil)
 
 			// Prepare mocked filters for the existing test cases
 
-			filterName := "symbols_collision.args.symbols"
+			filterName := "symbols_collision.data.symbols"
 			eventsNameToID := map[string]events.ID{"symbols_collision": events.SymbolsCollision}
 
 			p := policy.NewPolicy()
@@ -477,21 +483,22 @@ func TestSymbolsCollision(t *testing.T) {
 
 			if len(testCase.blackList) > 0 {
 				operAndValsBlack := fmt.Sprintf("!=%s", strings.Join(testCase.blackList, ","))
-				err := p.ArgFilter.Parse(filterName, operAndValsBlack, eventsNameToID)
+				err := p.DataFilter.Parse(filterName, operAndValsBlack, eventsNameToID)
 				require.NoError(t, err)
 			}
 			if len(testCase.whiteList) > 0 {
 				operAndValsWhite := fmt.Sprintf("=%s", strings.Join(testCase.whiteList, ","))
-				err := p.ArgFilter.Parse(filterName, operAndValsWhite, eventsNameToID)
+				err := p.DataFilter.Parse(filterName, operAndValsWhite, eventsNameToID)
 				require.NoError(t, err)
 			}
 
 			ps := policy.NewPolicies()
 			err := ps.Set(p)
 			require.NoError(t, err)
+			pManager := policy.NewPolicyManager(ps)
 
 			// Pick derive function from mocked tests
-			deriveFunc := SymbolsCollision(mockLoader, ps)
+			deriveFunc := SymbolsCollision(mockLoader, pManager)
 
 			mockLoader.addSOSymbols(
 				testSOInstance{

@@ -4,9 +4,9 @@ import (
 	"context"
 	"strings"
 
-	cri "github.com/kubernetes/cri-api/pkg/apis/runtime/v1alpha2"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	cri "k8s.io/cri-api/pkg/apis/runtime/v1"
 
 	"github.com/khulnasoft-lab/tracker/pkg/errfmt"
 )
@@ -17,7 +17,7 @@ type crioEnricher struct {
 
 func CrioEnricher(socket string) (ContainerEnricher, error) {
 	unixSocket := "unix://" + strings.TrimPrefix(socket, "unix://")
-	conn, err := grpc.Dial(unixSocket, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(unixSocket, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, errfmt.WrapError(err)
 	}

@@ -31,16 +31,18 @@ typedef struct event_context {
     task_context_t task;
     u32 eventid;
     s32 syscall; // syscall that triggered the event
-    u64 matched_policies;
     s64 retval;
     u32 stack_id;
     u16 processor_id; // ID of the processor that processed the event
+    u16 policies_version;
+    u64 matched_policies;
 } event_context_t;
 
 enum event_id_e
 {
     // Net events IDs
     NET_PACKET_BASE = 700,
+    NET_PACKET_RAW,
     NET_PACKET_IP,
     NET_PACKET_TCP,
     NET_PACKET_UDP,
@@ -48,7 +50,8 @@ enum event_id_e
     NET_PACKET_ICMPV6,
     NET_PACKET_DNS,
     NET_PACKET_HTTP,
-    NET_PACKET_CAP_BASE,
+    NET_CAPTURE_BASE,
+    NET_FLOW_BASE,
     MAX_NET_EVENT_ID,
     // Common event IDs
     RAW_SYS_ENTER,
@@ -119,10 +122,21 @@ enum event_id_e
     INOTIFY_WATCH,
     SECURITY_BPF_PROG,
     PROCESS_EXECUTION_FAILED,
+    SECURITY_PATH_NOTIFY,
+    SET_FS_PWD,
     HIDDEN_KERNEL_MODULE_SEEKER,
     MODULE_LOAD,
     MODULE_FREE,
+    EXECUTE_FINISHED,
+    SECURITY_BPRM_CREDS_FOR_EXEC,
+    SECURITY_TASK_SETRLIMIT,
     MAX_EVENT_ID,
+    NO_EVENT_SUBMIT,
+
+    // Test events IDs
+    EXEC_TEST = 8000,
+    TEST_MISSING_KSYMBOLS,
+    TEST_FAILED_ATTACH,
 };
 
 enum signal_event_id_e
@@ -207,10 +221,8 @@ enum container_state_e
 typedef struct task_info {
     task_context_t context;
     syscall_data_t syscall_data;
-    bool syscall_traced;  // indicates that syscall_data is valid
-    bool recompute_scope; // recompute matched_scopes (new task/context changed/policy changed)
-    u64 matched_scopes;   // cached bitmap of scopes this task matched
-    u8 container_state;   // the state of the container the task resides in
+    bool syscall_traced; // indicates that syscall_data is valid
+    u8 container_state;  // the state of the container the task resides in
 } task_info_t;
 
 typedef struct file_id {
@@ -273,10 +285,6 @@ typedef struct string_filter {
     char str[MAX_STR_FILTER_SIZE];
 } string_filter_t;
 
-typedef struct binary_filter {
-    char str[MAX_BIN_PATH_SIZE];
-} binary_filter_t;
-
 typedef struct ksym_name {
     char str[MAX_KSYM_NAME_SIZE];
 } ksym_name_t;
@@ -289,11 +297,7 @@ typedef struct equality {
     u64 equality_set_in_scopes;
 } eq_t;
 
-typedef struct config_entry {
-    u32 tracker_pid;
-    u32 options;
-    u32 cgroup_v1_hid;
-    u32 padding; // free for further use
+typedef struct policies_config {
     // enabled scopes bitmask per filter
     u64 uid_filter_enabled_scopes;
     u64 pid_filter_enabled_scopes;
@@ -328,6 +332,15 @@ typedef struct config_entry {
     u64 uid_min;
     u64 pid_max;
     u64 pid_min;
+} policies_config_t;
+
+typedef struct config_entry {
+    u32 tracker_pid;
+    u32 options;
+    u32 cgroup_v1_hid;
+    u16 padding; // free for further use
+    u16 policies_version;
+    policies_config_t policies_config;
 } config_entry_t;
 
 typedef struct event_config {
@@ -359,7 +372,8 @@ typedef struct event_data {
     event_context_t context;
     args_buffer_t args_buf;
     struct task_struct *task;
-    u64 param_types;
+    event_config_t config;
+    policies_config_t policies_config;
 } event_data_t;
 
 // A control plane signal - sent to indicate some critical event which should be processed
@@ -401,6 +415,9 @@ enum bpf_log_id
     BPF_LOG_ID_GET_CURRENT_COMM,
     BPF_LOG_ID_TAIL_CALL,
     BPF_LOG_ID_MEM_READ,
+
+    // hidden kernel module functions
+    BPF_LOG_ID_HID_KER_MOD,
 };
 
 typedef struct bpf_log {
@@ -432,8 +449,9 @@ typedef union scratch {
 typedef struct program_data {
     config_entry_t *config;
     task_info_t *task_info;
+    proc_info_t *proc_info;
     event_data_t *event;
-    scratch_t *scratch;
+    u32 scratch_idx;
     void *ctx;
 } program_data_t;
 
@@ -533,7 +551,15 @@ enum file_modification_op
     FILE_MODIFICATION_DONE,
 };
 
-// Type for values representing file types filters
-typedef u32 file_type_filter_t;
+#define MAX_STACK_DEPTH 20 // max depth of each stack trace to track
+
+typedef __u64 stack_trace_t[MAX_STACK_DEPTH];
+typedef u32 file_type_t;
+
+struct sys_exit_tracepoint_args {
+    u64 __pad;
+    int __syscall_nr;
+    long ret;
+};
 
 #endif

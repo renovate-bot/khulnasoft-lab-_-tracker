@@ -15,9 +15,9 @@ import (
 	"github.com/khulnasoft-lab/tracker/pkg/utils"
 )
 
-func (t *Tracker) processFileCaptures(ctx context.Context) {
-	logger.Debugw("Starting processFileCaptures go routine")
-	defer logger.Debugw("Stopped processFileCaptures go routine")
+func (t *Tracker) handleFileCaptures(ctx context.Context) {
+	logger.Debugw("Starting handleFileCaptures go routine")
+	defer logger.Debugw("Stopped handleFileCaptures go routine")
 
 	const (
 		// stat_S_IFMT uint32 = 0170000 // bit mask for the file type bit field

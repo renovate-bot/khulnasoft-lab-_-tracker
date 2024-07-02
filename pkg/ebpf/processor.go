@@ -4,17 +4,16 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/khulnasoft-lab/libbpfgo/helpers"
-
 	"github.com/khulnasoft-lab/tracker/pkg/events"
 	"github.com/khulnasoft-lab/tracker/pkg/logger"
 	"github.com/khulnasoft-lab/tracker/pkg/proctree"
+	"github.com/khulnasoft-lab/tracker/pkg/utils/environment"
 	"github.com/khulnasoft-lab/tracker/types/trace"
 )
 
 var (
 	kernelReadFileTypes map[int32]trace.KernelReadType
-	onceExecHash        sync.Once // capabilities for exec hash enabled only once
+	onceHashCapsAdd     sync.Once // capabilities for exec hash enabled only once
 )
 
 func init() {
@@ -23,7 +22,7 @@ func init() {
 
 // processEvent processes an event by passing it through all registered event processors.
 func (t *Tracker) processEvent(event *trace.Event) []error {
-	errs := []error{}
+	var errs []error
 
 	processors := t.eventProcessor[events.ID(event.EventID)]         // this event processors
 	processors = append(processors, t.eventProcessor[events.All]...) // all events processors
@@ -80,15 +79,6 @@ func (t *Tracker) RegisterEventProcessor(id events.ID, proc func(evt *trace.Even
 // registerEventProcessors registers all event processors, each to a specific event id.
 func (t *Tracker) registerEventProcessors() {
 	//
-	// Event Timestamps Normalization Processors
-	//
-
-	// Convert all time relate args to nanoseconds since epoch.
-	// NOTE: Make sure to convert time related args (of your event) in here.
-	t.RegisterEventProcessor(events.SchedProcessFork, t.processSchedProcessFork)
-	t.RegisterEventProcessor(events.All, t.normalizeEventCtxTimes)
-
-	//
 	// Process Tree Processors
 	//
 
@@ -130,6 +120,16 @@ func (t *Tracker) registerEventProcessors() {
 	t.RegisterEventProcessor(events.PrintNetSeqOps, t.processTriggeredEvent)
 	t.RegisterEventProcessor(events.PrintMemDump, t.processTriggeredEvent)
 	t.RegisterEventProcessor(events.PrintMemDump, t.processPrintMemDump)
+	t.RegisterEventProcessor(events.SharedObjectLoaded, t.processSharedObjectLoaded)
+
+	//
+	// Event Timestamps Normalization Processors
+	//
+
+	// Convert all time relate args to nanoseconds since epoch.
+	// NOTE: Make sure to convert time related args (of your event) in here.
+	t.RegisterEventProcessor(events.SchedProcessFork, t.processSchedProcessFork)
+	t.RegisterEventProcessor(events.All, t.normalizeEventCtxTimes)
 }
 
 func initKernelReadFileTypes() {
@@ -137,7 +137,7 @@ func initKernelReadFileTypes() {
 	// simply check for the enum value in bpf code. This will make the event more stable for
 	// existing kernels as well as future kernels as well.
 
-	osInfo, err := helpers.GetOSInfo()
+	osInfo, err := environment.GetOSInfo()
 	if err != nil {
 		return
 	}
@@ -163,7 +163,7 @@ func initKernelReadFileTypes() {
 		return
 	}
 
-	if kernel593ComparedToRunningKernel == helpers.KernelVersionOlder {
+	if kernel593ComparedToRunningKernel == environment.KernelVersionOlder {
 		// running kernel version: >=5.9.3
 		kernelReadFileTypes = map[int32]trace.KernelReadType{
 			0: trace.KernelReadUnknown,
@@ -174,9 +174,9 @@ func initKernelReadFileTypes() {
 			5: trace.KernelReadSecurityPolicy,
 			6: trace.KernelReadx509Certificate,
 		}
-	} else if kernel570ComparedToRunningKernel == helpers.KernelVersionOlder /* Running kernel is newer than 5.7.0 */ &&
-		kernel592ComparedToRunningKernel != helpers.KernelVersionOlder /* Running kernel is equal or older than 5.9.2*/ &&
-		kernel5818ComparedToRunningKernel != helpers.KernelVersionEqual /* Running kernel is not 5.8.18 */ {
+	} else if kernel570ComparedToRunningKernel == environment.KernelVersionOlder /* Running kernel is newer than 5.7.0 */ &&
+		kernel592ComparedToRunningKernel != environment.KernelVersionOlder /* Running kernel is equal or older than 5.9.2*/ &&
+		kernel5818ComparedToRunningKernel != environment.KernelVersionEqual /* Running kernel is not 5.8.18 */ {
 		// running kernel version: >=5.7 && <=5.9.2 && !=5.8.18
 		kernelReadFileTypes = map[int32]trace.KernelReadType{
 			0: trace.KernelReadUnknown,
@@ -189,9 +189,9 @@ func initKernelReadFileTypes() {
 			7: trace.KernelReadSecurityPolicy,
 			8: trace.KernelReadx509Certificate,
 		}
-	} else if kernel5818ComparedToRunningKernel == helpers.KernelVersionEqual /* Running kernel is 5.8.18 */ ||
-		(kernel570ComparedToRunningKernel == helpers.KernelVersionNewer && /* Running kernel is older than 5.7.0 */
-			kernel4180ComparedToRunningKernel != helpers.KernelVersionOlder) /* Running kernel is 4.18 or newer */ {
+	} else if kernel5818ComparedToRunningKernel == environment.KernelVersionEqual /* Running kernel is 5.8.18 */ ||
+		(kernel570ComparedToRunningKernel == environment.KernelVersionNewer && /* Running kernel is older than 5.7.0 */
+			kernel4180ComparedToRunningKernel != environment.KernelVersionOlder) /* Running kernel is 4.18 or newer */ {
 		// running kernel version: ==5.8.18 || (<5.7 && >=4.18)
 		kernelReadFileTypes = map[int32]trace.KernelReadType{
 			0: trace.KernelReadUnknown,

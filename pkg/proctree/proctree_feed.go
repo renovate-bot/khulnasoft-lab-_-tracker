@@ -1,6 +1,8 @@
 package proctree
 
 import (
+	"path/filepath"
+
 	"github.com/khulnasoft-lab/tracker/pkg/errfmt"
 	"github.com/khulnasoft-lab/tracker/pkg/logger"
 	"github.com/khulnasoft-lab/tracker/pkg/utils"
@@ -63,7 +65,9 @@ func (pt *ProcessTree) FeedFromFork(feed ForkFeed) error {
 			},
 			utils.NsSinceBootTimeToTime(feed.TimeStamp),
 		)
-		pt.FeedFromProcFSAsync(int(feed.ParentPid)) // try to enrich ppid and name from procfs
+		if pt.procfsQuery {
+			pt.FeedFromProcFSAsync(int(feed.ParentPid)) // try to enrich ppid and name from procfs
+		}
 	}
 
 	parent, found := pt.GetProcessByHash(feed.ParentHash) // always a real process
@@ -99,7 +103,9 @@ func (pt *ProcessTree) FeedFromFork(feed ForkFeed) error {
 			},
 			utils.NsSinceBootTimeToTime(feed.TimeStamp),
 		)
-		pt.FeedFromProcFSAsync(int(feed.LeaderPid)) // try to enrich name from procfs if needed
+		if pt.procfsQuery {
+			pt.FeedFromProcFSAsync(int(feed.LeaderPid)) // try to enrich name from procfs if needed
+		}
 	}
 
 	leader, found := pt.GetProcessByHash(feed.LeaderHash)
@@ -188,6 +194,8 @@ type ExecFeed struct {
 	InvokedFromKernel int32
 }
 
+const COMM_LEN = 16
+
 // FeedFromExec feeds the process tree with an exec event.
 func (pt *ProcessTree) FeedFromExec(feed ExecFeed) error {
 	if feed.LeaderHash != 0 && feed.TaskHash != feed.LeaderHash {
@@ -216,9 +224,12 @@ func (pt *ProcessTree) FeedFromExec(feed ExecFeed) error {
 		process.SetParentHash(feed.ParentHash) // faster than checking if already set
 	}
 
+	execTimestamp := utils.NsSinceBootTimeToTime(feed.TimeStamp)
+	basename := filepath.Base(feed.CmdPath)
+	comm := basename[:min(len(basename), COMM_LEN)]
 	process.GetInfo().SetNameAt(
-		feed.CmdPath,
-		utils.NsSinceBootTimeToTime(feed.TimeStamp),
+		comm,
+		execTimestamp,
 	)
 
 	process.GetExecutable().SetFeedAt(
@@ -229,26 +240,13 @@ func (pt *ProcessTree) FeedFromExec(feed ExecFeed) error {
 			Inode:     int(feed.Inode),
 			InodeMode: int(feed.InodeMode),
 		},
-		utils.NsSinceBootTimeToTime(feed.TimeStamp),
+		execTimestamp,
 	)
 
-	process.GetInterpreter().SetFeedAt(
-		FileInfoFeed{
-			Path:      feed.InterpreterPath,
-			Dev:       int(feed.InterpreterDev),
-			Ctime:     int(feed.InterpreterCtime),
-			Inode:     int(feed.InterpreterInode),
-			InodeMode: -1, // no inode mode for interpreter
-		},
-		utils.NsSinceBootTimeToTime(feed.TimeStamp),
-	)
-
-	process.GetInterp().SetFeedAt(
-		FileInfoFeed{
-			Path: feed.Interp,
-		},
-		utils.NsSinceBootTimeToTime(feed.TimeStamp),
-	)
+	// The interpreter and interp info are taking a lot of memory.
+	// As their usage is still unclear in the process tree, it was decided
+	// to not save their information until it was clear how they would be used.
+	// TODO: Decide whether remove the interpreter and interp from the tree or add them back.
 
 	return nil
 }

@@ -5,17 +5,24 @@ import (
 
 	"github.com/khulnasoft-lab/tracker/pkg/events"
 	"github.com/khulnasoft-lab/tracker/pkg/logger"
+	"github.com/khulnasoft-lab/tracker/pkg/utils/set"
 	"github.com/khulnasoft-lab/tracker/types/detect"
 	"github.com/khulnasoft-lab/tracker/types/trace"
 )
 
-func CreateEventsFromSignatures(startId events.ID, sigs []detect.Signature) {
-	newEventDefID := startId
+func CreateEventsFromSignatures(startId events.ID, sigs []detect.Signature) map[string]int32 {
+	namesToIds := allocateEventIdsForSigs(startId, sigs)
 
 	for _, s := range sigs {
 		m, err := s.GetMetadata()
 		if err != nil {
 			logger.Errorw("Failed to load event", "error", err)
+			continue
+		}
+
+		givenEvtId, ok := namesToIds[m.EventName]
+		if !ok {
+			logger.Errorw("Failed to load event", "error", "failed to alloc event ID for signature")
 			continue
 		}
 
@@ -28,14 +35,28 @@ func CreateEventsFromSignatures(startId events.ID, sigs []detect.Signature) {
 		evtDependency := make([]events.ID, 0)
 
 		for _, s := range selectedEvents {
+			if s.Source != "tracker" {
+				// A legacy solution we supported was for external sources to push events
+				// into signatures. They would declare their source to be a different name instead
+				// of  "tracker".
+				// As such, actual event dependencies should only be sourced from "tracker" selectors.
+				continue
+			}
 			eventDefID, found := events.Core.GetDefinitionIDByName(s.Name)
 			if !found {
-				logger.Errorw("Failed to load event dependency", "event", s.Name)
-				continue
+				// Check if the event is part of the new signatures events
+				sigId, found := namesToIds[s.Name]
+				if !found {
+					logger.Errorw("Failed to load event dependency", "event", s.Name)
+					continue
+				}
+				eventDefID = events.ID(sigId)
 			}
 
 			evtDependency = append(evtDependency, eventDefID)
 		}
+
+		tags := set.New[string](append([]string{"signatures", "default"}, m.Tags...)...)
 
 		version, err := events.NewVersionFromString(m.Version)
 		// if the version is not valid semver, set it to 1.0.X,
@@ -52,16 +73,25 @@ func CreateEventsFromSignatures(startId events.ID, sigs []detect.Signature) {
 			version = events.NewVersion(1, 0, x)
 		}
 
+		properties := map[string]interface{}{
+			"signatureName": m.Name,
+			"signatureID":   m.ID,
+		}
+
+		for k, v := range m.Properties {
+			properties[k] = v
+		}
+
 		newEventDef := events.NewDefinition(
-			newEventDefID,                     // id,
-			events.Sys32Undefined,             // id32
-			m.EventName,                       // eventName
-			version,                           // version
-			m.Description,                     // description
-			"",                                // docPath
-			false,                             // internal
-			false,                             // syscall
-			[]string{"signatures", "default"}, // sets
+			events.ID(givenEvtId), // id,
+			events.Sys32Undefined, // id32
+			m.EventName,           // eventName
+			version,               // version
+			m.Description,         // description
+			"",                    // docPath
+			false,                 // internal
+			false,                 // syscall
+			tags.Items(),          // tags
 			events.NewDependencies(
 				evtDependency,
 				[]events.KSymbol{},
@@ -70,14 +100,33 @@ func CreateEventsFromSignatures(startId events.ID, sigs []detect.Signature) {
 				events.Capabilities{},
 			),
 			[]trace.ArgMeta{},
+			properties,
 		)
 
-		err = events.Core.Add(newEventDefID, newEventDef)
+		err = events.Core.Add(events.ID(givenEvtId), newEventDef)
 		if err != nil {
 			logger.Errorw("Failed to add event definition", "error", err)
 			continue
 		}
+	}
+	return namesToIds
+}
 
+// allocateEventIdsForSigs give each signature an event ID, and return the matching between
+// the signatures events names to IDs given this way.
+func allocateEventIdsForSigs(startId events.ID, sigs []detect.Signature) map[string]int32 {
+	namesToIds := make(map[string]int32)
+	newEventDefID := startId
+	// First allocate event IDs to all signatures
+	for _, s := range sigs {
+		m, err := s.GetMetadata()
+		if err != nil {
+			logger.Warnw("Failed to allocate id for signature", "error", err)
+			continue
+		}
+
+		namesToIds[m.EventName] = int32(newEventDefID)
 		newEventDefID++
 	}
+	return namesToIds
 }

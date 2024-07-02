@@ -6,7 +6,7 @@ when Vagrant::Util::Platform.linux?
   "Linux"
 when Vagrant::Util::Platform.darwin?
   "Darwin"
-else  
+else
   puts "ERROR: Host OS is not supported."
   abort
 end
@@ -41,8 +41,8 @@ Vagrant.configure("2") do |config|
   when "Linux"
     config.vm.provider "virtualbox" do |vb|
       vb.name = vm_name
-      vb.cpus = "4"
-      vb.memory = "2048"
+      vb.cpus = "8"
+      vb.memory = "4096"
       vb.gui = false
     end
   when "Darwin"
@@ -70,8 +70,9 @@ Vagrant.configure("2") do |config|
 
   config.vm.provision "shell", privileged: true, inline: <<-SHELL
     VAGRANT_HOME="/home/vagrant"
-    GO_VERSION="1.19.5"
-    OPA_VERSION="v0.48.0"
+    GO_VERSION="1.22.3"
+    OPA_VERSION="v0.63.0"
+    KUBECTL_VERSION="v1.29"
 
     # silence 'dpkg-preconfigure: unable to re-open stdin: No such file or directory'
     export DEBIAN_FRONTEND=noninteractive
@@ -94,7 +95,7 @@ Vagrant.configure("2") do |config|
       ln -s "$path" "${path%-*}"
     done
 
-    apt-get install --yes zlib1g-dev libelf-dev
+    apt-get install --yes zlib1g-dev libelf-dev libzstd-dev
     apt-get install --yes protobuf-compiler
     apt-get install --yes linux-tools-"$(uname -r)" ||
       apt-get install --yes linux-tools-generic
@@ -127,9 +128,11 @@ Vagrant.configure("2") do |config|
     # kubectl
     #
 
-    apt-get install --yes apt-transport-https ca-certificates curl
-    curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg | gpg --dearmor -o /etc/apt/keyrings/kubernetes-archive-keyring.gpg
-    echo "deb [signed-by=/etc/apt/keyrings/kubernetes-archive-keyring.gpg] https://apt.kubernetes.io/ kubernetes-xenial main" | tee /etc/apt/sources.list.d/kubernetes.list
+    apt-get install -y apt-transport-https ca-certificates curl
+    curl -fsSL https://pkgs.k8s.io/core:/stable:/$KUBECTL_VERSION/deb/Release.key | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+    chmod 644 /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+    echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/$KUBECTL_VERSION/deb/ /" | tee /etc/apt/sources.list.d/kubernetes.list
+    chmod 644 /etc/apt/sources.list.d/kubernetes.list
     apt-get update
     apt-get install --yes kubectl
     echo 'source <(kubectl completion bash)' >> $VAGRANT_HOME/.profile
@@ -144,7 +147,7 @@ Vagrant.configure("2") do |config|
     #
     # docker
     #
-    
+
     apt-get install --yes docker.io
     usermod -aG docker vagrant
 
@@ -152,7 +155,7 @@ Vagrant.configure("2") do |config|
     # opa
     #
 
-    curl -L -o /usr/bin/opa https://github.com/open-policy-agent/opa/releases/download/$OPA_VERSION/opa_linux_#{arch}
+    curl -L -o /usr/bin/opa https://github.com/open-policy-agent/opa/releases/download/$OPA_VERSION/opa_linux_#{arch}_static
     chmod 755 /usr/bin/opa
   SHELL
 end

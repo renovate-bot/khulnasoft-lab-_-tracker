@@ -50,6 +50,7 @@ func Test_CreateEventsFromSigs(t *testing.T) {
 						events.Capabilities{},
 					),
 					[]trace.ArgMeta{},
+					nil,
 				),
 			},
 		},
@@ -85,6 +86,7 @@ func Test_CreateEventsFromSigs(t *testing.T) {
 						events.Capabilities{},
 					),
 					[]trace.ArgMeta{},
+					nil,
 				),
 				events.NewDefinition(
 					events.ID(6011),                   // id,
@@ -107,6 +109,7 @@ func Test_CreateEventsFromSigs(t *testing.T) {
 						events.Capabilities{},
 					),
 					[]trace.ArgMeta{},
+					nil,
 				),
 			},
 		},
@@ -144,6 +147,7 @@ func Test_CreateEventsFromSigs(t *testing.T) {
 						events.Capabilities{},
 					),
 					[]trace.ArgMeta{},
+					nil,
 				),
 			},
 		},
@@ -192,7 +196,7 @@ func newFakeSignature(name string, deps []string) detect.Signature {
 			selectedEvents := make([]detect.SignatureEventSelector, 0, len(deps))
 
 			for _, d := range deps {
-				eventSelector := detect.SignatureEventSelector{Name: d}
+				eventSelector := detect.SignatureEventSelector{Name: d, Source: "tracker", Origin: "*"}
 				selectedEvents = append(selectedEvents, eventSelector)
 			}
 

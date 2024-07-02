@@ -3,12 +3,9 @@
 Tracker has a unique feature that lets you capture interesting artifacts from
 running applications, using the `--capture` flag.
 
-
-
-<!-- TODO: build man page -->
-<!-- ```console
-man tracker-capture
-``` -->
+```console
+./dist/tracker man capture
+```
 
 ```console
 sudo ./dist/tracker --capture xxx

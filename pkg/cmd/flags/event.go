@@ -61,7 +61,7 @@ func parseEventFlag(flag string) ([]eventFlag, error) {
 	//
 
 	if operatorIdx == -1 { // no operator, as a set flag
-		if strings.Contains(flag, ".") { // "openat.context.container" edge case
+		if strings.Contains(flag, ".") { // "openat.scope.container" edge case
 			evtParts, err := getEventFilterParts(flag, flag)
 			if err != nil {
 				return []eventFlag{}, errfmt.WrapError(err)
@@ -135,15 +135,15 @@ func parseEventFlag(flag string) ([]eventFlag, error) {
 
 	return []eventFlag{
 		{
-			full:              flag,                            // "openat.args.pathname=/etc/*"
-			eventFilter:       evtFilter,                       // "openat.args.pathname"
+			full:              flag,                            // "openat.data.pathname=/etc/*"
+			eventFilter:       evtFilter,                       // "openat.data.pathname"
 			eventName:         evtParts.name,                   // "openat"
-			eventOptionType:   evtParts.optType,                // "args"
+			eventOptionType:   evtParts.optType,                // "data"
 			eventOptionName:   evtParts.optName,                // "pathname"
 			operator:          opAndValParts.operator,          // "="
 			values:            opAndValParts.values,            // "/etc/*"
 			operatorAndValues: opAndValParts.operatorAndValues, // "=/etc/*"
-			filter:            filter,                          // "args.pathname=/etc/*"
+			filter:            filter,                          // "data.pathname=/etc/*"
 		},
 	}, nil
 }

@@ -2,7 +2,7 @@
 title: TRACKER-EVENTS
 section: 1
 header: Tracker Events Flag Manual
-date: 2023/10
+date: 2024/06
 ...
 
 ## NAME
@@ -11,7 +11,7 @@ tracker **\-\-events** - Select which events to trace
 
 ## SYNOPSIS
 
-tracker **\-\-events** [<event-name1(,[-]event-name2...)\> | <[-]event-name1(,set1...)\> | <set1(,[-]event-name1,[-]event-name2...)\> | <event1.args.arg-field[=|!=]value\> | <event1.retval[=|!=|<|\>|<=|\>=]value\> | <event1.context.context-field[=|!=|<|\>|<=|\>=]value\> | <event.context.container\>] ...
+tracker **\-\-events** [<event-name1(,[-]event-name2...)\> | <[-]event-name1(,set1...)\> | <set1(,[-]event-name1,[-]event-name2...)\> | <event1.data.data-field[=|!=]value\> | <event1.retval[=|!=|<|\>|<=|\>=]value\> | <event1.scope.field[=|!=|<|\>|<=|\>=]value\> | <event.scope.container\>] ...
 
 ## DESCRIPTION
 
@@ -21,11 +21,11 @@ The **\-\-events** flag allows you to select which events to trace by defining f
 
 - Event or set name: Select specific events using 'event-name1,event-name2...' or predefined event sets using 'event_set_name1,event_set_name2...'. To exclude events, prepend the event name with a dash '-': '-event-name'.
 
-- Event arguments: Filter events based on their arguments using 'event-name.args.event_arg'. The event argument expression follows the syntax of a string expression.
+- Event data: Filter events based on their data using 'event-name.data.event_data'. The event data expression follows the syntax of a string expression.
 
 - Event return value: Filter events based on their return value using 'event-name.retval'. The event return value expression follows the syntax of a numerical expression.
 
-- Event context fields: Filter events based on the non-argument fields defined in the trace.Event struct using 'event-name.context.field'. Refer to the json tags in the trace.Event struct located in the types/trace package for the correct field names, and the event filtering section in the documentation for a full list.
+- Event scope fields: Filter events based on the non-argument fields defined in the trace.Event struct using 'event-name.scope.field'. Refer to the json tags in the trace.Event struct located in the types/trace package for the correct field names, and the event filtering section in the documentation for a full list.
 
 ## FILTER EXPRESSION
 
@@ -40,7 +40,7 @@ Multiple flags are combined with AND logic, while multiple values within a singl
 Available for:
 
 - return value
-- context fields
+- scope fields
 
 NOTE: Expressions containing '<' or '\>' tokens must be escaped!
 
@@ -52,7 +52,7 @@ Available for:
 
 - event arguments
 - return value
-- context fields
+- scope fields
 
 Strings can be compared as a prefix if ending with '\*', or as a suffix if starting with '\*'.
 
@@ -101,35 +101,35 @@ Available only for:
 - To trace only 'close' events that have 'fd' equal to 5, use the following flag:
 
   ```console
-  --events close.args.fd=5
+  --events close.data.fd=5
   ```
 
 - To trace only 'openat' events that have 'pathname' prefixed by '/tmp', use the following flag:
 
   ```console
-  --events openat.args.pathname='/tmp*'
+  --events openat.data.pathname='/tmp*'
   ```
 
 - To trace only 'openat' events that have 'pathname' suffixed by 'shadow', use the following flag:
 
   ```console
-  --events openat.args.pathname='*shadow'
+  --events openat.data.pathname='*shadow'
   ```
 
 - To exclude 'openat' events that have 'pathname' equal to '/tmp/1' or '/bin/ls', use the following flag:
 
   ```console
-  --events openat.args.pathname!=/tmp/1,/bin/ls
+  --events openat.data.pathname!=/tmp/1,/bin/ls
   ```
 
 - To trace only 'openat' events that have 'processName' equal to 'ls', use the following flag:
 
   ```console
-  --events openat.context.processName=ls
+  --events openat.scope.processName=ls
   ```
 
 - To trace only 'security_file_open' events coming from a container, use the following flag:
 
   ```console
-  --events security_file_open.context.container
+  --events security_file_open.scope.container
   ```

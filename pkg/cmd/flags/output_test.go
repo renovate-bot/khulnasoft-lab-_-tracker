@@ -116,37 +116,6 @@ func TestPrepareOutput(t *testing.T) {
 			},
 		},
 		{
-			testName:    "gob to stdout",
-			outputSlice: []string{"gob"},
-			expectedOutput: PrepareOutputResult{
-				PrinterConfigs: []config.PrinterConfig{
-					{Kind: "gob", OutPath: "stdout"},
-				},
-				TrackerConfig: &config.OutputConfig{},
-			},
-		},
-		{
-			testName:    "gob to stdout",
-			outputSlice: []string{"gob"},
-			expectedOutput: PrepareOutputResult{
-				PrinterConfigs: []config.PrinterConfig{
-					{Kind: "gob", OutPath: "stdout"},
-				},
-				TrackerConfig: &config.OutputConfig{},
-			},
-		},
-		{
-			testName:    "gob to /tmp/gob1,/tmp/gob2",
-			outputSlice: []string{"gob:/tmp/gob1,/tmp/gob2"},
-			expectedOutput: PrepareOutputResult{
-				PrinterConfigs: []config.PrinterConfig{
-					{Kind: "gob", OutPath: "/tmp/gob1"},
-					{Kind: "gob", OutPath: "/tmp/gob2"},
-				},
-				TrackerConfig: &config.OutputConfig{},
-			},
-		},
-		{
 			testName:    "table-verbose to stdout",
 			outputSlice: []string{"table-verbose"},
 			expectedOutput: PrepareOutputResult{
@@ -182,7 +151,6 @@ func TestPrepareOutput(t *testing.T) {
 			outputSlice: []string{
 				"table",
 				"json:/tmp/json,/tmp/json2",
-				"gob:/tmp/gob1",
 				"gotemplate=template.tmpl:/tmp/gotemplate1",
 			},
 			expectedOutput: PrepareOutputResult{
@@ -190,7 +158,6 @@ func TestPrepareOutput(t *testing.T) {
 					{Kind: "table", OutPath: "stdout"},
 					{Kind: "json", OutPath: "/tmp/json"},
 					{Kind: "json", OutPath: "/tmp/json2"},
-					{Kind: "gob", OutPath: "/tmp/gob1"},
 					{Kind: "gotemplate=template.tmpl", OutPath: "/tmp/gotemplate1"},
 				},
 				TrackerConfig: &config.OutputConfig{
@@ -332,10 +299,33 @@ func TestPrepareOutput(t *testing.T) {
 					{Kind: "table", OutPath: "stdout"},
 				},
 				TrackerConfig: &config.OutputConfig{
-					ExecHash:       true,
+					CalcHashes:     config.CalcHashesDevInode,
 					ParseArguments: true,
 				},
 			},
+		},
+		{
+			testName:    "option exec-hash=inode",
+			outputSlice: []string{"option:exec-hash=inode"},
+			expectedOutput: PrepareOutputResult{
+				PrinterConfigs: []config.PrinterConfig{
+					{Kind: "table", OutPath: "stdout"},
+				},
+				TrackerConfig: &config.OutputConfig{
+					CalcHashes:     config.CalcHashesInode,
+					ParseArguments: true,
+				},
+			},
+		},
+		{
+			testName:      "option exec-hash invalid",
+			outputSlice:   []string{"option:exec-hash=notvalid"},
+			expectedError: errors.New("invalid output option: exec-hash=notvalid, use '--output help' for more info"),
+		},
+		{
+			testName:      "option exec-hash invalid",
+			outputSlice:   []string{"option:exec-hasha"},
+			expectedError: errors.New("invalid output option: exec-hasha, use '--output help' for more info"),
 		},
 		{
 			testName:    "option parse-arguments",
@@ -382,7 +372,7 @@ func TestPrepareOutput(t *testing.T) {
 				"option:stack-addresses",
 				"option:exec-env",
 				"option:relative-time",
-				"option:exec-hash",
+				"option:exec-hash=dev-inode",
 				"option:parse-arguments",
 				"option:parse-arguments-fds",
 				"option:sort-events",
@@ -395,7 +385,7 @@ func TestPrepareOutput(t *testing.T) {
 					StackAddresses:    true,
 					ExecEnv:           true,
 					RelativeTime:      true,
-					ExecHash:          true,
+					CalcHashes:        config.CalcHashesDevInode,
 					ParseArguments:    true,
 					ParseArgumentsFDs: true,
 					EventsSorting:     true,
@@ -404,10 +394,10 @@ func TestPrepareOutput(t *testing.T) {
 		},
 	}
 	for _, testcase := range testCases {
-		testcase := testcase
+		// testcase := testcase
 
 		t.Run(testcase.testName, func(t *testing.T) {
-			t.Parallel()
+			// t.Parallel()
 
 			output, err := PrepareOutput(testcase.outputSlice, false)
 			if err != nil {

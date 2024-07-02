@@ -32,20 +32,20 @@ type FileInfo struct {
 }
 
 // NewFileInfo creates a new file.
-func NewFileInfo() *FileInfo {
+func NewFileInfo(maxLogSize int) *FileInfo {
 	return &FileInfo{
-		path:      ch.NewChangelog[string](),
-		dev:       ch.NewChangelog[int](),
-		ctime:     ch.NewChangelog[int](),
-		inode:     ch.NewChangelog[int](),
-		inodeMode: ch.NewChangelog[int](),
+		path:      ch.NewChangelog[string](maxLogSize),
+		dev:       ch.NewChangelog[int](maxLogSize),
+		ctime:     ch.NewChangelog[int](maxLogSize),
+		inode:     ch.NewChangelog[int](maxLogSize),
+		inodeMode: ch.NewChangelog[int](maxLogSize),
 		mutex:     &sync.RWMutex{},
 	}
 }
 
 // NewFileInfoFeed creates a new file with values from the given feed.
-func NewFileInfoFeed(feed FileInfoFeed) *FileInfo {
-	new := NewFileInfo()
+func NewFileInfoFeed(maxLogSize int, feed FileInfoFeed) *FileInfo {
+	new := NewFileInfo(maxLogSize)
 	new.SetFeed(feed)
 	return new
 }
@@ -66,9 +66,19 @@ func (fi *FileInfo) SetFeedAt(feed FileInfoFeed, targetTime time.Time) {
 	fi.setFeedAt(feed, targetTime)
 }
 
+// Paths theoretically has no limit, but we do need to set a limit for the sake of
+// managing memory more responsibly.
+const MaxPathLen = 1024
+
 func (fi *FileInfo) setFeedAt(feed FileInfoFeed, targetTime time.Time) {
 	if feed.Path != "" {
-		fi.path.Set(feed.Path, targetTime)
+		filePath := feed.Path
+		if len(filePath) > MaxPathLen {
+			// Take only the end of the path, as the specific file name and location are the most
+			// important parts.
+			filePath = filePath[len(filePath)-MaxPathLen:]
+		}
+		fi.path.Set(filePath, targetTime)
 	}
 	if feed.Dev >= 0 {
 		fi.dev.Set(feed.Dev, targetTime)

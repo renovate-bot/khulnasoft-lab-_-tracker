@@ -7,9 +7,9 @@ import (
 	"github.com/containerd/containerd"
 	"github.com/containerd/containerd/containers"
 	"github.com/containerd/containerd/namespaces"
-	cri "github.com/kubernetes/cri-api/pkg/apis/runtime/v1alpha2"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	cri "k8s.io/cri-api/pkg/apis/runtime/v1"
 
 	"github.com/khulnasoft-lab/tracker/pkg/errfmt"
 	"github.com/khulnasoft-lab/tracker/pkg/logger"
@@ -30,7 +30,7 @@ func ContainerdEnricher(socket string) (ContainerEnricher, error) {
 		return nil, errfmt.WrapError(err)
 	}
 
-	conn, err := grpc.Dial(unixSocket, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(unixSocket, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		if errC := client.Close(); errC != nil {
 			logger.Errorw("Closing containerd connection", "error", errC)

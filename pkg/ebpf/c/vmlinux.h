@@ -478,8 +478,9 @@ struct alloc_context {
 };
 
 struct socket {
-    struct sock *sk;
+    short type;
     struct file *file;
+    struct sock *sk;
 };
 
 typedef struct {
@@ -589,17 +590,12 @@ struct msghdr {
 typedef s64 ktime_t;
 
 struct sk_buff {
-    __u16 transport_header;
     __u16 network_header;
     union {
         ktime_t tstamp;
         u64 skb_mstamp_ns;
     };
     unsigned char *head;
-    unsigned char *data;
-    u32 len;
-    u16 mac_len;
-    u16 hdr_len;
 };
 
 struct linux_binprm {
@@ -628,7 +624,7 @@ struct inode {
     umode_t i_mode;
     struct super_block *i_sb;
     long unsigned int i_ino;
-    struct timespec64 i_ctime;
+    struct timespec64 __i_ctime;
     loff_t i_size;
     struct file_operations *i_fop;
 };
@@ -901,6 +897,11 @@ struct kprobe {
 };
 
 struct seq_file {
+};
+
+struct rlimit {
+    u64 rlim_cur;
+    u64 rlim_max;
 };
 
 struct seq_operations {

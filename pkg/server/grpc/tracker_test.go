@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	pb "github.com/khulnasoft-lab/tracker/api/v1beta1"
+	"github.com/khulnasoft-lab/tracker/pkg/events"
 	"github.com/khulnasoft-lab/tracker/types/trace"
 )
 
@@ -26,7 +27,7 @@ func Test_convertEventWithProcessContext(t *testing.T) {
 		HostParentProcessID: 6,
 		UserID:              7,
 		ProcessName:         "processTest",
-		EventID:             8,
+		EventID:             int(events.Execve),
 		EventName:           "eventTest",
 		MatchedPolicies:     []string{"policyTest"},
 		Syscall:             "syscall",
@@ -39,17 +40,17 @@ func Test_convertEventWithProcessContext(t *testing.T) {
 	protoEvent, err := convertTrackerEventToProto(traceEvent)
 	assert.NoError(t, err)
 
-	assert.Equal(t, uint32(1), protoEvent.Context.Process.NamespacedPid.Value)
-	assert.Equal(t, uint32(2), protoEvent.Context.Process.Thread.NamespacedTid.Value)
-	assert.Equal(t, uint32(3), protoEvent.Context.Process.Pid.Value)
-	assert.Equal(t, uint32(4), protoEvent.Context.Process.Thread.Tid.Value)
-	assert.Equal(t, uint32(5), protoEvent.Context.Process.Parent.NamespacedPid.Value)
-	assert.Equal(t, uint32(6), protoEvent.Context.Process.Parent.Pid.Value)
+	assert.Equal(t, uint32(1), protoEvent.Context.Process.Pid.Value)
+	assert.Equal(t, uint32(2), protoEvent.Context.Process.Thread.Tid.Value)
+	assert.Equal(t, uint32(3), protoEvent.Context.Process.HostPid.Value)
+	assert.Equal(t, uint32(4), protoEvent.Context.Process.Thread.HostTid.Value)
+	assert.Equal(t, uint32(5), protoEvent.Context.Process.Ancestors[0].Pid.Value)
+	assert.Equal(t, uint32(6), protoEvent.Context.Process.Ancestors[0].HostPid.Value)
 	assert.Equal(t, uint32(7), protoEvent.Context.Process.RealUser.Id.Value)
-	assert.Equal(t, uint32(8), protoEvent.Id)
-	assert.Equal(t, uint32(9), protoEvent.Context.Process.Thread.EntityId.Value)
-	assert.Equal(t, uint32(10), protoEvent.Context.Process.EntityId.Value)
-	assert.Equal(t, uint32(11), protoEvent.Context.Process.Parent.EntityId.Value)
+	assert.Equal(t, pb.EventId_execve, protoEvent.Id)
+	assert.Equal(t, uint32(9), protoEvent.Context.Process.Thread.UniqueId.Value)
+	assert.Equal(t, uint32(10), protoEvent.Context.Process.UniqueId.Value)
+	assert.Equal(t, uint32(11), protoEvent.Context.Process.Ancestors[0].UniqueId.Value)
 	assert.Equal(t, "eventTest", protoEvent.Name)
 	assert.Equal(t, []string{"policyTest"}, protoEvent.Policies.Matched)
 	assert.Equal(t, "processTest", protoEvent.Context.Process.Thread.Name)

@@ -36,7 +36,8 @@ spec:
             - --config
             - /tracker/config.yaml
           {{- if .Values.webhook }}
-            - --output webhook:{{ .Values.webhook }}
+            - --output
+            - webhook:{{ .Values.webhook }}
           {{- end }}
           env:
             - name: LIBBPFGO_OSRELEASE_FILE
@@ -75,6 +76,12 @@ spec:
               readOnly: true
               mountPath: /tracker/config.yaml
               subPath: config.yaml
+            {{- range .Values.extraWebhookTemplates }}
+            - name: tracker-templates
+              readonly: true
+              mountPath: "/tracker/templates/{{ .name }}"
+              subPath: {{ .name }}
+            {{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
       {{- with .Values.nodeSelector }}
@@ -111,3 +118,8 @@ spec:
         - name: tracker-config
           configMap:
             name: tracker-config
+        {{- if .Values.extraWebhookTemplates }}
+        - name: "tracker-templates"
+          configMap:
+            name: tracker-templates
+        {{- end }}

@@ -37,27 +37,12 @@ func init() {
 		"Define which signature events to load",
 	)
 
-	// TODO: decide if we want to bind this flag to viper, since we already have a similar
-	// flag in rootCmd, conflicting with each other.
-	// The same goes for the other flags (signatures-dir, rego), also in rootCmd.
-	//
-	// err := viper.BindPFlag("events", analyze.Flags().Lookup("events"))
-	// if err != nil {
-	// 	fmt.Fprintf(os.Stderr, "Error: %s\n", err)
-	// 	os.Exit(1)
-	// }
-
 	// signatures-dir
 	analyze.Flags().StringArray(
 		"signatures-dir",
 		[]string{},
 		"Directory where to search for signatures in OPA (.rego) and Go plugin (.so) formats",
 	)
-	// err = viper.BindPFlag("signatures-dir", analyze.Flags().Lookup("signatures-dir"))
-	// if err != nil {
-	// 	fmt.Fprintf(os.Stderr, "Error: %s\n", err)
-	// 	os.Exit(1)
-	// }
 
 	// rego
 	analyze.Flags().StringArray(
@@ -65,11 +50,13 @@ func init() {
 		[]string{},
 		"Control event rego settings",
 	)
-	// err = viper.BindPFlag("rego", analyze.Flags().Lookup("rego"))
-	// if err != nil {
-	// 	fmt.Fprintf(os.Stderr, "Error: %s\n", err)
-	// 	os.Exit(1)
-	// }
+
+	analyze.Flags().StringArrayP(
+		"log",
+		"l",
+		[]string{"info"},
+		"Logger options [debug|info|warn...]",
+	)
 }
 
 var analyze = &cobra.Command{
@@ -84,7 +71,21 @@ Tracker can be used to collect events and store it in a file. This file can be u
 eg:
 tracker --events ptrace --output=json:events.json
 tracker analyze --events anti_debugging events.json`,
+	PreRun: func(cmd *cobra.Command, args []string) {
+		bindViperFlag(cmd, "events")
+		bindViperFlag(cmd, "log")
+		bindViperFlag(cmd, "rego")
+		bindViperFlag(cmd, "signatures-dir")
+	},
 	Run: func(cmd *cobra.Command, args []string) {
+		logFlags := viper.GetStringSlice("log")
+
+		logCfg, err := flags.PrepareLogger(logFlags, true)
+		if err != nil {
+			logger.Fatalw("Failed to prepare logger", "error", err)
+		}
+		logger.Init(logCfg)
+
 		inputFile, err := os.Open(args[0])
 		if err != nil {
 			logger.Fatalw("Failed to get signatures-dir flag", "err", err)
@@ -105,7 +106,7 @@ tracker analyze --events anti_debugging events.json`,
 			signatureEvents = nil
 		}
 
-		sigs, err := signature.Find(
+		sigs, _, err := signature.Find(
 			rego.RuntimeTarget,
 			rego.PartialEval,
 			viper.GetStringSlice("signatures-dir"),
@@ -121,9 +122,13 @@ tracker analyze --events anti_debugging events.json`,
 			logger.Fatalw("No signature event loaded")
 		}
 
-		fmt.Printf("Loading %d signature events\n", len(sigs))
+		logger.Infow(
+			"Signatures loaded",
+			"total", len(sigs),
+			"signatures", getSigsNames(sigs),
+		)
 
-		initialize.CreateEventsFromSignatures(events.StartSignatureID, sigs)
+		_ = initialize.CreateEventsFromSignatures(events.StartSignatureID, sigs)
 
 		engineConfig := engine.Config{
 			Signatures:          sigs,
@@ -133,37 +138,45 @@ tracker analyze --events anti_debugging events.json`,
 		ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 		defer stop()
 
-		engineOutput := make(chan detect.Finding)
+		engineOutput := make(chan *detect.Finding)
 		engineInput := make(chan protocol.Event)
-		producerFinished := make(chan interface{})
 
 		source := engine.EventSources{Tracker: engineInput}
 		sigEngine, err := engine.NewEngine(engineConfig, source, engineOutput)
 		if err != nil {
 			logger.Fatalw("Failed to create engine", "err", err)
 		}
+
+		err = sigEngine.Init()
+		if err != nil {
+			logger.Fatalw("failed to initialize signature engine", "err", err)
+		}
+
 		go sigEngine.Start(ctx)
 
 		// producer
-		go produce(ctx, producerFinished, inputFile, engineInput)
+		go produce(ctx, inputFile, engineInput)
 
 		// consumer
 		for {
 			select {
-			case finding := <-engineOutput:
+			case finding, ok := <-engineOutput:
+				if !ok {
+					return
+				}
 				process(finding)
-			case <-producerFinished:
-				goto drain // producer finished, drain and process all remaining events
 			case <-ctx.Done():
 				goto drain
 			}
 		}
-
 	drain:
 		// drain
 		for {
 			select {
-			case finding := <-engineOutput:
+			case finding, ok := <-engineOutput:
+				if !ok {
+					return
+				}
 				process(finding)
 			default:
 				return
@@ -173,7 +186,10 @@ tracker analyze --events anti_debugging events.json`,
 	DisableFlagsInUseLine: true,
 }
 
-func produce(ctx context.Context, done chan interface{}, inputFile *os.File, engineInput chan protocol.Event) {
+func produce(ctx context.Context, inputFile *os.File, engineInput chan protocol.Event) {
+	// ensure the engineInput channel will be closed
+	defer close(engineInput)
+
 	scanner := bufio.NewScanner(inputFile)
 	scanner.Split(bufio.ScanLines)
 	for {
@@ -182,7 +198,6 @@ func produce(ctx context.Context, done chan interface{}, inputFile *os.File, eng
 			return
 		default:
 			if !scanner.Scan() { // if EOF or error close the done channel and return
-				close(done)
 				return
 			}
 
@@ -196,7 +211,7 @@ func produce(ctx context.Context, done chan interface{}, inputFile *os.File, eng
 	}
 }
 
-func process(finding detect.Finding) {
+func process(finding *detect.Finding) {
 	event, err := tracker.FindingToEvent(finding)
 	if err != nil {
 		logger.Fatalw("Failed to convert finding to event", "err", err)
@@ -208,4 +223,24 @@ func process(finding detect.Finding) {
 	}
 
 	fmt.Println(string(jsonEvent))
+}
+
+func bindViperFlag(cmd *cobra.Command, flag string) {
+	err := viper.BindPFlag(flag, cmd.Flags().Lookup(flag))
+	if err != nil {
+		logger.Fatalw("Error binding viper flag", "flag", flag, "error", err)
+	}
+}
+
+func getSigsNames(sigs []detect.Signature) []string {
+	var sigsNames []string
+	for _, sig := range sigs {
+		sigMeta, err := sig.GetMetadata()
+		if err != nil {
+			logger.Warnw("Failed to get signature metadata", "err", err)
+			continue
+		}
+		sigsNames = append(sigsNames, sigMeta.Name)
+	}
+	return sigsNames
 }

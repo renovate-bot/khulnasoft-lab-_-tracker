@@ -8,13 +8,13 @@ import (
 	"unsafe"
 
 	bpf "github.com/khulnasoft-lab/libbpfgo"
-	"github.com/khulnasoft-lab/libbpfgo/helpers"
 
 	"github.com/khulnasoft-lab/tracker/pkg/capabilities"
 	"github.com/khulnasoft-lab/tracker/pkg/events"
 	"github.com/khulnasoft-lab/tracker/pkg/events/derive"
 	"github.com/khulnasoft-lab/tracker/pkg/logger"
 	"github.com/khulnasoft-lab/tracker/pkg/utils"
+	"github.com/khulnasoft-lab/tracker/pkg/utils/environment"
 )
 
 var expectedSyscallTableInit = false
@@ -78,7 +78,7 @@ func (t *Tracker) isAboveSatisfied(aboveRequirement string) (bool, error) {
 		return false, err
 	}
 
-	if kerVerCmpAbove == helpers.KernelVersionOlder || kerVerCmpAbove == helpers.KernelVersionEqual { // above requirement is older/equal running kernel (aka satisfies requirement)
+	if kerVerCmpAbove == environment.KernelVersionOlder || kerVerCmpAbove == environment.KernelVersionEqual { // above requirement is older/equal running kernel (aka satisfies requirement)
 		return true, nil
 	}
 
@@ -92,7 +92,7 @@ func (t *Tracker) isBelowSatisfied(belowRequirement string) (bool, error) {
 		return false, err
 	}
 
-	if kerVerCmpBelow == helpers.KernelVersionNewer { // below requirement is newer than running kernel (aka satisfies requirement)
+	if kerVerCmpBelow == environment.KernelVersionNewer { // below requirement is newer than running kernel (aka satisfies requirement)
 		return true, nil
 	}
 
@@ -159,17 +159,17 @@ func (t *Tracker) getSyscallNameByKerVer(restrictions []events.KernelRestriction
 // populateExpectedSyscallTableArray fills the expected values of the syscall table
 func (t *Tracker) populateExpectedSyscallTableArray(tableMap *bpf.BPFMap) error {
 	// Get address to the function that defines the not implemented sys call
-	niSyscallSymbol, err := t.kernelSymbols.GetSymbolByName("system", events.SyscallPrefix+"ni_syscall")
+	niSyscallSymbol, err := t.kernelSymbols.GetSymbolByOwnerAndName("system", events.SyscallPrefix+"ni_syscall")
 	if err != nil {
 		e := err
 		// RHEL 8.x uses sys_ni_syscall instead of __arch_ni_syscall
-		niSyscallSymbol, err = t.kernelSymbols.GetSymbolByName("system", "sys_ni_syscall")
+		niSyscallSymbol, err = t.kernelSymbols.GetSymbolByOwnerAndName("system", "sys_ni_syscall")
 		if err != nil {
 			logger.Debugw("hooked_syscall: syscall symbol not found", "name", "sys_ni_syscall")
 			return e
 		}
 	}
-	niSyscallAddress := niSyscallSymbol.Address
+	niSyscallAddress := niSyscallSymbol[0].Address
 
 	for i, kernelRestrictionArr := range events.SyscallSymbolNames {
 		syscallName := t.getSyscallNameByKerVer(kernelRestrictionArr)
@@ -187,13 +187,13 @@ func (t *Tracker) populateExpectedSyscallTableArray(tableMap *bpf.BPFMap) error 
 			continue
 		}
 
-		kernelSymbol, err := t.kernelSymbols.GetSymbolByName("system", events.SyscallPrefix+syscallName)
+		kernelSymbol, err := t.kernelSymbols.GetSymbolByOwnerAndName("system", events.SyscallPrefix+syscallName)
 		if err != nil {
 			logger.Errorw("hooked_syscall: syscall symbol not found", "id", index)
 			return err
 		}
 
-		var expectedAddress = kernelSymbol.Address
+		var expectedAddress = kernelSymbol[0].Address
 		err = tableMap.Update(unsafe.Pointer(&index), unsafe.Pointer(&expectedAddress))
 		if err != nil {
 			return err

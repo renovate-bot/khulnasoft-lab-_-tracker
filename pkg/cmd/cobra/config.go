@@ -377,7 +377,6 @@ type OutputConfig struct {
 	Table        OutputFormatConfig             `mapstructure:"table"`
 	TableVerbose OutputFormatConfig             `mapstructure:"table-verbose"`
 	JSON         OutputFormatConfig             `mapstructure:"json"`
-	Gob          OutputFormatConfig             `mapstructure:"gob"`
 	GoTemplate   OutputGoTemplateConfig         `mapstructure:"gotemplate"`
 	Forwards     map[string]OutputForwardConfig `mapstructure:"forward"`
 	Webhooks     map[string]OutputWebhookConfig `mapstructure:"webhook"`
@@ -399,8 +398,8 @@ func (c *OutputConfig) flags() []string {
 	if c.Options.RelativeTime {
 		flags = append(flags, "option:relative-time")
 	}
-	if c.Options.ExecHash {
-		flags = append(flags, "option:exec-hash")
+	if c.Options.ExecHash != "" {
+		flags = append(flags, fmt.Sprintf("option:exec-hash=%s", c.Options.ExecHash))
 	}
 	if c.Options.ParseArguments {
 		flags = append(flags, "option:parse-arguments")
@@ -417,7 +416,6 @@ func (c *OutputConfig) flags() []string {
 		"table":         c.Table.Files,
 		"table-verbose": c.TableVerbose.Files,
 		"json":          c.JSON.Files,
-		"gob":           c.Gob.Files,
 	}
 	for format, files := range formatFilesMap {
 		for _, file := range files {
@@ -456,15 +454,18 @@ func (c *OutputConfig) flags() []string {
 	// webhook
 	for webhookName, webhook := range c.Webhooks {
 		_ = webhookName
+		delim := "?"
 		url := fmt.Sprintf("%s://%s:%d", webhook.Protocol, webhook.Host, webhook.Port)
 		if webhook.Timeout != "" {
-			url += fmt.Sprintf("?timeout=%s", webhook.Timeout)
+			url += fmt.Sprintf("%stimeout=%s", delim, webhook.Timeout)
+			delim = "&"
 		}
 		if webhook.GoTemplate != "" {
-			url += fmt.Sprintf("?gotemplate=%s", webhook.GoTemplate)
+			url += fmt.Sprintf("%sgotemplate=%s", delim, webhook.GoTemplate)
+			delim = "&"
 		}
 		if webhook.ContentType != "" {
-			url += fmt.Sprintf("?contentType=%s", webhook.ContentType)
+			url += fmt.Sprintf("%scontentType=%s", delim, webhook.ContentType)
 		}
 
 		flags = append(flags, fmt.Sprintf("webhook:%s", url))
@@ -474,14 +475,14 @@ func (c *OutputConfig) flags() []string {
 }
 
 type OutputOptsConfig struct {
-	None              bool `mapstructure:"none"`
-	StackAddresses    bool `mapstructure:"stack-addresses"`
-	ExecEnv           bool `mapstructure:"exec-env"`
-	RelativeTime      bool `mapstructure:"relative-time"`
-	ExecHash          bool `mapstructure:"exec-hash"`
-	ParseArguments    bool `mapstructure:"parse-arguments"`
-	ParseArgumentsFDs bool `mapstructure:"parse-arguments-fds"`
-	SortEvents        bool `mapstructure:"sort-events"`
+	None              bool   `mapstructure:"none"`
+	StackAddresses    bool   `mapstructure:"stack-addresses"`
+	ExecEnv           bool   `mapstructure:"exec-env"`
+	RelativeTime      bool   `mapstructure:"relative-time"`
+	ExecHash          string `mapstructure:"exec-hash"`
+	ParseArguments    bool   `mapstructure:"parse-arguments"`
+	ParseArgumentsFDs bool   `mapstructure:"parse-arguments-fds"`
+	SortEvents        bool   `mapstructure:"sort-events"`
 }
 
 type OutputFormatConfig struct {

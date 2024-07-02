@@ -11,12 +11,14 @@ import (
 	pb "github.com/khulnasoft-lab/tracker/api/v1beta1"
 	tracker "github.com/khulnasoft-lab/tracker/pkg/ebpf"
 	"github.com/khulnasoft-lab/tracker/pkg/logger"
+	"github.com/khulnasoft-lab/tracker/pkg/signatures/engine"
 )
 
 type Server struct {
 	listener   net.Listener
 	protocol   string
 	listenAddr string
+	server     *grpc.Server
 }
 
 func New(protocol, listenAddr string) (*Server, error) {
@@ -32,7 +34,7 @@ func New(protocol, listenAddr string) (*Server, error) {
 	return &Server{listener: lis, protocol: protocol, listenAddr: listenAddr}, nil
 }
 
-func (s *Server) Start(ctx context.Context, t *tracker.Tracker) {
+func (s *Server) Start(ctx context.Context, t *tracker.Tracker, e *engine.Engine) {
 	srvCtx, srvCancel := context.WithCancel(ctx)
 	defer srvCancel()
 
@@ -43,8 +45,10 @@ func (s *Server) Start(ctx context.Context, t *tracker.Tracker) {
 	}
 
 	grpcServer := grpc.NewServer(grpc.KeepaliveParams(keepaliveParams))
+	s.server = grpcServer
 	pb.RegisterTrackerServiceServer(grpcServer, &TrackerService{tracker: t})
 	pb.RegisterDiagnosticServiceServer(grpcServer, &DiagnosticService{tracker: t})
+	pb.RegisterDataSourceServiceServer(grpcServer, &DataSourceService{sigEngine: e})
 
 	go func() {
 		logger.Debugw("Starting grpc server", "protocol", s.protocol, "address", s.listenAddr)
@@ -57,8 +61,13 @@ func (s *Server) Start(ctx context.Context, t *tracker.Tracker) {
 	select {
 	case <-ctx.Done():
 		logger.Debugw("Context cancelled, shutting down grpc server")
-		grpcServer.GracefulStop()
+		s.cleanup()
 	// if server error occurred while base ctx is not done, we should exit via this case
 	case <-srvCtx.Done():
+		s.cleanup()
 	}
+}
+
+func (s *Server) cleanup() {
+	s.server.GracefulStop()
 }

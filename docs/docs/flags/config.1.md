@@ -2,7 +2,7 @@
 title: TRACKER-CONFIG
 section: 1
 header: Tracker Config Flag Manual
-date: 2023/10
+date: 2024/06
 ...
 
 ## NAME

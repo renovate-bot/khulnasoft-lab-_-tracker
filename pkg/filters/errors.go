@@ -24,12 +24,12 @@ func InvalidEventName(event string) error {
 	return fmt.Errorf("invalid event name in filter: %s", event)
 }
 
-func InvalidEventArgument(argument string) error {
-	return fmt.Errorf("invalid filter event argument: %s", argument)
+func InvalidEventData(data string) error {
+	return fmt.Errorf("invalid filter event data: %s", data)
 }
 
-func InvalidContextField(field string) error {
-	return fmt.Errorf("invalid event context field: %s", field)
+func InvalidScopeField(field string) error {
+	return fmt.Errorf("invalid event scope field: %s", field)
 }
 
 func FailedToRetreiveHostNS() error {

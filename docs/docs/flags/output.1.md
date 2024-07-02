@@ -2,7 +2,7 @@
 title: TRACKER-OUTPUT
 section: 1
 header: Tracker Output Flag Manual
-date: 2023/10
+date: 2024/06
 ...
 
 ## NAME
@@ -11,7 +11,7 @@ tracker **\-\-output** - Control how and where output is printed
 
 ## SYNOPSIS
 
-tracker **\-\-output** <format[:file,...]\> | gotemplate=template[:file,...] | forward:url | webhook:url | option:{stack-addresses,exec-env,relative-time,exec-hash,parse-arguments,parse-arguments-fds,sort-events} ...
+tracker **\-\-output** <format[:file,...]\> | gotemplate=template[:file,...] | forward:url | webhook:url | option:{stack-addresses,exec-env,relative-time,exec-hash[={inode,dev-inode,digest-inode}],parse-arguments,parse-arguments-fds,sort-events} ...
 
 
 ## DESCRIPTION
@@ -25,8 +25,6 @@ Format options:
 - **table-verbose[:/path/to/file,...]**: Output events in table format with extra fields per event. The default path to the file is stdout. Multiple file paths can be specified, separated by commas.
 
 - **json[:/path/to/file,...]**: Output events in JSON format. The default path to the file is stdout. Multiple file paths can be specified, separated by commas.
-
-- **gob[:/path/to/file,...]**: Output events in gob format. The default path to the file is stdout. Multiple file paths can be specified, separated by commas.
 
 - **gotemplate=/path/to/template[:/path/to/file,...]**: Output events formatted using a given Go template file. The default path to the file is stdout. Multiple file paths can be specified, separated by commas.
 
@@ -47,7 +45,11 @@ Other options:
   - **stack-addresses**: Include stack memory addresses for each event.
   - **exec-env**: When tracing execve/execveat, show the environment variables that were used for execution.
   - **relative-time**: Use relative timestamp instead of wall timestamp for events.
-  - **exec-hash**: When tracing sched_process_exec, show the file hash (sha256) and ctime.
+  - **exec-hash**: When tracing some file related events, show the file hash (sha256).
+    - Affected events: *sched_process_exec*, *shared_object_loaded*
+    - **inode** option recalculates the file hash if the inode's creation time (ctime) differs, which can occur in different namespaces even for identical inode. This option is performant, but not recommended and should only be used if container enrichment can't be enabled for digest-inode, and if performance is preferred over correctness.
+    - **dev-inode** (default) option generally offers better performance compared to the **inode** option, as it bypasses the need for recalculation by associating the creation time (ctime) with the device (dev) and inode pair. It's recommended if correctness is preferred over performance without container enrichment.
+    - **digest-inode**" option is the most efficient, as it keys the hash to a pair consisting of the container image digest and inode. This approach, however, necessitates container enrichment.
   - **parse-arguments**: Do not show raw machine-readable values for event arguments. Instead, parse them into human-readable strings.
   - **parse-arguments-fds**: Enable parse-arguments and enrich file descriptors (fds) with their file path translation. This can cause pipeline slowdowns.
   - **sort-events**: Enable sorting events before passing them to the output. This may decrease the overall program efficiency.
@@ -70,18 +72,6 @@ Other options:
 
   ```console
   --output gotemplate=/path/to/my.tmpl
-  ```
-
-- To output events in gob format to `/my/out`, use the following flag:
-
-  ```console
-  --output gob:/my/out
-  ```
-
-- To output events as JSON to stdout and as gob to `/my/out`, use the following flag:
-
-  ```console
-  --output json --output gob:/my/out
   ```
 
 - To output events as JSON to both `/my/out` and `/my/out2`, use the following flag:

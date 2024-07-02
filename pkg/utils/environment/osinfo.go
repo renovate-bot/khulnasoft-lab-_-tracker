@@ -241,7 +241,7 @@ func (btfi *OSInfo) discoverOSDistro() error {
 	return nil
 }
 
-func Ftrackernabled() (bool, error) {
+func FtraceEnabled() (bool, error) {
 	b, err := os.ReadFile("/proc/sys/kernel/ftrace_enabled")
 	if err != nil {
 		return false, fmt.Errorf("could not read from ftrace_enabled file: %s", err.Error())

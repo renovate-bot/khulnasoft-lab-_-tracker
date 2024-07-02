@@ -2,18 +2,19 @@ package printer
 
 import (
 	"bytes"
-	"encoding/gob"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"text/template"
 	"time"
 
 	forward "github.com/IBM/fluent-forward-go/fluent/client"
+	"github.com/Masterminds/sprig/v3"
 
 	"github.com/khulnasoft-lab/tracker/pkg/config"
 	"github.com/khulnasoft-lab/tracker/pkg/errfmt"
@@ -62,10 +63,6 @@ func New(cfg config.PrinterConfig) (EventPrinter, error) {
 		}
 	case kind == "json":
 		res = &jsonEventPrinter{
-			out: cfg.OutFile,
-		}
-	case kind == "gob":
-		res = &gobEventPrinter{
 			out: cfg.OutFile,
 		}
 	case kind == "forward":
@@ -324,10 +321,19 @@ func (p tableEventPrinter) Print(event trace.Event) {
 		}
 	}
 	for i, arg := range event.Args {
+		name := arg.Name
+		value := arg.Value
+
+		// triggeredBy from pkg/ebpf/finding.go breaks the table output,
+		// so we simplify it
+		if name == "triggeredBy" {
+			value = fmt.Sprintf("%s", value.(map[string]interface{})["name"])
+		}
+
 		if i == 0 {
-			fmt.Fprintf(p.out, "%s: %v", arg.Name, arg.Value)
+			fmt.Fprintf(p.out, "%s: %v", name, value)
 		} else {
-			fmt.Fprintf(p.out, ", %s: %v", arg.Name, arg.Value)
+			fmt.Fprintf(p.out, ", %s: %v", name, value)
 		}
 	}
 	fmt.Fprintln(p.out)
@@ -399,71 +405,6 @@ func (p jsonEventPrinter) Print(event trace.Event) {
 func (p jsonEventPrinter) Epilogue(stats metrics.Stats) {}
 
 func (p jsonEventPrinter) Close() {
-}
-
-// gobEventPrinter is printing events using golang's builtin Gob serializer
-type gobEventPrinter struct {
-	out    io.WriteCloser
-	outEnc *gob.Encoder
-}
-
-func (p *gobEventPrinter) Init() error {
-	p.outEnc = gob.NewEncoder(p.out)
-
-	// Event Types
-
-	gob.Register(trace.Event{})
-	gob.Register(trace.SlimCred{})
-	gob.Register(make(map[string]string))
-	gob.Register(trace.PktMeta{})
-	gob.Register([]trace.HookedSymbolData{})
-	gob.Register(map[string]trace.HookedSymbolData{})
-	gob.Register([]trace.DnsQueryData{})
-	gob.Register([]trace.DnsResponseData{})
-
-	// Network Protocol Event Types
-
-	// IPv4
-	gob.Register(trace.ProtoIPv4{})
-	// IPv6
-	gob.Register(trace.ProtoIPv6{})
-	// TCP
-	gob.Register(trace.ProtoTCP{})
-	// UDP
-	gob.Register(trace.ProtoUDP{})
-	// ICMP
-	gob.Register(trace.ProtoICMP{})
-	// ICMPv6
-	gob.Register(trace.ProtoICMPv6{})
-	// DNS
-	gob.Register(trace.ProtoDNS{})
-	gob.Register(trace.ProtoDNSQuestion{})
-	gob.Register(trace.ProtoDNSResourceRecord{})
-	gob.Register(trace.ProtoDNSSOA{})
-	gob.Register(trace.ProtoDNSSRV{})
-	gob.Register(trace.ProtoDNSMX{})
-	gob.Register(trace.ProtoDNSURI{})
-	gob.Register(trace.ProtoDNSOPT{})
-	// HTTP
-	gob.Register(trace.ProtoHTTP{})
-	gob.Register(trace.ProtoHTTPRequest{})
-	gob.Register(trace.ProtoHTTPResponse{})
-
-	return nil
-}
-
-func (p *gobEventPrinter) Preamble() {}
-
-func (p *gobEventPrinter) Print(event trace.Event) {
-	err := p.outEnc.Encode(event)
-	if err != nil {
-		logger.Errorw("Error encoding event to gob", "error", err)
-	}
-}
-
-func (p *gobEventPrinter) Epilogue(stats metrics.Stats) {}
-
-func (p gobEventPrinter) Close() {
 }
 
 // ignoreEventPrinter ignores events
@@ -644,7 +585,10 @@ func (ws *webhookEventPrinter) Init() error {
 
 	gotemplate := getParameterValue(parameters, "gotemplate", "")
 	if gotemplate != "" {
-		tmpl, err := template.ParseFiles(gotemplate)
+		tmpl, err := template.New(filepath.Base(gotemplate)).
+			Funcs(sprig.TxtFuncMap()).
+			ParseFiles(gotemplate)
+
 		if err != nil {
 			return errfmt.WrapError(err)
 		}

@@ -3,18 +3,25 @@ package sets
 import (
 	"math"
 	"sort"
+
+	"golang.org/x/exp/maps"
+
+	"github.com/khulnasoft-lab/tracker/pkg/utils"
 )
 
 type SuffixSet struct {
-	Set       map[string]bool
+	Set       map[string]struct{}
 	lengthSet map[int]struct{}
 	lengths   []int
 	minLen    int
 }
 
+// Compile-time check to ensure that SuffixSet implements the Cloner interface
+var _ utils.Cloner[*SuffixSet] = &SuffixSet{}
+
 func NewSuffixSet() SuffixSet {
 	return SuffixSet{
-		Set:       map[string]bool{},
+		Set:       map[string]struct{}{},
 		lengthSet: map[int]struct{}{},
 		lengths:   []int{},
 		minLen:    math.MaxInt,
@@ -26,7 +33,7 @@ func (set *SuffixSet) Put(suffix string) {
 		return
 	}
 	suffixLength := len(suffix)
-	set.Set[suffix] = true
+	set.Set[suffix] = struct{}{}
 	if _, ok := set.lengthSet[suffixLength]; !ok {
 		set.lengthSet[suffixLength] = struct{}{}
 		set.lengths = append(set.lengths, suffixLength)
@@ -38,7 +45,8 @@ func (set *SuffixSet) Put(suffix string) {
 }
 
 func (set *SuffixSet) Exists(suffix string) bool {
-	return set.Set[suffix]
+	_, found := set.Set[suffix]
+	return found
 }
 
 func (set *SuffixSet) Filter(val string) bool {
@@ -53,7 +61,7 @@ func (set *SuffixSet) Filter(val string) bool {
 		}
 
 		check := val[lenVal-suffixLen : lenVal]
-		if set.Set[check] {
+		if _, found := set.Set[check]; found {
 			return true
 		}
 	}
@@ -62,4 +70,19 @@ func (set *SuffixSet) Filter(val string) bool {
 
 func (set *SuffixSet) Length() int {
 	return len(set.Set)
+}
+
+func (set *SuffixSet) Clone() *SuffixSet {
+	if set == nil {
+		return nil
+	}
+
+	n := NewSuffixSet()
+
+	maps.Copy(n.Set, set.Set)
+	maps.Copy(n.lengthSet, set.lengthSet)
+	n.lengths = append(n.lengths, set.lengths...)
+	n.minLen = set.minLen
+
+	return &n
 }

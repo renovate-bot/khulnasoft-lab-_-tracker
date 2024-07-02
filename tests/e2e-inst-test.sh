@@ -105,20 +105,22 @@ for TEST in $TESTS; do
             info "skip hooked_syscall test in aarch64"
             continue
         fi
-        if [[ "$VERSION_CODENAME" == "mantic" ]]; then
-            # https://github.com/khulnasoft-lab/tracker/issues/3628
-            info "skip hooked_syscall in mantic 6.5 kernel, broken"
+        "${TESTS_DIR}"/hooked_syscall.sh
+        ;;
+    FTRACE_HOOK)
+        if [[ ! -d /lib/modules/${KERNEL}/build ]]; then
+            info "skip ftrace_hook test, no kernel headers"
             continue
         fi
-        if [[ "$VERSION_CODENAME" == "jammy" ]]; then
-            if [[ "$KERNEL" == *"5.19"* ]]; then
-                kill -9 "$(pidof unattended-upgrade)"
-                export DEBIAN_FRONTEND=noninteractive
-                apt-get update
-                apt-get install -y gcc-11 gcc-12
-            fi
+        if [[ "$KERNEL" == *"amzn"* ]]; then
+            info "skip ftrace_hook test in amazon linux"
+            continue
         fi
-        "${TESTS_DIR}"/hooked_syscall.sh
+        if [[ $ARCH == "aarch64" ]]; then
+            info "skip ftrace_hook test in aarch64"
+            continue
+        fi
+        "${TESTS_DIR}"/ftrace_hook.sh
         ;;
     esac
 
@@ -137,8 +139,9 @@ for TEST in $TESTS; do
         --output option:parse-arguments \
         --log file:$SCRIPT_TMP_DIR/tracker-log-$$ \
         --signatures-dir "$SIG_DIR" \
-        --scope comm=echo,mv,ls,tracker,proctreetester,ping \
+        --scope comm=echo,mv,ls,tracker,proctreetester,ping,ds_writer,fsnotify_tester,process_execute,tracker-ebpf,writev,set_fs_pwd.sh \
         --dnscache enable \
+        --grpc-listen-addr unix:/tmp/tracker.sock \
         --events "$TEST" &
 
     # Wait tracker to start
@@ -148,7 +151,7 @@ for TEST in $TESTS; do
     while true; do
         times=$((times + 1))
         sleep 1
-        if [[ -f $TRACKER_TMP_DIR/out/tracker.pid ]]; then
+        if [[ -f $TRACKER_TMP_DIR/tracker.pid ]]; then
             info
             info "UP AND RUNNING"
             info
@@ -182,6 +185,9 @@ for TEST in $TESTS; do
     case $TEST in
     HOOKED_SYSCALL)
         # wait for tracker hooked event to be processed
+        sleep 15
+        ;;
+    FTRACE_HOOK)
         sleep 15
         ;;
     *)
@@ -226,9 +232,9 @@ for TEST in $TESTS; do
     # Make sure we exit tracker to start it again
 
     pid_tracker=$(pidof tracker | cut -d' ' -f1)
-    kill -2 "$pid_tracker"
+    kill -SIGINT "$pid_tracker"
     sleep $TRACKER_SHUTDOWN_TIMEOUT
-    kill -9 "$pid_tracker" >/dev/null 2>&1
+    kill -SIGKILL "$pid_tracker" >/dev/null 2>&1
     sleep 3
 
     # Cleanup leftovers

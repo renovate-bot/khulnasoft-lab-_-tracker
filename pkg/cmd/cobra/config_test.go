@@ -282,7 +282,7 @@ output:
     - option:stack-addresses
     - option:exec-env
     - option:relative-time
-    - option:exec-hash
+    - option:exec-hash=dev-inode
     - option:parse-arguments
     - option:parse-arguments-fds
     - option:sort-events
@@ -296,7 +296,7 @@ output:
 				"option:stack-addresses",
 				"option:exec-env",
 				"option:relative-time",
-				"option:exec-hash",
+				"option:exec-hash=dev-inode",
 				"option:parse-arguments",
 				"option:parse-arguments-fds",
 				"option:sort-events",
@@ -314,7 +314,7 @@ output:
         stack-addresses: true
         exec-env: true
         relative-time: true
-        exec-hash: true
+        exec-hash: dev-inode
         parse-arguments: true
         parse-arguments-fds: true
         sort-events: true
@@ -327,7 +327,6 @@ output:
     json:
         files:
             - /path/to/json1.out
-    gob: # this won't be present since it does not have any files
     gotemplate:
         template: template1
         files:
@@ -369,19 +368,18 @@ output:
 				"option:stack-addresses",
 				"option:exec-env",
 				"option:relative-time",
-				"option:exec-hash",
+				"option:exec-hash=dev-inode",
 				"option:parse-arguments",
 				"option:parse-arguments-fds",
 				"option:sort-events",
 				"table:file1",
 				"table-verbose:stdout",
 				"json:/path/to/json1.out",
-				// gob is not present since it does not have any files
 				"gotemplate=template1:file3,file4",
 				"forward:tcp://user:pass@127.0.0.1:24224?tag=tracker1",
 				"forward:udp://user:pass@127.0.0.1:24225?tag=tracker2",
-				"webhook:http://localhost:8000?timeout=5s?gotemplate=/path/to/template1?contentType=application/json",
-				"webhook:http://localhost:9000?timeout=3s?gotemplate=/path/to/template2?contentType=application/ld+json",
+				"webhook:http://localhost:8000?timeout=5s&gotemplate=/path/to/template1&contentType=application/json",
+				"webhook:http://localhost:9000?timeout=3s&gotemplate=/path/to/template2&contentType=application/ld+json",
 			},
 		},
 	}
@@ -986,7 +984,7 @@ func TestOutputConfigFlags(t *testing.T) {
 					StackAddresses:    true,
 					ExecEnv:           true,
 					RelativeTime:      true,
-					ExecHash:          true,
+					ExecHash:          "dev-inode",
 					ParseArguments:    true,
 					ParseArgumentsFDs: true,
 					SortEvents:        true,
@@ -997,7 +995,7 @@ func TestOutputConfigFlags(t *testing.T) {
 				"option:stack-addresses",
 				"option:exec-env",
 				"option:relative-time",
-				"option:exec-hash",
+				"option:exec-hash=dev-inode",
 				"option:parse-arguments",
 				"option:parse-arguments-fds",
 				"option:sort-events",
@@ -1081,7 +1079,7 @@ func TestOutputConfigFlags(t *testing.T) {
 				},
 			},
 			expected: []string{
-				"webhook:http://webhook.com:9090?timeout=5s?gotemplate=/path/to/template1?contentType=application/json",
+				"webhook:http://webhook.com:9090?timeout=5s&gotemplate=/path/to/template1&contentType=application/json",
 			},
 		},
 		{

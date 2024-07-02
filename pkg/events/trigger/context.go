@@ -84,13 +84,14 @@ func (store *context) Apply(event trace.Event) (trace.Event, error) {
 	invoking.EventID = event.EventID
 	invoking.ReturnValue = 0
 	invoking.Args = make([]trace.Argument, len(event.Args))
+	invoking.PoliciesVersion = event.PoliciesVersion
 	invoking.MatchedPoliciesKernel = event.MatchedPoliciesKernel
 	invoking.MatchedPoliciesUser = event.MatchedPoliciesUser
 	copied := copy(invoking.Args, event.Args)
 	if copied != len(event.Args) {
 		return trace.Event{}, errfmt.Errorf("failed to apply event's args")
 	}
-	invoking.ArgsNum = event.ArgsNum
+	invoking.ArgsNum = len(invoking.Args)
 
 	return invoking, nil
 }

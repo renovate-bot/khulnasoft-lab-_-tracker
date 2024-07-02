@@ -9,14 +9,14 @@ with other shared object already loaded to the process. This event can help in i
 occasion that a shared object tries to override some symbol of another library.
 
 ### Configuring the event
-The event is configured using arguments filtering.
+The event is configured using data filtering.
 #### symbols
 Configure the watched symbols that upon collision will trigger the event.
 Specify the full name of the symbol for each symbol.
 Notice that only watched symbols will be outputed by the event, and the default is watching all symbols.
 The use is only with the `=` or `!=` operators, and wildcards aren't supported.
 
-## Arguments
+## Data
 * `loaded_path`:`const char*`[K] - the path of the file loaded.
 * `collision_path`:`const char*`[K,TOCTOU] - the path of the file already loaded, which has collision with the new loaded one.
 * `symbols`:`const char*const*`[U,TOCTOU] - list of symbols collided between the files.
@@ -34,7 +34,7 @@ Also, used to maintain the cache used by the event for performance improvement.
 Could be used for example to catch collision between a shared object and `libc.so`, overwriting libc symbols:
 
 ```console
-./dist/tracker -e symbols_collision.args.loaded_path=/usr/lib/libc.so.6
+./dist/tracker -e symbols_collision.data.loaded_path=/usr/lib/libc.so.6
 ```
 
 Running this line will give a lot of spam symbols collision, for example collisions of `libc` with `libm`:
@@ -48,13 +48,13 @@ To reduce the spam collisions, we can configure the event to not print the colli
 1. Whitelist the collided symbols:
 
 ```console
-./dist/tracker -e symbols_collision.args.loaded_path=/usr/lib/libc.so.6 -e symbols_collision.args.symbols!=finitel,__signbitf,finite,frexpl,frexp,scalbn,__finite,copysignl,scalbnf,__signbitl,scalbnl,copysign,copysignf,ldexpf,modff,modf,ldexp,ldexpl,finitef,frexpf,__finitel,modfl,__finitef,__signbit
+./dist/tracker -e symbols_collision.data.loaded_path=/usr/lib/libc.so.6 -e symbols_collision.data.symbols!=finitel,__signbitf,finite,frexpl,frexp,scalbn,__finite,copysignl,scalbnf,__signbitl,scalbnl,copysign,copysignf,ldexpf,modff,modf,ldexp,ldexpl,finitef,frexpf,__finitel,modfl,__finitef,__signbit
 ```
 
 2. Whitelist the library `libm`:
 
 ```console
-./dist/tracker -e symbols_collision.args.loaded_path=/usr/lib/libc.so.6 -e symbols_collision.args.collision_path!=/usr/lib/libm.so.6
+./dist/tracker -e symbols_collision.data.loaded_path=/usr/lib/libc.so.6 -e symbols_collision.data.collision_path!=/usr/lib/libm.so.6
 ```
 
 The first approach is recommended when dealing with common symbols like 'setup_', 'finish_' etc. because it will reduce

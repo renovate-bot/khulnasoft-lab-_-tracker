@@ -8,6 +8,7 @@ import (
 
 	"github.com/khulnasoft-lab/tracker/pkg/bufferdecoder"
 	"github.com/khulnasoft-lab/tracker/pkg/events"
+	"github.com/khulnasoft-lab/tracker/pkg/utils"
 	"github.com/khulnasoft-lab/tracker/types/trace"
 )
 
@@ -70,8 +71,10 @@ func BenchmarkGetEventFromPool(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			for j := 0; j < decodeEvts; j++ {
 				ctx := <-decodeChan
-				evt := evtPool.Get().(*trace.Event)
-
+				evt, ok := evtPool.Get().(*trace.Event)
+				if !ok {
+					b.Error("Failed to get event from pool")
+				}
 				evt.Timestamp = int(ctx.Ts)
 				evt.ThreadStartTime = int(ctx.StartTime)
 				evt.ProcessorID = int(ctx.ProcessorId)
@@ -92,6 +95,7 @@ func BenchmarkGetEventFromPool(b *testing.B) {
 				evt.Kubernetes = kubernetesData
 				evt.EventID = int(ctx.EventID)
 				evt.EventName = eventDefinition.GetName()
+				evt.PoliciesVersion = ctx.PoliciesVersion
 				evt.MatchedPoliciesKernel = ctx.MatchedPolicies
 				evt.MatchedPoliciesUser = 0
 				evt.MatchedPolicies = []string{}
@@ -102,6 +106,9 @@ func BenchmarkGetEventFromPool(b *testing.B) {
 				evt.ContextFlags = flags
 				evt.Syscall = syscall
 				evt.Metadata = nil
+				evt.ThreadEntityId = utils.HashTaskID(ctx.HostTid, ctx.StartTime)
+				evt.ProcessEntityId = utils.HashTaskID(ctx.HostPid, ctx.LeaderStartTime)
+				evt.ParentEntityId = utils.HashTaskID(ctx.HostPpid, ctx.ParentStartTime)
 
 				processChan <- evt
 			}
@@ -120,7 +127,10 @@ func BenchmarkGetEventFromPool(b *testing.B) {
 
 				// get an event from the pool, fill it with data and
 				// pass it to the other stages
-				evtCopy := evtPool.Get().(*trace.Event)
+				evtCopy, ok := evtPool.Get().(*trace.Event)
+				if !ok {
+					b.Error("Failed to get event from pool")
+				}
 				*evtCopy = *evt // shallow copy
 				sinkChan <- evt
 				if j < deriveEvts {
@@ -245,6 +255,7 @@ func BenchmarkNewEventObject(b *testing.B) {
 					Kubernetes:            kubernetesData,
 					EventID:               int(ctx.EventID),
 					EventName:             eventDefinition.GetName(),
+					PoliciesVersion:       ctx.PoliciesVersion,
 					MatchedPoliciesKernel: ctx.MatchedPolicies,
 					ArgsNum:               int(argnum),
 					ReturnValue:           int(ctx.Retval),
@@ -252,6 +263,9 @@ func BenchmarkNewEventObject(b *testing.B) {
 					StackAddresses:        stackAddresses,
 					ContextFlags:          flags,
 					Syscall:               syscall,
+					ThreadEntityId:        utils.HashTaskID(ctx.HostTid, ctx.StartTime),
+					ProcessEntityId:       utils.HashTaskID(ctx.HostPid, ctx.LeaderStartTime),
+					ParentEntityId:        utils.HashTaskID(ctx.HostPpid, ctx.ParentStartTime),
 				}
 
 				processChan <- &evt

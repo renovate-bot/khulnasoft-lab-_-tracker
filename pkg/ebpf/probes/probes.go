@@ -39,13 +39,19 @@ const (
 	VfsWriteRet
 	VfsWriteV
 	VfsWriteVRet
+	KernelWrite
+	KernelWriteRet
+	VfsWriteMagic
+	VfsWriteMagicRet
+	VfsWriteVMagic
+	VfsWriteVMagicRet
+	KernelWriteMagic
+	KernelWriteMagicRet
 	SecurityMmapAddr
 	SecurityMmapFile
 	SecurityFileMProtect
 	CommitCreds
 	SwitchTaskNS
-	KernelWrite
-	KernelWriteRet
 	CgroupAttachTask
 	CgroupMkdir
 	CgroupRmdir
@@ -121,15 +127,33 @@ const (
 	BpfCheck
 	ExecBinprm
 	ExecBinprmRet
+	SecurityPathNotify
+	SecurityBprmCredsForExec
+	SetFsPwd
 	HiddenKernelModuleSeeker
 	TpProbeRegPrioMayExist
 	HiddenKernelModuleVerifier
 	ModuleLoad
 	ModuleFree
-	LayoutAndAllocate
 	SignalCgroupMkdir
 	SignalCgroupRmdir
 	SignalSchedProcessFork
 	SignalSchedProcessExec
 	SignalSchedProcessExit
+	ExecuteFinishedX86
+	ExecuteAtFinishedX86
+	ExecuteFinishedCompatX86
+	ExecuteAtFinishedCompatX86
+	ExecuteFinishedARM
+	ExecuteAtFinishedARM
+	ExecuteFinishedCompatARM
+	ExecuteAtFinishedCompatARM
+	SecurityTaskSetrlimit
+)
+
+// Test probe handles
+const (
+	TestUnavailableHook = 1000 + iota
+	ExecTest
+	EmptyKprobe
 )

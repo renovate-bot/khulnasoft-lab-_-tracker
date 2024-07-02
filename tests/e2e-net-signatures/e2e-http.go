@@ -29,6 +29,7 @@ func (sig *e2eHTTP) Init(ctx detect.SignatureContext) error {
 func (sig *e2eHTTP) GetMetadata() (detect.SignatureMetadata, error) {
 	return detect.SignatureMetadata{
 		ID:          "HTTP",
+		EventName:   "HTTP",
 		Version:     "0.1.0",
 		Name:        "Network HTTP Test",
 		Description: "Network E2E Tests: HTTP",
@@ -53,6 +54,11 @@ func (sig *e2eHTTP) OnEvent(event protocol.Event) error {
 	}
 
 	if eventObj.EventName == "net_packet_http" {
+		// validate tast context
+		if eventObj.HostName == "" {
+			return nil
+		}
+
 		http, err := helpers.GetProtoHTTPByName(eventObj, "proto_http")
 		if err != nil {
 			return err
@@ -76,7 +82,7 @@ func (sig *e2eHTTP) OnEvent(event protocol.Event) error {
 		}
 
 		m, _ := sig.GetMetadata()
-		sig.cb(detect.Finding{
+		sig.cb(&detect.Finding{
 			SigMetadata: m,
 			Event:       event,
 			Data:        map[string]interface{}{},
