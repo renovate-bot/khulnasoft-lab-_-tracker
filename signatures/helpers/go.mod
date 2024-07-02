@@ -4,4 +4,4 @@ go 1.22.0
 
 toolchain go1.22.2
 
-require github.com/khulnasoft-lab/tracker/types v0.0.0-20240702150859-d3189fe99891
+require github.com/khulnasoft-lab/tracker/types 9031ad1c329c
