@@ -69,8 +69,7 @@ enableAllRules = true
 [rule.flag-parameter]
     Disabled = true
 [rule.function-result-limit]
-    Disabled = false
-    Arguments = [3]
+    Disabled = true
 [rule.function-length]
     Disabled = true
 [rule.get-return]
@@ -128,7 +127,7 @@ enableAllRules = true
 [rule.var-declaration]
     Disabled = false
 [rule.unchecked-type-assertion]
-    Disabled = true
+    Disabled = false
 [rule.unconditional-recursion]
     Disabled = false
 [rule.unexported-naming]
