@@ -390,6 +390,8 @@ github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03
 github.com/BurntSushi/xgb v0.0.0-20160522181843-27f122750802/go.mod h1:IVnqGOEym/WlBOVXweHU+Q+/VP0lqqI8lqeDx9IjBqo=
 github.com/IBM/fluent-forward-go v0.2.1 h1:VM0vK5ZIZttuyEDUVnenEmGgunRGxOSZ4h2vEu7oQFs=
 github.com/IBM/fluent-forward-go v0.2.1/go.mod h1:zHTMh0RZ3/6iEMatQHaLHfyPB334LPYm2pcbHER3yE0=
+github.com/IBM/fluent-forward-go v0.2.2 h1:T48kAjSMOAqTcpd6zkzqLAFOWlYPYIbCFJcEjrVzV1U=
+github.com/IBM/fluent-forward-go v0.2.2/go.mod h1:U1SVl6rVRGMC/QhCTZ3iQx4P/ykCeg1y6UoVnlz+OAY=
 github.com/Masterminds/goutils v1.1.1 h1:5nUrii3FMTL5diU80unEVvNevw1nH4+ZV4DSLVJLSYI=
 github.com/Masterminds/goutils v1.1.1/go.mod h1:8cTjp+g8YejhMuvIA5y2vz3BpJxksy863GQaJW2MFNU=
 github.com/Masterminds/semver/v3 v3.2.0/go.mod h1:qvl/7zhW3nngYb5+80sSMF+FG2BjYrf8m9wsX0PNOMQ=
