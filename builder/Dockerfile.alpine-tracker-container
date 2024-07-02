@@ -23,7 +23,7 @@ FROM openpolicyagent/opa:0.66.0-dev-static as opa-extractor
 # tracker-base
 #
 
-FROM alpine:3.19 as tracker-base
+FROM alpine:3.20 as tracker-base
 LABEL AS=tracker-base
 USER root
 
