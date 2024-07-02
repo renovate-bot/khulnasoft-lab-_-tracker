@@ -22,7 +22,7 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type TrackerServiceClient interface {
-	GetEventDefinition(ctx context.Context, in *GetEventDefinitionRequest, opts ...grpc.CallOption) (*GetEventDefinitionResponse, error)
+	GetEventDefinitions(ctx context.Context, in *GetEventDefinitionsRequest, opts ...grpc.CallOption) (*GetEventDefinitionsResponse, error)
 	StreamEvents(ctx context.Context, in *StreamEventsRequest, opts ...grpc.CallOption) (TrackerService_StreamEventsClient, error)
 	EnableEvent(ctx context.Context, in *EnableEventRequest, opts ...grpc.CallOption) (*EnableEventResponse, error)
 	DisableEvent(ctx context.Context, in *DisableEventRequest, opts ...grpc.CallOption) (*DisableEventResponse, error)
@@ -37,9 +37,9 @@ func NewTrackerServiceClient(cc grpc.ClientConnInterface) TrackerServiceClient {
 	return &trackerServiceClient{cc}
 }
 
-func (c *trackerServiceClient) GetEventDefinition(ctx context.Context, in *GetEventDefinitionRequest, opts ...grpc.CallOption) (*GetEventDefinitionResponse, error) {
-	out := new(GetEventDefinitionResponse)
-	err := c.cc.Invoke(ctx, "/tracker.v1beta1.TrackerService/GetEventDefinition", in, out, opts...)
+func (c *trackerServiceClient) GetEventDefinitions(ctx context.Context, in *GetEventDefinitionsRequest, opts ...grpc.CallOption) (*GetEventDefinitionsResponse, error) {
+	out := new(GetEventDefinitionsResponse)
+	err := c.cc.Invoke(ctx, "/tracker.v1beta1.TrackerService/GetEventDefinitions", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -109,7 +109,7 @@ func (c *trackerServiceClient) GetVersion(ctx context.Context, in *GetVersionReq
 // All implementations must embed UnimplementedTrackerServiceServer
 // for forward compatibility
 type TrackerServiceServer interface {
-	GetEventDefinition(context.Context, *GetEventDefinitionRequest) (*GetEventDefinitionResponse, error)
+	GetEventDefinitions(context.Context, *GetEventDefinitionsRequest) (*GetEventDefinitionsResponse, error)
 	StreamEvents(*StreamEventsRequest, TrackerService_StreamEventsServer) error
 	EnableEvent(context.Context, *EnableEventRequest) (*EnableEventResponse, error)
 	DisableEvent(context.Context, *DisableEventRequest) (*DisableEventResponse, error)
@@ -121,8 +121,8 @@ type TrackerServiceServer interface {
 type UnimplementedTrackerServiceServer struct {
 }
 
-func (UnimplementedTrackerServiceServer) GetEventDefinition(context.Context, *GetEventDefinitionRequest) (*GetEventDefinitionResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetEventDefinition not implemented")
+func (UnimplementedTrackerServiceServer) GetEventDefinitions(context.Context, *GetEventDefinitionsRequest) (*GetEventDefinitionsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetEventDefinitions not implemented")
 }
 func (UnimplementedTrackerServiceServer) StreamEvents(*StreamEventsRequest, TrackerService_StreamEventsServer) error {
 	return status.Errorf(codes.Unimplemented, "method StreamEvents not implemented")
@@ -149,20 +149,20 @@ func RegisterTrackerServiceServer(s grpc.ServiceRegistrar, srv TrackerServiceSer
 	s.RegisterService(&TrackerService_ServiceDesc, srv)
 }
 
-func _TrackerService_GetEventDefinition_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetEventDefinitionRequest)
+func _TrackerService_GetEventDefinitions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetEventDefinitionsRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(TrackerServiceServer).GetEventDefinition(ctx, in)
+		return srv.(TrackerServiceServer).GetEventDefinitions(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/tracker.v1beta1.TrackerService/GetEventDefinition",
+		FullMethod: "/tracker.v1beta1.TrackerService/GetEventDefinitions",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(TrackerServiceServer).GetEventDefinition(ctx, req.(*GetEventDefinitionRequest))
+		return srv.(TrackerServiceServer).GetEventDefinitions(ctx, req.(*GetEventDefinitionsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -250,8 +250,8 @@ var TrackerService_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*TrackerServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "GetEventDefinition",
-			Handler:    _TrackerService_GetEventDefinition_Handler,
+			MethodName: "GetEventDefinitions",
+			Handler:    _TrackerService_GetEventDefinitions_Handler,
 		},
 		{
 			MethodName: "EnableEvent",
