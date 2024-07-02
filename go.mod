@@ -12,7 +12,7 @@ require (
 	github.com/golang/protobuf v1.5.4
 	github.com/google/gopacket v1.1.19
 	github.com/hashicorp/golang-lru v0.5.4
-	github.com/hashicorp/golang-lru/v2 v2.0.2
+	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/khulnasoft-lab/libbpfgo v1.0.0
 	github.com/khulnasoft-lab/libbpfgo/helpers v0.0.0-20240116024302-7f885ffe6535
 	github.com/khulnasoft-lab/tracker/api v0.0.0-20240116021916-6f8c7a0e06e9
