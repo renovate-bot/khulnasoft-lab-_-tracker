@@ -27,7 +27,7 @@ jobs:
           aws-region: ${{ secrets.AWS_REGION}}
           role-to-assume: ${{ secrets.AWS_RUNNER_ROLE_ARN }}
       - name: Checkout Code
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
       - name: Build Image and Publish
         env:
           AWS_REGION: ${{ secrets.AWS_REGION }}
@@ -55,7 +55,7 @@ jobs:
           aws-region: ${{ secrets.AWS_REGION}}
           role-to-assume: ${{ secrets.AWS_RUNNER_ROLE_ARN }}
       - name: Checkout Code
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
       - name: Run Benchmark
         env:
           PR_REPO: ${{ secrets.AWS_PR_IMAGE_ECR_REPO }}
