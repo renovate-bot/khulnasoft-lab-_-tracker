@@ -31,7 +31,7 @@ jobs:
         with:
           version: v3.5.0
       - name: Set up python
-        uses: actions/setup-python@b64ffcaf5b410884ad320a9cfac8866006a109aa
+        uses: actions/setup-python@a0d74c0c423f896bc4e7be91d5cb1e2d54438db3
         with:
           python-version: 3.7
       - name: Set up khulnasoft charts
