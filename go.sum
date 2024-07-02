@@ -680,6 +680,8 @@ github.com/khulnasoft-lab/tracker/signatures/helpers v0.0.0-20240702122955-2c3da
 github.com/khulnasoft-lab/tracker/signatures/helpers v0.0.0-20240702122955-2c3da8dd8eb3/go.mod h1:XCgyJlec+XteU95VwOqEQSpLb308/e6lQiBmTqxrw9M=
 github.com/khulnasoft-lab/tracker/signatures/helpers v0.0.0-20240702141001-643a35e63b15 h1:sTYeDzi7B3vOabcyp4x8NoOIwwt29nJSxGopxZIvoaI=
 github.com/khulnasoft-lab/tracker/signatures/helpers v0.0.0-20240702141001-643a35e63b15/go.mod h1:Cwm9oDrgVJwGwLeu6kHx8+tmAG7Q6VvbXvKNgJCvrLg=
+github.com/khulnasoft-lab/tracker/signatures/helpers v0.0.0-20240702150859-d3189fe99891 h1:+apZeCM4nkbhhD8FDeWlCo4bs29JnhbhGhTA9s4oF6w=
+github.com/khulnasoft-lab/tracker/signatures/helpers v0.0.0-20240702150859-d3189fe99891/go.mod h1:7GEV0JqyL2qUFxvYto+f3phxMV7sn53TrYE9JMG4ijo=
 github.com/khulnasoft-lab/tracker/types v0.0.0-20240702113932-6407b2fe992e h1:qTkBAySLFJCErZw8aqm91NFxc3i6PGTEH46Ud6Kf+6s=
 github.com/khulnasoft-lab/tracker/types v0.0.0-20240702113932-6407b2fe992e/go.mod h1:N5KcyPpSDJXu52Az1jAdmJ9nZHygIKpazbU1n+7M5aU=
 github.com/khulnasoft-lab/tracker/types v0.0.0-20240702141001-643a35e63b15 h1:Tb/woo2yfSbOS7Ej+8z9KWw3av7EBvEreodKAenW0YM=
