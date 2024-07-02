@@ -39,7 +39,7 @@ require (
 	k8s.io/apimachinery v0.30.1
 	k8s.io/client-go v0.30.1
 	k8s.io/cri-api v0.30.1
-	kernel.org/pub/linux/libs/security/libcap/cap v1.2.69
+	kernel.org/pub/linux/libs/security/libcap/cap v1.2.70
 	sigs.k8s.io/controller-runtime v0.18.2
 )
 
@@ -174,5 +174,5 @@ require (
 	golang.org/x/sync v0.7.0 // indirect
 	golang.org/x/text v0.15.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	kernel.org/pub/linux/libs/security/libcap/psx v1.2.69 // indirect
+	kernel.org/pub/linux/libs/security/libcap/psx v1.2.70 // indirect
 )
