@@ -681,6 +681,8 @@ github.com/khulnasoft-lab/libbpfgo v1.0.0 h1:McXno6OZbm4xBRT8mWCasZmfeAfmP1vILYl
 github.com/khulnasoft-lab/libbpfgo v1.0.0/go.mod h1:fuLBO2/PqDPKPbKihvqYZE0BegTEq4MtC3W7qAWtZSQ=
 github.com/khulnasoft-lab/libbpfgo/helpers v0.0.0-20240116024302-7f885ffe6535 h1:IMPBQDz7YQN8tJBucJKk1B/o1S9IRE185aPav+JZOBk=
 github.com/khulnasoft-lab/libbpfgo/helpers v0.0.0-20240116024302-7f885ffe6535/go.mod h1:9Ics/ZMj8Xwsk+1disZDGL2iCkYXKb7fF1sL6+IuFtU=
+github.com/khulnasoft-lab/libbpfgo/helpers v0.0.0-20240611152355-f6b0954e7163 h1:0g/78KbVDFOjE5zSVRrW3fzZQhWW8J4aut7DFG1s6Tw=
+github.com/khulnasoft-lab/libbpfgo/helpers v0.0.0-20240611152355-f6b0954e7163/go.mod h1:3uYYHRN/n+EbPln310FA+r/FGargcipF4kUzUXDFHnI=
 github.com/khulnasoft-lab/tracker/api v0.0.0-20240116021916-6f8c7a0e06e9 h1:9gDF6SoQ4CJys/LeG+O7DPgTMBImz9/kR3Uu8ctZUT4=
 github.com/khulnasoft-lab/tracker/api v0.0.0-20240116021916-6f8c7a0e06e9/go.mod h1:JjjX+OeNVlAtqJ4qwvutjPoi+PXryI+KChz0qUCBRII=
 github.com/khulnasoft-lab/tracker/types v0.0.0-20240116021916-6f8c7a0e06e9 h1:WIxbEPie8AcTqGnFU1xBroZvfqD0P9KIGhomaiaPNjU=
@@ -838,6 +840,8 @@ github.com/stretchr/testify v1.8.1/go.mod h1:w2LPCIKwWwSfY2zedu0+kehJoqGctiVI29o
 github.com/stretchr/testify v1.8.3/go.mod h1:sz/lmYIOXD/1dqDmKjjqLyZ2RngseejIcXlSw2iwfAo=
 github.com/stretchr/testify v1.8.4 h1:CcVxjf3Q8PM0mHUKJCdn+eZZtm5yQwehR5yeSVQQcUk=
 github.com/stretchr/testify v1.8.4/go.mod h1:sz/lmYIOXD/1dqDmKjjqLyZ2RngseejIcXlSw2iwfAo=
+github.com/stretchr/testify v1.9.0 h1:HtqpIVDClZ4nwg75+f6Lvsy/wHu+3BoSGCbBAcpTsTg=
+github.com/stretchr/testify v1.9.0/go.mod h1:r2ic/lqez/lEtzL7wO/rwa5dbSLXVDPFyf8C91i36aY=
 github.com/subosito/gotenv v1.4.2 h1:X1TuBLAMDFbaTAChgCBLu3DU3UPyELpnF2jjJ2cz/S8=
 github.com/subosito/gotenv v1.4.2/go.mod h1:ayKnFf/c6rvx/2iiLrJUk1e6plDbT3edrFNGqEflhK0=
 github.com/tchap/go-patricia/v2 v2.3.1 h1:6rQp39lgIYZ+MHmdEq4xzuk1t7OdC35z/xm0BGhTkes=
