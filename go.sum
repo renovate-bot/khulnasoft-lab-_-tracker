@@ -676,8 +676,12 @@ github.com/khulnasoft-lab/tracker/api v0.0.0-20240702113932-6407b2fe992e h1:pp1w
 github.com/khulnasoft-lab/tracker/api v0.0.0-20240702113932-6407b2fe992e/go.mod h1:Q7GFl3B3SSXIpERvnJGbTe9Wn38qyGnfIjMFn5vxq0Q=
 github.com/khulnasoft-lab/tracker/signatures/helpers v0.0.0-20240702122955-2c3da8dd8eb3 h1:4BCCtRvceAUPJhT99f50wQ2EFLHQUH9aw1sKmOw4+Ek=
 github.com/khulnasoft-lab/tracker/signatures/helpers v0.0.0-20240702122955-2c3da8dd8eb3/go.mod h1:XCgyJlec+XteU95VwOqEQSpLb308/e6lQiBmTqxrw9M=
+github.com/khulnasoft-lab/tracker/signatures/helpers v0.0.0-20240702141001-643a35e63b15 h1:sTYeDzi7B3vOabcyp4x8NoOIwwt29nJSxGopxZIvoaI=
+github.com/khulnasoft-lab/tracker/signatures/helpers v0.0.0-20240702141001-643a35e63b15/go.mod h1:Cwm9oDrgVJwGwLeu6kHx8+tmAG7Q6VvbXvKNgJCvrLg=
 github.com/khulnasoft-lab/tracker/types v0.0.0-20240702113932-6407b2fe992e h1:qTkBAySLFJCErZw8aqm91NFxc3i6PGTEH46Ud6Kf+6s=
 github.com/khulnasoft-lab/tracker/types v0.0.0-20240702113932-6407b2fe992e/go.mod h1:N5KcyPpSDJXu52Az1jAdmJ9nZHygIKpazbU1n+7M5aU=
+github.com/khulnasoft-lab/tracker/types v0.0.0-20240702122955-2c3da8dd8eb3 h1:WPi4F+6BBEvwycUwGFLLbS0oytP5qh6Itjiy6W7zdLU=
+github.com/khulnasoft-lab/tracker/types v0.0.0-20240702122955-2c3da8dd8eb3/go.mod h1:N5KcyPpSDJXu52Az1jAdmJ9nZHygIKpazbU1n+7M5aU=
 github.com/kisielk/errcheck v1.5.0/go.mod h1:pFxgyoBC7bSaBwPgfKdkLd5X25qrDl4LWUI2bnpBCr8=
 github.com/kisielk/gotool v1.0.0/go.mod h1:XhKaO+MFFWcvkIS/tQcRk01m1F5IRFswLeQ+oQHNcck=
 github.com/klauspost/compress v1.17.3/go.mod h1:/dCuZOvVtNoHsyb+cuJD3itjs3NbnF6KH9zAO4BDxPM=
